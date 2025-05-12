@@ -15,9 +15,9 @@ const EnergySavingTip: React.FC<EnergySavingTipProps> = ({
   savingEstimate,
 }) => {
   return (
-    <Card className="h-full border-l-4 border-l-energy-blue-light">
+    <Card className="h-full border-l-4 border-l-energy-green-light">
       <CardHeader className="flex flex-row items-center gap-2 pb-2">
-        <Lightbulb className="h-5 w-5 text-energy-yellow" />
+        <Lightbulb className="h-5 w-5 text-energy-green-light" />
         <CardTitle className="text-base">{title}</CardTitle>
       </CardHeader>
       <CardContent>

@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -63,14 +62,14 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Cores personalizadas para nosso tema de energia
+				// Cores personalizadas baseadas na logo da empresa
 				energy: {
-					'green-light': '#4CAF50',
-					'green-dark': '#2E7D32',
-					'blue-light': '#2196F3',
-					'blue-dark': '#0D47A1',
-					'yellow': '#FFC107',
-					'red': '#F44336'
+					'green-light': '#7CFC00', // Verde brilhante como na logo
+					'green-dark': '#4CBB17', // Verde mais escuro
+					'blue-dark': '#121212', // Fundo escuro como na logo
+					'blue-light': '#1E1E1E', // Variação mais clara do fundo escuro
+					'yellow': '#ADFF2F', // Verde amarelado para alertas
+					'red': '#FF4500' // Laranja avermelhado para erros
 				}
 			},
 			borderRadius: {

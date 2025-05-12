@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -8,7 +7,7 @@ import ApplianceCard from '@/components/ApplianceCard';
 import AnomalyDetection from '@/components/AnomalyDetection';
 import EnergySavingTip from '@/components/EnergySavingTip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Zap, DollarSign, Calendar, Leaf } from 'lucide-react';
+import { Zap, DollarSign, Calendar, Leaf, Cpu, Lightbulb } from 'lucide-react';
 
 // Dados de exemplo para o dashboard
 const consumptionData = [
