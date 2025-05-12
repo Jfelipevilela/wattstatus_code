@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -6,8 +7,9 @@ import ConsumptionChart from '@/components/ConsumptionChart';
 import ApplianceCard from '@/components/ApplianceCard';
 import AnomalyDetection from '@/components/AnomalyDetection';
 import EnergySavingTip from '@/components/EnergySavingTip';
+import ApplianceCalculator from '@/components/ApplianceCalculator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Zap, DollarSign, Calendar, Leaf, Cpu, Lightbulb } from 'lucide-react';
+import { Zap, DollarSign, Calendar, Leaf, Cpu, Lightbulb, Calculator } from 'lucide-react';
 
 // Dados de exemplo para o dashboard
 const consumptionData = [
@@ -19,7 +21,16 @@ const consumptionData = [
   { name: 'Jun', consumo: 226, media: 243 },
 ];
 
-const appliances = [
+interface Appliance {
+  id: number;
+  name: string;
+  power: number;
+  status: 'critical' | 'normal' | 'warning';
+  usageHours: number;
+  monthlyCost: number;
+}
+
+const initialAppliances = [
   { 
     id: 1, 
     name: 'Ar Condicionado', 
@@ -102,6 +113,23 @@ const energySavingTips = [
 
 const Dashboard = () => {
   const [period, setPeriod] = useState('mensal');
+  const [appliances, setAppliances] = useState<Appliance[]>(initialAppliances);
+  
+  const handleAddAppliance = (newAppliance: Appliance) => {
+    setAppliances(prevAppliances => [...prevAppliances, newAppliance]);
+  };
+
+  // Calcula o consumo total dos aparelhos
+  const totalConsumption = appliances.reduce(
+    (total, appliance) => total + ((appliance.power * appliance.usageHours * 30) / 1000), 
+    0
+  );
+  
+  // Calcula o custo total dos aparelhos
+  const totalCost = appliances.reduce(
+    (total, appliance) => total + appliance.monthlyCost, 
+    0
+  );
   
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
@@ -111,8 +139,9 @@ const Dashboard = () => {
         <h1 className="text-3xl font-bold mb-6 text-energy-blue-dark">Dashboard de Energia</h1>
         
         <Tabs defaultValue="consumo" className="mb-8">
-          <TabsList className="grid grid-cols-4 mb-8">
+          <TabsList className="grid grid-cols-5 mb-8">
             <TabsTrigger value="consumo">Consumo</TabsTrigger>
+            <TabsTrigger value="calculadora">Calculadora</TabsTrigger>
             <TabsTrigger value="aparelhos">Aparelhos</TabsTrigger>
             <TabsTrigger value="anomalias">Anomalias</TabsTrigger>
             <TabsTrigger value="dicas">Dicas de Economia</TabsTrigger>
@@ -122,16 +151,16 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <ConsumptionCard 
                 title="Consumo Atual" 
-                value="238"
+                value={totalConsumption.toFixed(0)}
                 unit="kWh/mês"
                 trend="down"
                 percentage={5}
-                icon={<Zap className="h-5 w-5 text-energy-blue-light" />}
+                icon={<Zap className="h-5 w-5 text-energy-green-light" />}
               />
               
               <ConsumptionCard 
                 title="Gasto Estimado" 
-                value="R$ 356,42"
+                value={`R$ ${totalCost.toFixed(2)}`}
                 unit="no mês"
                 trend="down"
                 percentage={5}
@@ -140,7 +169,7 @@ const Dashboard = () => {
               
               <ConsumptionCard 
                 title="Média Diária" 
-                value="7,9"
+                value={(totalConsumption / 30).toFixed(1)}
                 unit="kWh/dia"
                 trend="up"
                 percentage={2}
@@ -149,7 +178,7 @@ const Dashboard = () => {
               
               <ConsumptionCard 
                 title="Impacto Ambiental" 
-                value="102"
+                value={(totalConsumption * 0.42).toFixed(0)}
                 unit="kg CO₂"
                 trend="down"
                 percentage={8}
@@ -226,6 +255,61 @@ const Dashboard = () => {
             </div>
           </TabsContent>
           
+          <TabsContent value="calculadora" className="space-y-6">
+            <h2 className="text-2xl font-bold mb-4">Calculadora de Energia</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ApplianceCalculator onAddAppliance={handleAddAppliance} />
+              
+              <Card className="h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calculator className="h-5 w-5 text-energy-green-light" />
+                    Como funcionam os cálculos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                  <div>
+                    <h4 className="font-medium mb-1">Consumo (kWh/mês)</h4>
+                    <p className="text-muted-foreground">
+                      O consumo mensal em quilowatt-hora (kWh) é calculado pela fórmula:
+                    </p>
+                    <p className="bg-slate-100 p-2 rounded mt-1 font-mono text-xs">
+                      Consumo = (Potência × Horas de uso × Dias) ÷ 1000
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-medium mb-1">Custo Mensal (R$)</h4>
+                    <p className="text-muted-foreground">
+                      O custo mensal é calculado multiplicando o consumo pela tarifa de energia:
+                    </p>
+                    <p className="bg-slate-100 p-2 rounded mt-1 font-mono text-xs">
+                      Custo = Consumo (kWh) × Tarifa (R$/kWh)
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-medium mb-1">Exemplo:</h4>
+                    <p className="text-muted-foreground">
+                      Para um ar-condicionado de 1400W, utilizado 6 horas por dia, durante 30 dias:
+                    </p>
+                    <p className="bg-slate-100 p-2 rounded mt-1 font-mono text-xs">
+                      Consumo = (1400 × 6 × 30) ÷ 1000 = 252 kWh/mês<br/>
+                      Custo = 252 × 0,75 = R$ 189,00/mês
+                    </p>
+                  </div>
+                  
+                  <div className="p-3 bg-energy-green-light/10 rounded-md border border-energy-green-light/20">
+                    <p className="text-energy-green-dark text-xs">
+                      <strong>Nota:</strong> Utilizamos a tarifa média de R$ 0,75 por kWh. As tarifas reais 
+                      variam conforme a localidade e a distribuidora de energia.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+          
           <TabsContent value="aparelhos" className="space-y-6">
             <h2 className="text-2xl font-bold mb-4">Seus Aparelhos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -259,7 +343,7 @@ const Dashboard = () => {
             
             <div className="bg-slate-100 p-6 rounded-lg border border-slate-200 mt-4">
               <h3 className="text-lg font-medium mb-2 flex items-center">
-                <Cpu className="h-5 w-5 text-energy-blue-light mr-2" />
+                <Cpu className="h-5 w-5 text-energy-green-light mr-2" />
                 Como funciona nossa IA
               </h3>
               <p className="text-slate-600 text-sm">
@@ -285,7 +369,7 @@ const Dashboard = () => {
               ))}
             </div>
             
-            <div className="bg-energy-blue-dark text-white p-6 rounded-lg mt-4">
+            <div className="bg-energy-green-dark text-white p-6 rounded-lg mt-4">
               <h3 className="text-lg font-medium mb-2 flex items-center">
                 <Lightbulb className="h-5 w-5 text-energy-yellow mr-2" />
                 Economia Total Possível
