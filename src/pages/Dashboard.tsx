@@ -9,6 +9,7 @@ import AnomalyDetection from '@/components/AnomalyDetection';
 import EnergySavingTip from '@/components/EnergySavingTip';
 import ApplianceCalculator from '@/components/ApplianceCalculator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Zap, DollarSign, Calendar, Leaf, Cpu, Lightbulb, Calculator } from 'lucide-react';
 
 // Dados de exemplo para o dashboard
