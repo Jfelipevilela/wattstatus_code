@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Heart } from 'lucide-react';
+import icon from '@/components/logo_wattstatus_icon.png';
 
 const Footer = () => {
   return (
@@ -8,7 +9,8 @@ const Footer = () => {
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
-            <h3 className="text-lg font-semibold">WattStatus</h3>
+            <img src={icon} alt="Logo" className="h-10 w-10 mb-2" />
+            <h3 className="text-lg font-semibold">WATTSTATUS</h3>
             <p className="text-sm opacity-75 mt-1">Calculadora inteligente para economia de energia</p>
           </div>
           

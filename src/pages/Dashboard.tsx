@@ -1,144 +1,226 @@
-
-import React, { useState } from 'react';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import ConsumptionCard from '@/components/ConsumptionCard';
-import ConsumptionChart from '@/components/ConsumptionChart';
-import ApplianceCard from '@/components/ApplianceCard';
-import AnomalyDetection from '@/components/AnomalyDetection';
-import EnergySavingTip from '@/components/EnergySavingTip';
-import ApplianceCalculator from '@/components/ApplianceCalculator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Zap, DollarSign, Calendar, Leaf, Cpu, Lightbulb, Calculator } from 'lucide-react';
-
-// Dados de exemplo para o dashboard
-const consumptionData = [
-  { name: 'Jan', consumo: 220, media: 250 },
-  { name: 'Fev', consumo: 235, media: 248 },
-  { name: 'Mar', consumo: 267, media: 245 },
-  { name: 'Abr', consumo: 244, media: 246 },
-  { name: 'Mai', consumo: 230, media: 247 },
-  { name: 'Jun', consumo: 226, media: 243 },
-];
-
+import React, { useState, useEffect } from "react";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import ConsumptionCard from "@/components/ConsumptionCard";
+import ConsumptionChart from "@/components/ConsumptionChart";
+import ApplianceCard from "@/components/ApplianceCard";
+import AnomalyDetection from "@/components/AnomalyDetection";
+import EnergySavingTip from "@/components/EnergySavingTip";
+import ApplianceCalculator from "@/components/ApplianceCalculator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Card,
+  CardHeader,
+  CardFooter,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import {
+  Zap,
+  DollarSign,
+  Calendar,
+  Leaf,
+  Cpu,
+  Lightbulb,
+  Calculator,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 interface Appliance {
   id: number;
   name: string;
   power: number;
-  status: 'critical' | 'normal' | 'warning';
+  status: "critical" | "normal" | "warning";
   usageHours: number;
   monthlyCost: number;
 }
 
-const initialAppliances = [
-  { 
-    id: 1, 
-    name: 'Ar Condicionado', 
-    power: 1400, 
-    status: 'critical' as const, 
-    usageHours: 6, 
-    monthlyCost: 156.8 
-  },
-  { 
-    id: 2, 
-    name: 'Geladeira', 
-    power: 200, 
-    status: 'normal' as const, 
-    usageHours: 24, 
-    monthlyCost: 89.6 
-  },
-  { 
-    id: 3, 
-    name: 'Chuveiro Elétrico', 
-    power: 5500, 
-    status: 'warning' as const, 
-    usageHours: 0.5, 
-    monthlyCost: 51.3 
-  },
-  { 
-    id: 4, 
-    name: 'Máquina de Lavar', 
-    power: 500, 
-    status: 'normal' as const, 
-    usageHours: 1.5, 
-    monthlyCost: 14.0 
-  },
-  { 
-    id: 5, 
-    name: 'Computador', 
-    power: 300, 
-    status: 'normal' as const, 
-    usageHours: 8, 
-    monthlyCost: 44.8 
-  },
+const TARIFF = 0.75; // R$ per kWh
+const AVERAGE_CONSUMPTION = 250; // example average consumption in kWh
+
+const initialAppliances: Appliance[] = [
+  // initial appliances can be uncommented or empty
 ];
 
 const anomalies = [
   {
     id: 1,
-    deviceName: 'Ar Condicionado',
+    deviceName: "Geladeira",
     anomalyScore: 85,
-    description: 'Consumo 45% acima do padrão normal para este dispositivo. Possível obstrução de filtro ou problema no compressor.',
-    recommendation: 'Verifique e limpe os filtros. Se o problema persistir, considere uma manutenção preventiva.'
+    description: "Consumo acima do esperado para o período.",
+    recommendation: "Verifique se a porta está fechando corretamente.",
   },
   {
     id: 2,
-    deviceName: 'Chuveiro Elétrico',
-    anomalyScore: 65,
-    description: 'Consumo flutuante detectado, possivelmente relacionado a problemas na resistência elétrica.',
-    recommendation: 'Monitore o uso por mais uma semana. Se o padrão continuar, considere a substituição da resistência.'
-  }
+    deviceName: "Ar Condicionado",
+    anomalyScore: 90,
+    description: "Uso prolongado detectado.",
+    recommendation: "Considere ajustar o timer para desligamento automático.",
+  },
 ];
 
 const energySavingTips = [
   {
     id: 1,
-    title: 'Otimize o uso do ar condicionado',
-    description: 'Manter a temperatura em 23°C pode reduzir significativamente o consumo sem afetar o conforto.',
-    savingEstimate: 'Até R$ 45,00/mês'
+    title: "Otimize o uso do ar condicionado",
+    description:
+      "Manter a temperatura em 23°C pode reduzir significativamente o consumo sem afetar o conforto.",
+    savingEstimate: "Até R$ 45,00/mês",
   },
   {
     id: 2,
-    title: 'Substitua lâmpadas por LED',
-    description: 'Lâmpadas LED usam até 85% menos energia que as incandescentes e duram muito mais.',
-    savingEstimate: 'Até R$ 20,00/mês'
+    title: "Substitua lâmpadas por LED",
+    description:
+      "Lâmpadas LED usam até 85% menos energia que as incandescentes e duram muito mais.",
+    savingEstimate: "Até R$ 20,00/mês",
   },
   {
     id: 3,
-    title: 'Desligue dispositivos em standby',
-    description: 'Aparelhos em modo de espera podem representar até 10% do consumo residencial.',
-    savingEstimate: 'Até R$ 30,00/mês'
-  }
+    title: "Desligue dispositivos em standby",
+    description:
+      "Aparelhos em modo de espera podem representar até 10% do consumo residencial.",
+    savingEstimate: "Até R$ 30,00/mês",
+  },
 ];
 
 const Dashboard = () => {
-  const [period, setPeriod] = useState('mensal');
+  const [period, setPeriod] = useState("mensal");
   const [appliances, setAppliances] = useState<Appliance[]>(initialAppliances);
-  
-  const handleAddAppliance = (newAppliance: Appliance) => {
-    setAppliances(prevAppliances => [...prevAppliances, newAppliance]);
+
+  // Modal state for editing
+  const [editAppliance, setEditAppliance] = useState<Appliance | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPower, setEditPower] = useState(0);
+  const [editUsageHours, setEditUsageHours] = useState(0);
+  const [editMonthlyCost, setEditMonthlyCost] = useState(0);
+  const [editStatus, setEditStatus] = useState<
+    "critical" | "normal" | "warning"
+  >("normal");
+
+  // Modal state for deletion
+  const [deleteAppliance, setDeleteAppliance] = useState<Appliance | null>(
+    null
+  );
+
+  React.useEffect(() => {
+    // Recalculate monthly cost when power or usageHours change
+    const consumption = (editPower * editUsageHours * 30) / 1000; // kWh per month
+    const cost = consumption * TARIFF;
+    setEditMonthlyCost(parseFloat(cost.toFixed(2)));
+  }, [editPower, editUsageHours]);
+
+  const openEditModal = (appliance: Appliance) => {
+    setEditAppliance(appliance);
+    setEditName(appliance.name);
+    setEditPower(appliance.power);
+    setEditUsageHours(appliance.usageHours);
+    setEditMonthlyCost(appliance.monthlyCost);
+    setEditStatus(appliance.status);
   };
 
-  // Calcula o consumo total dos aparelhos
+  const closeEditModal = () => {
+    setEditAppliance(null);
+  };
+
+  const handleEditSave = () => {
+    if (editAppliance) {
+      const updatedAppliance: Appliance = {
+        ...editAppliance,
+        name: editName,
+        power: editPower,
+        usageHours: editUsageHours,
+        monthlyCost: editMonthlyCost,
+        status: editStatus,
+      };
+      setAppliances((prev) =>
+        prev.map((appl) =>
+          appl.id === updatedAppliance.id ? updatedAppliance : appl
+        )
+      );
+      closeEditModal();
+    }
+  };
+
+  const openDeleteModal = (appliance: Appliance) => {
+    setDeleteAppliance(appliance);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteAppliance(null);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deleteAppliance) {
+      setAppliances((prev) =>
+        prev.filter((appl) => appl.id !== deleteAppliance.id)
+      );
+      closeDeleteModal();
+    }
+  };
+
+  // Calculate total consumption and cost
   const totalConsumption = appliances.reduce(
-    (total, appliance) => total + ((appliance.power * appliance.usageHours * 30) / 1000), 
+    (total, appliance) =>
+      total + (appliance.power * appliance.usageHours * 30) / 1000,
     0
   );
-  
-  // Calcula o custo total dos aparelhos
+
   const totalCost = appliances.reduce(
-    (total, appliance) => total + appliance.monthlyCost, 
+    (total, appliance) => total + appliance.monthlyCost,
     0
   );
-  
+
+  // Prepare dynamic consumption data for chart based on appliances
+  const consumptionData = appliances.map((appliance) => ({
+    name: appliance.name,
+    consumo: (appliance.power * appliance.usageHours * 30) / 1000,
+    media: 0,
+  }));
+
+  // Determine if consumption is above or below average
+  const consumptionDifference = totalConsumption - AVERAGE_CONSUMPTION;
+  const consumptionPercent = Math.abs(
+    (consumptionDifference / AVERAGE_CONSUMPTION) * 100
+  ).toFixed(0);
+  const consumptionStatus = consumptionDifference < 0 ? "abaixo" : "acima";
+
+  function handleAddAppliance(appliance: {
+    id: number;
+    name: string;
+    power: number;
+    status: "critical" | "normal" | "warning";
+    usageHours: number;
+    monthlyCost: number;
+  }): void {
+    setAppliances((prev) => [...prev, appliance]);
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
       <Navbar />
-      
+
       <main className="flex-grow container mx-auto px-4 pt-24 pb-10">
-        <h1 className="text-3xl font-bold mb-6 text-energy-blue-dark">Dashboard de Energia</h1>
-        
+        <h1 className="text-3xl font-bold mb-6 text-energy-blue-dark">
+          Dashboard de Energia
+        </h1>
+
         <Tabs defaultValue="consumo" className="mb-8">
           <TabsList className="grid grid-cols-5 mb-8">
             <TabsTrigger value="consumo">Consumo</TabsTrigger>
@@ -147,120 +229,74 @@ const Dashboard = () => {
             <TabsTrigger value="anomalias">Anomalias</TabsTrigger>
             <TabsTrigger value="dicas">Dicas de Economia</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="consumo" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <ConsumptionCard 
-                title="Consumo Atual" 
+              <ConsumptionCard
+                title="Consumo Atual"
                 value={totalConsumption.toFixed(0)}
                 unit="kWh/mês"
-                trend="down"
-                percentage={5}
+                trend={consumptionDifference < 0 ? "down" : "up"}
+                percentage={parseInt(consumptionPercent)}
                 icon={<Zap className="h-5 w-5 text-energy-green-light" />}
               />
-              
-              <ConsumptionCard 
-                title="Gasto Estimado" 
+
+              <ConsumptionCard
+                title="Gasto Estimado"
                 value={`R$ ${totalCost.toFixed(2)}`}
                 unit="no mês"
-                trend="down"
-                percentage={5}
-                icon={<DollarSign className="h-5 w-5 text-energy-green-light" />}
+                trend={consumptionDifference < 0 ? "down" : "up"}
+                percentage={parseInt(consumptionPercent)}
+                icon={
+                  <DollarSign className="h-5 w-5 text-energy-green-light" />
+                }
               />
-              
-              <ConsumptionCard 
-                title="Média Diária" 
+
+              <ConsumptionCard
+                title="Média Diária"
                 value={(totalConsumption / 30).toFixed(1)}
                 unit="kWh/dia"
-                trend="up"
-                percentage={2}
+                trend={consumptionDifference < 0 ? "down" : "up"}
+                percentage={parseInt(consumptionPercent)}
                 icon={<Calendar className="h-5 w-5 text-energy-yellow" />}
               />
-              
-              <ConsumptionCard 
-                title="Impacto Ambiental" 
+
+              <ConsumptionCard
+                title="Impacto Ambiental"
                 value={(totalConsumption * 0.42).toFixed(0)}
                 unit="kg CO₂"
-                trend="down"
-                percentage={8}
+                trend={consumptionDifference < 0 ? "down" : "up"}
+                percentage={parseInt(consumptionPercent)}
                 icon={<Leaf className="h-5 w-5 text-energy-green-dark" />}
               />
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ConsumptionChart
                 title="Consumo Mensal (kWh)"
                 data={consumptionData}
               />
-              
+
               <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h3 className="text-xl font-semibold mb-4">Análise de Consumo</h3>
+                <h3 className="text-xl font-semibold mb-4">
+                  Análise de Consumo
+                </h3>
                 <p className="text-slate-600 mb-4">
-                  Seu consumo está <span className="text-energy-green-dark font-medium">5% abaixo</span> da média 
-                  para residências do seu perfil em sua região. Continue economizando!
+                  Seu consumo está{" "}
+                  <span className="text-energy-green-dark font-medium">
+                    {consumptionPercent}% {consumptionStatus}
+                  </span>{" "}
+                  da média para residências do seu perfil em sua região.
+                  Continue economizando!
                 </p>
-                
-                <h4 className="font-medium mb-2">Distribuição por Categoria:</h4>
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Climatização</span>
-                      <span className="text-sm">38%</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full">
-                      <div className="h-2 bg-energy-blue-light rounded-full" style={{ width: '38%' }}></div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Refrigeração</span>
-                      <span className="text-sm">22%</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full">
-                      <div className="h-2 bg-energy-green-light rounded-full" style={{ width: '22%' }}></div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Aquecimento de Água</span>
-                      <span className="text-sm">18%</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full">
-                      <div className="h-2 bg-energy-yellow rounded-full" style={{ width: '18%' }}></div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Iluminação</span>
-                      <span className="text-sm">12%</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full">
-                      <div className="h-2 bg-energy-red rounded-full" style={{ width: '12%' }}></div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Outros</span>
-                      <span className="text-sm">10%</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full">
-                      <div className="h-2 bg-slate-500 rounded-full" style={{ width: '10%' }}></div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </TabsContent>
-          
+
           <TabsContent value="calculadora" className="space-y-6">
             <h2 className="text-2xl font-bold mb-4">Calculadora de Energia</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ApplianceCalculator onAddAppliance={handleAddAppliance} />
-              
               <Card className="h-full">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -309,30 +345,31 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             </div>
+            
           </TabsContent>
-          
+
           <TabsContent value="aparelhos" className="space-y-6">
             <h2 className="text-2xl font-bold mb-4">Seus Aparelhos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {appliances.map(appliance => (
-                <ApplianceCard 
+              {appliances.map((appliance) => (
+                <ApplianceCard
                   key={appliance.id}
                   name={appliance.name}
                   power={appliance.power}
                   status={appliance.status}
                   usageHours={appliance.usageHours}
                   monthlyCost={appliance.monthlyCost}
+                  onEdit={() => openEditModal(appliance)}
+                  onDelete={() => openDeleteModal(appliance)}
                 />
               ))}
             </div>
           </TabsContent>
-          
           <TabsContent value="anomalias" className="space-y-6">
-            <h2 className="text-2xl font-bold mb-4">Detecção de Anomalias por IA</h2>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {anomalies.map(anomaly => (
-                <AnomalyDetection 
+            <h2 className="text-2xl font-bold mb-4">Detecção de Anomalias</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {anomalies.map((anomaly) => (
+                <AnomalyDetection
                   key={anomaly.id}
                   deviceName={anomaly.deviceName}
                   anomalyScore={anomaly.anomalyScore}
@@ -341,27 +378,12 @@ const Dashboard = () => {
                 />
               ))}
             </div>
-            
-            <div className="bg-slate-100 p-6 rounded-lg border border-slate-200 mt-4">
-              <h3 className="text-lg font-medium mb-2 flex items-center">
-                <Cpu className="h-5 w-5 text-energy-green-light mr-2" />
-                Como funciona nossa IA
-              </h3>
-              <p className="text-slate-600 text-sm">
-                Nossa tecnologia de Inteligência Artificial monitora continuamente o padrão de consumo de seus 
-                eletrodomésticos. Quando um dispositivo começa a comportar-se de forma anormal, nosso sistema 
-                detecta essa anomalia e sugere ações preventivas. Isso ajuda a evitar problemas maiores, 
-                economizar energia e prolongar a vida útil dos aparelhos.
-              </p>
-            </div>
           </TabsContent>
-          
           <TabsContent value="dicas" className="space-y-6">
-            <h2 className="text-2xl font-bold mb-4">Dicas para Economizar Energia</h2>
-            
+            <h2 className="text-2xl font-bold mb-4">Dicas de Economia</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {energySavingTips.map(tip => (
-                <EnergySavingTip 
+              {energySavingTips.map((tip) => (
+                <EnergySavingTip
                   key={tip.id}
                   title={tip.title}
                   description={tip.description}
@@ -369,25 +391,116 @@ const Dashboard = () => {
                 />
               ))}
             </div>
-            
-            <div className="bg-energy-green-dark text-white p-6 rounded-lg mt-4">
-              <h3 className="text-lg font-medium mb-2 flex items-center">
-                <Lightbulb className="h-5 w-5 text-energy-yellow mr-2" />
-                Economia Total Possível
-              </h3>
-              <p className="text-white/90 mb-4">
-                Seguindo todas as nossas recomendações personalizadas, você pode economizar aproximadamente 
-                <span className="font-bold text-white ml-1">R$ 95,00 por mês</span>, 
-                o que representa <span className="font-bold text-white">25%</span> da sua conta atual.
-              </p>
-              <div className="h-2 bg-white/20 rounded-full">
-                <div className="h-2 bg-energy-green-light rounded-full" style={{ width: '25%' }}></div>
-              </div>
-            </div>
           </TabsContent>
         </Tabs>
+
+        <Dialog
+          open={!!editAppliance}
+          onOpenChange={(open) => !open && closeEditModal()}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Aparelho</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <label className="block">
+                Nome:
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full border rounded px-2 py-1"
+                />
+              </label>
+              <label className="block">
+                Potência (W):
+                <input
+                  type="number"
+                  value={editPower}
+                  onChange={(e) => setEditPower(Number(e.target.value))}
+                  className="w-full border rounded px-2 py-1"
+                />
+              </label>
+              <label className="block">
+                Uso diário (horas):
+                <input
+                  type="number"
+                  value={editUsageHours}
+                  onChange={(e) => setEditUsageHours(Number(e.target.value))}
+                  className="w-full border rounded px-2 py-1"
+                />
+              </label>
+              <label className="block">
+                Custo mensal (R$):
+                <input
+                  type="number"
+                  value={editMonthlyCost}
+                  readOnly
+                  className="w-full border rounded px-2 py-1 bg-gray-100 cursor-not-allowed"
+                />
+              </label>
+              <label className="block">
+                Status:
+                <select
+                  value={editStatus}
+                  onChange={(e) =>
+                    setEditStatus(
+                      e.target.value as "critical" | "normal" | "warning"
+                    )
+                  }
+                  className="w-full border rounded px-2 py-1"
+                >
+                  <option value="normal">Normal</option>
+                  <option value="warning">Atenção</option>
+                  <option value="critical">Crítico</option>
+                </select>
+              </label>
+            </div>
+            <DialogFooter>
+              <button
+                onClick={handleEditSave}
+                className="bg-energy-green-light text-white px-4 py-2 rounded hover:bg-energy-green-dark"
+              >
+                Salvar
+              </button>
+              <button
+                onClick={closeEditModal}
+                className="ml-2 px-4 py-2 rounded border border-gray-300 hover:bg-gray-100"
+              >
+                Cancelar
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog
+          open={!!deleteAppliance}
+          onOpenChange={(open) => !open && closeDeleteModal()}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir o aparelho{" "}
+                <strong>{deleteAppliance?.name}</strong>? Esta ação é permanente
+                e não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={closeDeleteModal}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteConfirm}
+                className="bg-red-600 text-white"
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
-      
+
       <Footer />
     </div>
   );

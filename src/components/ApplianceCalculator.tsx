@@ -105,7 +105,18 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({ onAddApplianc
     setCalculatedCost(null);
     setCalculatedConsumption(null);
   };
-  
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "days" && value.days > 31) {
+        form.setValue("days", 31);
+      }
+      if (name === "usageHours" && value.usageHours > 24) {
+        form.setValue("usageHours", 24);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form]);
   // Calculando em tempo real quando os valores mudam
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
