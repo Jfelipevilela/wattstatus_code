@@ -10,14 +10,14 @@ const Sobre = () => {
       <Navbar />
       
       <main className="flex-grow container mx-auto px-4 pt-24 pb-10">
-        <h1 className="text-4xl font-bold mb-2 text-energy-blue-dark">Sobre o EnergyWatch</h1>
+        <h1 className="text-4xl font-bold mb-2 text-energy-blue-dark">Sobre o WattStatus</h1>
         <p className="text-lg text-slate-600 mb-10">Monitoramento inteligente para economia de energia</p>
         
         <div className="grid md:grid-cols-2 gap-10 mb-16">
           <div>
             <h2 className="text-2xl font-bold mb-4 text-energy-blue-dark">Nossa Missão</h2>
             <p className="text-slate-600 mb-6">
-              Criamos o EnergyWatch com uma missão clara: tornar o consumo de energia mais 
+              Criamos o WattStatus com uma missão clara: tornar o consumo de energia mais 
               eficiente, econômico e sustentável para todos. Acreditamos que a tecnologia pode 
               ajudar pessoas e empresas a tomarem decisões mais inteligentes sobre seu consumo 
               energético, gerando economia financeira e contribuindo para um planeta mais saudável.
@@ -74,7 +74,7 @@ const Sobre = () => {
           
           <div className="relative">
             <img 
-              src="https://images.unsplash.com/photo-1548266652-99cf27f51d73?q=80&w=2340&auto=format&fit=crop"
+              src="https://www.futurosolar.com.br/wp-content/uploads/2018/10/energia-sustentavel.jpg"
               alt="Energia sustentável"
               className="rounded-lg shadow-lg w-full h-auto object-cover"
             />
@@ -106,7 +106,7 @@ const Sobre = () => {
               </div>
               <h3 className="font-bold mb-2">2. Análise de IA</h3>
               <p className="text-sm text-slate-600">
-                Nossa IA processa os dados para identificar padrões e anomalias.
+                Nossa IA processa os dados para identificar padrões e anomalias.<br></br>(Em breve)
               </p>
             </div>
             
@@ -133,7 +133,7 @@ const Sobre = () => {
         </div>
         
         <div className="mb-16">
-          <h2 className="text-2xl font-bold mb-6 text-center text-energy-blue-dark">Para Quem é o EnergyWatch</h2>
+          <h2 className="text-2xl font-bold mb-6 text-center text-energy-blue-dark">Para Quem é o WattStatus</h2>
           
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-white p-6 rounded-lg border border-slate-200">

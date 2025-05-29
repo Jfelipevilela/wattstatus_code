@@ -222,7 +222,7 @@ const Dashboard = () => {
         </h1>
 
         <Tabs defaultValue="consumo" className="mb-8">
-          <TabsList className="grid grid-cols-5 mb-8">
+          <TabsList className="flex space-x-4 overflow-x-auto mb-8 md:grid md:grid-cols-5 md:space-x-0">
             <TabsTrigger value="consumo">Consumo</TabsTrigger>
             <TabsTrigger value="calculadora">Calculadora</TabsTrigger>
             <TabsTrigger value="aparelhos">Aparelhos</TabsTrigger>
@@ -338,7 +338,7 @@ const Dashboard = () => {
                   
                   <div className="p-3 bg-energy-green-light/10 rounded-md border border-energy-green-light/20">
                     <p className="text-energy-green-dark text-xs">
-                      <strong>Nota:</strong> Utilizamos a tarifa média de R$ 0,75 por kWh. As tarifas reais 
+                      <strong>Nota:</strong> Utilizamos a tarifa média de R$ 0,75 por kWh. As tarifas brasileiras 
                       variam conforme a localidade e a distribuidora de energia.
                     </p>
                   </div>
@@ -366,7 +366,7 @@ const Dashboard = () => {
             </div>
           </TabsContent>
           <TabsContent value="anomalias" className="space-y-6">
-            <h2 className="text-2xl font-bold mb-4">Detecção de Anomalias</h2>
+            {/* <h2 className="text-2xl font-bold mb-4">Detecção de Anomalias</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {anomalies.map((anomaly) => (
                 <AnomalyDetection
@@ -377,7 +377,8 @@ const Dashboard = () => {
                   recommendation={anomaly.recommendation}
                 />
               ))}
-            </div>
+            </div> */}
+            <h3 style={{opacity: '50%'}}>Estamos trabalhando nesta parte 🛠️</h3>
           </TabsContent>
           <TabsContent value="dicas" className="space-y-6">
             <h2 className="text-2xl font-bold mb-4">Dicas de Economia</h2>
