@@ -24,7 +24,13 @@ import {
   Cpu,
   Lightbulb,
   Calculator,
+  TrendingUp,
+  TrendingDown,
+  Target,
+  Download,
 } from "lucide-react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +49,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 interface Appliance {
   id: number;
   name: string;
@@ -103,6 +117,8 @@ const energySavingTips = [
 const Dashboard = () => {
   const [period, setPeriod] = useState("mensal");
   const [appliances, setAppliances] = useState<Appliance[]>(initialAppliances);
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState("current");
 
   // Modal state for editing
   const [editAppliance, setEditAppliance] = useState<Appliance | null>(null);
@@ -119,12 +135,211 @@ const Dashboard = () => {
     null
   );
 
+  // Calculate total consumption and cost
+  const totalConsumption = appliances.reduce(
+    (total, appliance) =>
+      total + (appliance.power * appliance.usageHours * 30) / 1000,
+    0
+  );
+
+  const totalCost = appliances.reduce(
+    (total, appliance) => total + appliance.monthlyCost,
+    0
+  );
+
   React.useEffect(() => {
     // Recalculate monthly cost when power or usageHours change
     const consumption = (editPower * editUsageHours * 30) / 1000; // kWh per month
     const cost = consumption * TARIFF;
     setEditMonthlyCost(parseFloat(cost.toFixed(2)));
   }, [editPower, editUsageHours]);
+
+  // Load historical data from localStorage on component mount
+  useEffect(() => {
+    const storedData = localStorage.getItem("wattstatus_historical_data");
+    if (storedData) {
+      setHistoricalData(JSON.parse(storedData));
+    } else {
+      // Initialize with some sample historical data
+      const sampleData = [
+        { month: "Jan", consumption: 220, cost: 165 },
+        { month: "Fev", consumption: 240, cost: 180 },
+        { month: "Mar", consumption: 260, cost: 195 },
+        { month: "Abr", consumption: 250, cost: 187.5 },
+        { month: "Mai", consumption: 230, cost: 172.5 },
+        { month: "Jun", consumption: 0, cost: 0 },
+      ];
+      setHistoricalData(sampleData);
+      localStorage.setItem(
+        "wattstatus_historical_data",
+        JSON.stringify(sampleData)
+      );
+    }
+  }, []);
+
+  // Save current month data to localStorage
+  const saveCurrentMonthData = () => {
+    const currentMonth = new Date().toLocaleString("pt-BR", { month: "short" });
+    const newData = {
+      month: currentMonth,
+      consumption: totalConsumption,
+      cost: totalCost,
+    };
+    const updatedData = [
+      ...historicalData.filter((d) => d.month !== currentMonth),
+      newData,
+    ];
+    setHistoricalData(updatedData);
+    localStorage.setItem(
+      "wattstatus_historical_data",
+      JSON.stringify(updatedData)
+    );
+  };
+
+  // Calculate efficiency score (0-100 based on consumption vs average)
+  const efficiencyScore = Math.max(
+    0,
+    Math.min(100, 100 - (totalConsumption / AVERAGE_CONSUMPTION) * 50)
+  );
+
+  // Calculate accumulated savings (sum of tip estimates)
+  const accumulatedSavings = energySavingTips.reduce((total, tip) => {
+    const match = tip.savingEstimate.match(/R\$ (\d+),(\d+)/);
+    return total + (match ? parseFloat(match[1] + "." + match[2]) : 0);
+  }, 0);
+
+  // Calculate previous month comparison
+  const previousMonthConsumption =
+    historicalData.length > 1
+      ? historicalData[historicalData.length - 2].consumption
+      : totalConsumption;
+  const monthOverMonthChange =
+    previousMonthConsumption === 0
+      ? 0
+      : ((totalConsumption - previousMonthConsumption) /
+          previousMonthConsumption) *
+        100;
+
+  // Export data function
+  const exportData = async () => {
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    let yPosition = margin;
+
+    // Title
+    pdf.setFontSize(20);
+    pdf.text("Relatório de Consumo de Energia - WattStatus", margin, yPosition);
+    yPosition += 20;
+
+    // Date
+    pdf.setFontSize(12);
+    pdf.text(
+      `Data: ${new Date().toLocaleDateString("pt-BR")}`,
+      margin,
+      yPosition
+    );
+    yPosition += 15;
+
+    // Current Consumption
+    pdf.setFontSize(16);
+    pdf.text("Consumo Atual", margin, yPosition);
+    yPosition += 10;
+    pdf.setFontSize(12);
+    pdf.text(
+      `Consumo mensal: ${totalConsumption.toFixed(0)} kWh`,
+      margin,
+      yPosition
+    );
+    yPosition += 8;
+    pdf.text(`Custo estimado: R$ ${totalCost.toFixed(2)}`, margin, yPosition);
+    yPosition += 8;
+    pdf.text(
+      `Média diária: ${(totalConsumption / 30).toFixed(1)} kWh/dia`,
+      margin,
+      yPosition
+    );
+    yPosition += 8;
+    pdf.text(
+      `Impacto ambiental: ${(totalConsumption * 0.42).toFixed(0)} kg CO₂`,
+      margin,
+      yPosition
+    );
+    yPosition += 15;
+
+    // Efficiency Score
+    pdf.setFontSize(16);
+    pdf.text("Indicadores de Performance", margin, yPosition);
+    yPosition += 10;
+    pdf.setFontSize(12);
+    pdf.text(
+      `Score de Eficiência: ${efficiencyScore.toFixed(0)}%`,
+      margin,
+      yPosition
+    );
+    yPosition += 8;
+    pdf.text(
+      `Mês a Mês: ${
+        monthOverMonthChange >= 0 ? "+" : ""
+      }${monthOverMonthChange.toFixed(1)}%`,
+      margin,
+      yPosition
+    );
+    yPosition += 8;
+    pdf.text(
+      `Economias Potenciais: R$ ${accumulatedSavings.toFixed(2)}`,
+      margin,
+      yPosition
+    );
+    yPosition += 15;
+
+    // Appliances
+    if (appliances.length > 0) {
+      pdf.setFontSize(16);
+      pdf.text("Aparelhos Cadastrados", margin, yPosition);
+      yPosition += 10;
+      pdf.setFontSize(12);
+      appliances.forEach((appliance) => {
+        if (yPosition > pageHeight - 30) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+        pdf.text(
+          `${appliance.name}: ${appliance.power}W, ${
+            appliance.usageHours
+          }h/dia, R$ ${appliance.monthlyCost.toFixed(2)}/mês`,
+          margin,
+          yPosition
+        );
+        yPosition += 8;
+      });
+      yPosition += 10;
+    }
+
+    // Historical Data
+    if (historicalData.length > 0) {
+      pdf.setFontSize(16);
+      pdf.text("Histórico de Consumo", margin, yPosition);
+      yPosition += 10;
+      pdf.setFontSize(12);
+      historicalData.slice(-6).forEach((data) => {
+        if (yPosition > pageHeight - 30) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+        pdf.text(
+          `${data.month}: ${data.consumption} kWh, R$ ${data.cost.toFixed(2)}`,
+          margin,
+          yPosition
+        );
+        yPosition += 8;
+      });
+    }
+
+    // Save the PDF
+    pdf.save("wattstatus_relatorio.pdf");
+  };
 
   const openEditModal = (appliance: Appliance) => {
     setEditAppliance(appliance);
@@ -175,18 +390,6 @@ const Dashboard = () => {
     }
   };
 
-  // Calculate total consumption and cost
-  const totalConsumption = appliances.reduce(
-    (total, appliance) =>
-      total + (appliance.power * appliance.usageHours * 30) / 1000,
-    0
-  );
-
-  const totalCost = appliances.reduce(
-    (total, appliance) => total + appliance.monthlyCost,
-    0
-  );
-
   // Prepare dynamic consumption data for chart based on appliances
   const consumptionData = appliances.map((appliance) => ({
     name: appliance.name,
@@ -222,8 +425,9 @@ const Dashboard = () => {
         </h1>
 
         <Tabs defaultValue="consumo" className="mb-8">
-          <TabsList className="flex space-x-4 overflow-x-auto mb-8 md:grid md:grid-cols-5 md:space-x-0">
+          <TabsList className="flex space-x-4 overflow-x-auto mb-8 md:grid md:grid-cols-6 md:space-x-0">
             <TabsTrigger value="consumo">Consumo</TabsTrigger>
+            <TabsTrigger value="indicadores">Indicadores</TabsTrigger>
             <TabsTrigger value="calculadora">Calculadora</TabsTrigger>
             <TabsTrigger value="aparelhos">Aparelhos</TabsTrigger>
             <TabsTrigger value="anomalias">Anomalias</TabsTrigger>
@@ -293,6 +497,158 @@ const Dashboard = () => {
             </div>
           </TabsContent>
 
+          <TabsContent value="indicadores" className="space-y-6">
+            <h2 className="text-2xl font-bold mb-4">
+              Indicadores de Performance
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="p-6">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Target className="h-5 w-5 text-energy-green-light" />
+                    Score de Eficiência
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-energy-green-dark">
+                    {efficiencyScore.toFixed(0)}%
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Baseado no consumo vs. média
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="p-6">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-energy-blue-light" />
+                    Mês a Mês
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div
+                    className={`text-3xl font-bold ${
+                      monthOverMonthChange >= 0
+                        ? "text-red-500"
+                        : "text-green-500"
+                    }`}
+                  >
+                    {monthOverMonthChange >= 0 ? "+" : ""}
+                    {monthOverMonthChange.toFixed(1)}%
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Comparado ao mês anterior
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="p-6">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-energy-yellow" />
+                    Economias Potenciais
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-energy-green-dark">
+                    R$ {accumulatedSavings.toFixed(2)}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Seguindo todas as dicas
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="p-6">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Lightbulb className="h-5 w-5 text-energy-green-light" />
+                    Status Geral
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div
+                    className={`text-xl font-bold ${
+                      efficiencyScore > 70
+                        ? "text-green-500"
+                        : efficiencyScore > 40
+                        ? "text-yellow-500"
+                        : "text-red-500"
+                    }`}
+                  >
+                    {efficiencyScore > 70
+                      ? "Normal"
+                      : efficiencyScore > 40
+                      ? "Atenção"
+                      : "Crítico"}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Baseado na eficiência atual
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="p-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-energy-blue-light" />
+                    Histórico de Consumo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {historicalData.slice(-6).map((data, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center"
+                      >
+                        <span className="font-medium">{data.month}</span>
+                        <div className="text-right">
+                          <div className="font-semibold">
+                            {data.consumption} kWh
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            R$ {data.cost.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="p-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Download className="h-5 w-5 text-energy-green-light" />
+                    Ações Disponíveis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button onClick={saveCurrentMonthData} className="w-full">
+                    Salvar Dados do Mês Atual
+                  </Button>
+                  <Button
+                    onClick={exportData}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Exportar Relatório (PDF)
+                  </Button>
+                  <div className="text-sm text-muted-foreground">
+                    <p>
+                      • Salve os dados mensalmente para acompanhar a evolução
+                    </p>
+                    <p>• Exporte para análise externa ou backup</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
           <TabsContent value="calculadora" className="space-y-6">
             <h2 className="text-2xl font-bold mb-4">Calculadora de Energia</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -308,44 +664,48 @@ const Dashboard = () => {
                   <div>
                     <h4 className="font-medium mb-1">Consumo (kWh/mês)</h4>
                     <p className="text-muted-foreground">
-                      O consumo mensal em quilowatt-hora (kWh) é calculado pela fórmula:
+                      O consumo mensal em quilowatt-hora (kWh) é calculado pela
+                      fórmula:
                     </p>
                     <p className="bg-slate-100 p-2 rounded mt-1 font-mono text-xs">
                       Consumo = (Potência × Horas de uso × Dias) ÷ 1000
                     </p>
                   </div>
-                  
+
                   <div>
                     <h4 className="font-medium mb-1">Custo Mensal (R$)</h4>
                     <p className="text-muted-foreground">
-                      O custo mensal é calculado multiplicando o consumo pela tarifa de energia:
+                      O custo mensal é calculado multiplicando o consumo pela
+                      tarifa de energia:
                     </p>
                     <p className="bg-slate-100 p-2 rounded mt-1 font-mono text-xs">
                       Custo = Consumo (kWh) × Tarifa (R$/kWh)
                     </p>
                   </div>
-                  
+
                   <div>
                     <h4 className="font-medium mb-1">Exemplo:</h4>
                     <p className="text-muted-foreground">
-                      Para um ar-condicionado de 1400W, utilizado 6 horas por dia, durante 30 dias:
+                      Para um ar-condicionado de 1400W, utilizado 6 horas por
+                      dia, durante 30 dias:
                     </p>
                     <p className="bg-slate-100 p-2 rounded mt-1 font-mono text-xs">
-                      Consumo = (1400 × 6 × 30) ÷ 1000 = 252 kWh/mês<br/>
+                      Consumo = (1400 × 6 × 30) ÷ 1000 = 252 kWh/mês
+                      <br />
                       Custo = 252 × 0,75 = R$ 189,00/mês
                     </p>
                   </div>
-                  
+
                   <div className="p-3 bg-energy-green-light/10 rounded-md border border-energy-green-light/20">
                     <p className="text-energy-green-dark text-xs">
-                      <strong>Nota:</strong> Utilizamos a tarifa média de R$ 0,75 por kWh. As tarifas brasileiras 
-                      variam conforme a localidade e a distribuidora de energia.
+                      <strong>Nota:</strong> Utilizamos a tarifa média de R$
+                      0,75 por kWh. As tarifas brasileiras variam conforme a
+                      localidade e a distribuidora de energia.
                     </p>
                   </div>
                 </CardContent>
               </Card>
             </div>
-            
           </TabsContent>
 
           <TabsContent value="aparelhos" className="space-y-6">
@@ -378,7 +738,9 @@ const Dashboard = () => {
                 />
               ))}
             </div> */}
-            <h3 style={{opacity: '50%'}}>Estamos trabalhando nesta parte 🛠️</h3>
+            <h3 style={{ opacity: "50%" }}>
+              Estamos trabalhando nesta parte 🛠️
+            </h3>
           </TabsContent>
           <TabsContent value="dicas" className="space-y-6">
             <h2 className="text-2xl font-bold mb-4">Dicas de Economia</h2>
