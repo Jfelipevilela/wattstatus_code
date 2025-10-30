@@ -1,7 +1,6 @@
-
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Lightbulb } from 'lucide-react';
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Lightbulb } from "lucide-react";
 
 interface EnergySavingTipProps {
   title: string;
@@ -15,10 +14,12 @@ const EnergySavingTip: React.FC<EnergySavingTipProps> = ({
   savingEstimate,
 }) => {
   return (
-    <Card className="h-full border-l-4 border-l-energy-green-light">
+    <Card className="h-full border-l-4 border-l-energy-green-light  border border-energy-200 dark:border-gray-700">
       <CardHeader className="flex flex-row items-center gap-2 pb-2">
         <Lightbulb className="h-5 w-5 text-energy-green-light" />
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle className="text-base text-energy-800 dark:text-white">
+          {title}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground mb-2">{description}</p>

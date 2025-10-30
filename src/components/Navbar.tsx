@@ -1,68 +1,203 @@
-
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Lightbulb, AreaChart, Home, Settings, Info, Menu, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import Icon from '@/components/logo_wattstatus_icon.png';
-
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { AreaChart, Home, Info, Menu, X, LogOut, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import Icon from "@/components/logo_wattstatus_icon.png";
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userName, setUserName] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const user = localStorage.getItem("wattstatus_user");
+      if (user) {
+        const userData = JSON.parse(user);
+        setIsLoggedIn(userData.isLoggedIn);
+        setUserName(userData.name || userData.email);
+      } else {
+        setIsLoggedIn(false);
+        setUserName("");
+      }
+    };
+
+    checkAuth();
+    // Listen for storage changes
+    window.addEventListener("storage", checkAuth);
+    return () => window.removeEventListener("storage", checkAuth);
+  }, []);
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("wattstatus_user");
+    setIsLoggedIn(false);
+    setUserName("");
+    navigate("/");
+    setMobileMenuOpen(false);
+  };
+
   return (
-    <nav className="bg-energy-blue-dark text-white fixed top-0 left-0 right-0 z-50 shadow-md">
+    <nav className="bg-energy-blue-dark dark:bg-energy-blue-dark text-energy-800 dark:text-white fixed top-0 left-0 right-0 z-50 shadow-lg backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <Link to="/" className="flex items-center gap-2">
-          {/* <Lightbulb className="h-6 w-6 text-energy-yellow" /> */}
-          <img src={Icon} alt="Logo" className="h-8 w-8" />
-          {/* <span className="text-energy-yellow text-xl font-bold">WATTSTATUS</span> */}
-          <span className="font-bold text-xl">WATTSTATUS</span>
+        <Link
+          to="/"
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
+          <div className="bg-energy-500 p-1.5 rounded-full">
+            <img src={Icon} alt="Logo" className="h-6 w-6" />
+          </div>
+          <span className="font-bold text-xl text-energy-white dark:text-energy-50">
+            WATTSTATUS
+          </span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-6">
-          <Link to="/" className="flex items-center gap-2 hover:text-energy-yellow transition-colors">
+        <div className="hidden md:flex items-center gap-6 ">
+          {/* <Link
+            to="/"
+            className="flex items-center gap-2 hover:text-energy-600 dark:hover:text-energy-200 transition-colors duration-200"
+          >
             <Home className="h-5 w-5" />
             <span>Início</span>
-          </Link>
-          <Link to="/dashboard" className="flex items-center gap-2 hover:text-energy-yellow transition-colors">
-            <AreaChart className="h-5 w-5" />
-            <span>Dashboard</span>
-          </Link>
-          {/* <Link to="/configuracoes" className="flex items-center gap-2 hover:text-energy-yellow transition-colors">
-            <Settings className="h-5 w-5" />
-            <span>Configurações</span>
           </Link> */}
-          <Link to="/sobre" className="flex items-center gap-2 hover:text-energy-yellow transition-colors">
+
+          {isLoggedIn ? (
+            <>
+              <Link
+                to="/dashboard"
+                className="flex items-center gap-2 text-white hover:text-energy-800 dark:hover:text-energy-800 transition-colors duration-200"
+              >
+                <AreaChart className="h-5 w-5" />
+                <span>Dashboard</span>
+              </Link>
+              <div className="flex items-center gap-3 ml-4 pl-4 border-l border-energy-blue-light">
+                <div className="flex items-center gap-2 text-energy-100">
+                  <User className="h-4 w-4" />
+                  <span className="text-sm">{userName}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="text-energy-red/80 hover:text-energy-red hover:bg-energy-blue-light/50"
+                >
+                  <LogOut className="h-4 w-4 mr-1" />
+                  Sair
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="text-energy-600 dark:text-energy-200 hover:text-energy-700 dark:hover:text-white transition-colors duration-200 font-medium"
+              >
+                Entrar
+              </Link>
+              <Link to="/signup">
+                <Button
+                  size="sm"
+                  className="bg-energy-500 hover:bg-energy-600 text-white border-0"
+                >
+                  Criar conta
+                </Button>
+              </Link>
+            </>
+          )}
+
+          {/* <Link
+            to="/sobre"
+            className="flex items-center gap-2 hover:text-energy-600 dark:hover:text-energy-200 transition-colors duration-200"
+          >
             <Info className="h-5 w-5" />
             <span>Sobre</span>
-          </Link>
+          </Link> */}
+
+          <ThemeToggle />
         </div>
 
         <div className="md:hidden">
-          <Button variant="ghost" className="text-white hover:text-energy-yellow" onClick={toggleMobileMenu} aria-label="Toggle menu">
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          <Button
+            variant="ghost"
+            className="text-energy-800 dark:text-white hover:text-energy-600 dark:hover:text-energy-200 hover:bg-energy-100 dark:hover:bg-energy-blue-light/20"
+            onClick={toggleMobileMenu}
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
           </Button>
         </div>
       </div>
 
       {mobileMenuOpen && (
-        <div className="md:hidden bg-energy-blue-dark px-4 pb-4 space-y-2">
-          <Link to="/" className="flex items-center gap-2 hover:text-energy-yellow transition-colors" onClick={() => setMobileMenuOpen(false)}>
+        <div className="md:hidden bg-energy-blue-dark/95 backdrop-blur-sm px-4 pb-4 space-y-3 border-t border-energy-blue-light/20">
+          <Link
+            to="/"
+            className="flex items-center gap-2 hover:text-energy-200 transition-colors py-2"
+            onClick={() => setMobileMenuOpen(false)}
+          >
             <Home className="h-5 w-5" />
             <span>Início</span>
           </Link>
-          <Link to="/dashboard" className="flex items-center gap-2 hover:text-energy-yellow transition-colors" onClick={() => setMobileMenuOpen(false)}>
-            <AreaChart className="h-5 w-5" />
-            <span>Dashboard</span>
-          </Link>
-          {/* <Link to="/configuracoes" className="flex items-center gap-2 hover:text-energy-yellow transition-colors" onClick={() => setMobileMenuOpen(false)}>
-            <Settings className="h-5 w-5" />
-            <span>Configurações</span>
-          </Link> */}
-          <Link to="/sobre" className="flex items-center gap-2 hover:text-energy-yellow transition-colors" onClick={() => setMobileMenuOpen(false)}>
+
+          {isLoggedIn ? (
+            <>
+              <Link
+                to="/dashboard"
+                className="flex items-center gap-2 hover:text-energy-200 transition-colors py-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <AreaChart className="h-5 w-5" />
+                <span>Dashboard</span>
+              </Link>
+              <div className="flex items-center justify-between py-2 border-t border-energy-blue-light/20 mt-2 pt-3">
+                <div className="flex items-center gap-2 text-energy-100">
+                  <User className="h-4 w-4" />
+                  <span className="text-sm">{userName}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="text-energy-200 hover:text-white hover:bg-energy-blue-light/20"
+                >
+                  <LogOut className="h-4 w-4 mr-1" />
+                  Sair
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2 pt-2">
+              <Link
+                to="/login"
+                className="block text-energy-200 hover:text-white transition-colors py-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Entrar
+              </Link>
+              <Link to="/signup" onClick={() => setMobileMenuOpen(false)}>
+                <Button
+                  size="sm"
+                  className="w-full bg-energy-500 hover:bg-energy-600 text-white border-0"
+                >
+                  Criar conta
+                </Button>
+              </Link>
+            </div>
+          )}
+
+          <Link
+            to="/sobre"
+            className="flex items-center gap-2 hover:text-energy-200 transition-colors py-2"
+            onClick={() => setMobileMenuOpen(false)}
+          >
             <Info className="h-5 w-5" />
             <span>Sobre</span>
           </Link>

@@ -1,7 +1,19 @@
-
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  XAxis,
+} from "recharts";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/chart";
 
 interface ConsumptionChartProps {
   title: string;
@@ -12,37 +24,65 @@ interface ConsumptionChartProps {
   }>;
 }
 
+const chartConfig = {
+  consumo: {
+    label: "Seu consumo",
+    color: "#2196F3",
+  },
+  media: {
+    label: "Média regional",
+    color: "#4CAF50",
+  },
+} satisfies ChartConfig;
+
 const ConsumptionChart: React.FC<ConsumptionChartProps> = ({ title, data }) => {
   return (
-    <Card className="h-full">
+    <Card className="h-full bg-white dark:bg-black border border-energy-200 dark:border-gray-700">
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle className="text-energy-800 dark:text-white">
+          {title}
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              margin={{
-                top: 10,
-                right: 30,
-                left: 0,
-                bottom: 0,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip 
-                formatter={(value: number) => [`${value} kWh`, '']}
-                labelFormatter={(label) => `${label}`}
-              />
-              <Legend />
-              <Bar dataKey="consumo" name="Seu consumo" fill="#2196F3" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="media" name="Média regional" fill="#4CAF50" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <ChartContainer config={chartConfig} className="h-80">
+          <AreaChart
+            data={data}
+            margin={{
+              left: 12,
+              right: 12,
+            }}
+          >
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="name"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tickFormatter={(value) => value.slice(0, 3)}
+            />
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent indicator="dot" formatter={(value) => `${value} kWh`} />}
+            />
+            <ChartLegend content={<ChartLegendContent />} />
+            <Area
+              dataKey="consumo"
+              type="natural"
+              fill="var(--color-consumo)"
+              fillOpacity={0.4}
+              stroke="var(--color-consumo)"
+              stackId="a"
+            />
+            <Area
+              dataKey="media"
+              type="natural"
+              fill="var(--color-media)"
+              fillOpacity={0.4}
+              stroke="var(--color-media)"
+              stackId="a"
+            />
+          </AreaChart>
+        </ChartContainer>
       </CardContent>
     </Card>
   );
