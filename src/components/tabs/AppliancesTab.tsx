@@ -9,6 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import {
   CheckCircle,
@@ -21,7 +29,7 @@ import {
   Settings,
   Trash2,
   TrendingUp,
-  Zap
+  Zap,
 } from "lucide-react";
 import React, { useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -63,6 +71,8 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
   onNavigateToCalculator,
 }) => {
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const totalPower = appliances.reduce((sum, app) => sum + app.power, 0);
   const totalMonthlyConsumption = appliances.reduce(
@@ -79,6 +89,12 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
   const warningCount = appliances.filter(
     (app) => app.status === "warning"
   ).length;
+
+  const totalPages = Math.ceil(appliances.length / itemsPerPage);
+  const paginatedAppliances = appliances.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <div className="space-y-8">
@@ -161,7 +177,7 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
       {/* View Toggle */}
       {appliances.length > 0 && (
         <div className="flex justify-center mb-6 p-4 rounded-lg">
-          <div className="flex flex-col sm:flex-row rounded-lg gap-2 p-1 shadow-sm w-full max-w-xs">
+          <div className="hidden sm:flex flex-col sm:flex-row rounded-lg gap-2 p-1 shadow-sm w-full max-w-xs">
             <Button
               variant={viewMode === "cards" ? "default" : "ghost"}
               size="sm"
@@ -193,147 +209,230 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
       {/* Appliances Display */}
       {appliances.length > 0 ? (
         viewMode === "cards" ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-            {appliances.map((appliance) => (
-              <ApplianceCard
-                key={appliance.id}
-                name={appliance.name}
-                power={appliance.power}
-                status={appliance.status}
-                usageHours={appliance.usageHours}
-                monthlyCost={appliance.monthlyCost}
-                monthlyConsumption={appliance.monthlyConsumption}
-                tariff={appliance.tariff}
-                onEdit={() => onEdit(appliance)}
-                onDelete={() => onDelete(appliance)}
-              />
-            ))}
-          </div>
-        ) : (
-          <Card className="bg-white dark:bg-muted">
-            <div className="">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Potência</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Consumo Mensal</TableHead>
-                    <TableHead>Custo Mensal</TableHead>
-                    <TableHead>Tarifa</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {appliances.map((appliance) => (
-                    <TableRow
-                      key={appliance.id}
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+              {paginatedAppliances.map((appliance) => (
+                <ApplianceCard
+                  key={appliance.id}
+                  name={appliance.name}
+                  power={appliance.power}
+                  status={appliance.status}
+                  usageHours={appliance.usageHours}
+                  monthlyCost={appliance.monthlyCost}
+                  monthlyConsumption={appliance.monthlyConsumption}
+                  tariff={appliance.tariff}
+                  onEdit={() => onEdit(appliance)}
+                  onDelete={() => onDelete(appliance)}
+                />
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <Pagination className="mt-8">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() =>
+                        setCurrentPage(Math.max(1, currentPage - 1))
+                      }
                       className={cn(
-                        appliance.status === "critical" &&
-                          "animate-pulse bg-red-900/20 dark:bg-red-900/20"
+                        currentPage === 1 && "pointer-events-none opacity-50"
                       )}
-                    >
-                      <TableCell className="font-medium">
-                        {appliance.name}
-                      </TableCell>
-                      <TableCell>{appliance.power} W</TableCell>
-                      <TableCell>
-                        <div
-                          className={cn(
-                            "flex items-center gap-2",
-                            appliance.status === "critical" &&
-                              "animate-pulse bg"
-                          )}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
                         >
-                          {appliance.status === "normal" && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <CheckCircle className="h-5 w-5 text-energy-green-light" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Status normal</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-
-                          {appliance.status === "warning" && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <CircleAlert className="h-5 w-5 text-energy-orange" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Consumo acima do ideal</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-
-                          {appliance.status === "critical" && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <CircleX className="h-5 w-5 text-energy-red" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Consumo crítico!</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-
-                          <span
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  )}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setCurrentPage(Math.min(totalPages, currentPage + 1))
+                      }
+                      className={cn(
+                        currentPage === totalPages &&
+                          "pointer-events-none opacity-50"
+                      )}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
+          </>
+        ) : (
+          <>
+            <Card className="bg-white dark:bg-muted">
+              <div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Potência</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Consumo Mensal</TableHead>
+                      <TableHead>Custo Mensal</TableHead>
+                      <TableHead>Tarifa</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedAppliances.map((appliance) => (
+                      <TableRow
+                        key={appliance.id}
+                        className={cn(
+                          appliance.status === "critical" &&
+                            "animate-pulse bg-red-900/20 dark:bg-red-900/20"
+                        )}
+                      >
+                        <TableCell className="font-medium">
+                          {appliance.name}
+                        </TableCell>
+                        <TableCell>{appliance.power} W</TableCell>
+                        <TableCell>
+                          <div
                             className={cn(
-                              "text-sm",
-                              appliance.status === "normal"
-                                ? "text-energy-green-dark dark:text-energy-green-light"
-                                : appliance.status === "warning"
-                                ? "text-energy-orange dark:text-energy-orange"
-                                : "text-energy-red dark:text-energy-red"
+                              "flex items-center gap-2",
+                              appliance.status === "critical" && "animate-pulse"
                             )}
                           >
-                            {appliance.status === "normal"
-                              ? "Normal"
-                              : appliance.status === "warning"
-                              ? "Atenção"
-                              : "Crítico"}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {appliance.monthlyConsumption.toFixed(2)} kWh
-                      </TableCell>
-                      <TableCell>
-                        R$ {appliance.monthlyCost.toFixed(2)}
-                      </TableCell>
-                      <TableCell>{appliance.tariff}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onEdit(appliance)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onDelete(appliance)}
-                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-400"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+                            {appliance.status === "normal" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <CheckCircle className="h-5 w-5 text-energy-green-light" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Status normal</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+
+                            {appliance.status === "warning" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <CircleAlert className="h-5 w-5 text-orange-400" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Consumo acima do ideal</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+
+                            {appliance.status === "critical" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <CircleX className="h-5 w-5 text-energy-red " />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Consumo crítico!</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+
+                            <span
+                              className={cn(
+                                "text-sm",
+                                appliance.status === "normal"
+                                  ? "text-energy-green-dark dark:text-energy-green-light"
+                                  : appliance.status === "warning"
+                                  ? "text-orange-400 dark:text-orange-400"
+                                  : "text-energy-red dark:text-energy-red"
+                              )}
+                            >
+                              {appliance.status === "normal"
+                                ? "Normal"
+                                : appliance.status === "warning"
+                                ? "Atenção"
+                                : "Crítico"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {appliance.monthlyConsumption.toFixed(2)} kWh
+                        </TableCell>
+                        <TableCell>
+                          R$ {appliance.monthlyCost.toFixed(2)}
+                        </TableCell>
+                        <TableCell>{appliance.tariff}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onEdit(appliance)}
+                              className="h-8 w-8 p-0 hover:text-energy-yellow hover:bg-energy-yellow/20"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onDelete(appliance)}
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-400"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+            {totalPages > 1 && (
+              <Pagination className="mt-8">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() =>
+                        setCurrentPage(Math.max(1, currentPage - 1))
+                      }
+                      className={cn("cuisor-pointer",
+                        currentPage === 1 && "pointer-events-none opacity-50"
+                      )}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          className="cursor-pointer"
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  )}
+                  <PaginationItem>
+                    <PaginationNext
+                    
+                      onClick={() =>
+                        setCurrentPage(Math.min(totalPages, currentPage + 1))
+                      }
+                      className={cn("cuisor-pointer",
+                        currentPage === totalPages &&
+                          "pointer-events-none opacity-50 "
+                      )}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
+          </>
         )
       ) : (
-        <Card className="p-12 text-center bg-white">
+        <Card className="p-12 text-center bg-white dark:bg-muted">
           <div className="max-w-md mx-auto">
-            <div className="w-24 h-24 bg-gradient-to-br from-energy-green-light to-energy-blue-dark rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="w-24 h-24 bg-gradient-to-br from-energy-green-light to-blue-800 rounded-full flex items-center justify-center mx-auto mb-6">
               <Zap className="h-12 w-12 text-white" />
             </div>
             <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
@@ -345,7 +444,7 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
             </p>
             <Button
               onClick={onNavigateToCalculator}
-              className="bg-gradient-to-r from-energy-green-light to-energy-blue-dark hover:from-energy-blue-dark hover:to-energy-green-light transition-all duration-300 transform hover:scale-105"
+              className="bg-gradient-to-r from-energy-green-light to-blue-800 hover:from-blue-800 hover:to-energy-green-light transition-all duration-300 transform hover:scale-105"
             >
               <Plus className="h-5 w-5 mr-2" />
               Adicionar Primeiro Aparelho

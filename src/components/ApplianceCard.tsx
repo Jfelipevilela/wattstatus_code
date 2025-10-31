@@ -40,7 +40,7 @@ const ApplianceCard: React.FC<ApplianceCardProps> = ({
           status === "normal"
             ? "border-l-4 border-l-energy-green-light"
             : status === "warning"
-            ? "border-l-4 border-l-energy-orange"
+            ? "border-l-4 border-l-orange-400"
             : "border-l-4 border-l-energy-red animate-border-pulse"
     
         )}
@@ -64,7 +64,7 @@ const ApplianceCard: React.FC<ApplianceCardProps> = ({
             {status === "warning" && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <CircleAlert className="h-5 w-5 text-energy-orange" />
+                  <CircleAlert className="h-5 w-5 text-orange-400" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Consumo acima do ideal</p>
@@ -89,7 +89,7 @@ const ApplianceCard: React.FC<ApplianceCardProps> = ({
                   <button
                     aria-label="Editar aparelho"
                     onClick={onEdit}
-                    className="text-energy-600 dark:text-energy-white hover:text-energy-yellow dark:hover:text-energy-yellow"
+                    className="text-energy-yellow dark:text-energy-white hover:text-energy-yellow dark:hover:text-energy-yellow hover:bg-energy-yellow/20"
                   >
                     <Edit className="h-5 w-5" />
                   </button>
@@ -106,9 +106,9 @@ const ApplianceCard: React.FC<ApplianceCardProps> = ({
                   <button
                     aria-label="Excluir aparelho"
                     onClick={onDelete}
-                    className="text-energy-red hover:text-red-700"
+                    className="text-energy-red hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
                   >
-                    <Trash2 className="h-5 w-5" />
+                    <Trash2 className="h-5 w-5 " />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -171,7 +171,7 @@ const ApplianceCard: React.FC<ApplianceCardProps> = ({
                   status === "normal"
                     ? "text-energy-green-dark dark:text-energy-green-light"
                     : status === "warning"
-                    ? "text-orange-300 dark:text-orange-400"
+                    ? "text-orange-400 dark:text-orange-400"
                     : "text-energy-red dark:text-red-400"
                 )}
               >

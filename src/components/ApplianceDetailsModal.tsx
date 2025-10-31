@@ -150,7 +150,7 @@ const ApplianceDetailsModal: React.FC<ApplianceDetailsModalProps> = ({
                     appliance.status === "normal"
                       ? "text-energy-green-dark dark:text-energy-green-light"
                       : appliance.status === "warning"
-                      ? "text-orange-600 dark:text-orange-400"
+                      ? "text-orange-400 dark:text-orange-400"
                       : "text-energy-red dark:text-red-400"
                   }`}
                 >

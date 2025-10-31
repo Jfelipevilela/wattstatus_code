@@ -384,7 +384,7 @@ const Dashboard = () => {
               </div>
 
               {/* Month Filter - Top Right */}
-              <div className="absolute top-0 right-0 flex items-center gap-3 p-3  dark:bg-background rounded-lg shadow-sm border">
+              <div className="mt-4 sm:absolute sm:top-0 sm:right-0 flex items-center gap-3 p-3 bg-white dark:bg-background rounded-lg shadow-sm border">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Filtrar por mês:
                 </span>

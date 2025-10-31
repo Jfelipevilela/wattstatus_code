@@ -127,7 +127,7 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold text-energy-green-dark mb-2">
-              {totalConsumption.toFixed(0)}
+              {totalConsumption}
             </div>
             <p className="text-sm text-muted-foreground dark:text-gray-400">
               kWh/mês
@@ -200,7 +200,7 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <div className="p-2 bg-energy-blue-light/10 rounded-lg">
-                <BarChart3 className="h-5 w-5 text-energy-blue-dark" />
+                <BarChart3 className="h-5 w-5 text-blue-800" />
               </div>
               Consumo por Aparelho (kWh/mês)
             </CardTitle>

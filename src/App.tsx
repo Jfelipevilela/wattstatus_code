@@ -11,7 +11,7 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import NotFound from "./pages/NotFound";
 import Consumption from "./pages/Consumption";
-import Indicators from "./pages/Indicators";
+import Reports from "./pages/Reports";
 import Calculadora from "./pages/Calculator";
 import Appliances from "./pages/Appliances";
 import Anomalies from "./pages/Anomalies";
@@ -54,10 +54,10 @@ const App = () => (
               }
             />
             <Route
-              path="/indicadores"
+              path="/relatorios"
               element={
                 <ProtectedRoute>
-                  <Indicators />
+                  <Reports />
                 </ProtectedRoute>
               }
             />

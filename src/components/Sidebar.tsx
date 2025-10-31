@@ -39,6 +39,7 @@ import {
   House,
   MoreVertical,
   Palette,
+  FileText 
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./ThemeToggle";
@@ -53,9 +54,9 @@ const menuItems = [
   },
 
   {
-    title: "Indicadores",
-    url: "/indicadores",
-    icon: TrendingUp,
+    title: "Relatórios",
+    url: "/relatorios",
+    icon: FileText   ,
   },
   {
     title: "Calculadora",

@@ -1,14 +1,38 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AreaChart, Home, Info, Menu, X, LogOut, User } from "lucide-react";
+import {
+  AreaChart,
+  Home,
+  Info,
+  Menu,
+  X,
+  LogOut,
+  User,
+  MoreVertical,
+  Palette,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useTheme } from "@/hooks/use-theme";
+import { cn } from "@/lib/utils";
 import Icon from "@/components/logo_wattstatus_icon.png";
+
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
   const navigate = useNavigate();
+  const { setTheme } = useTheme();
 
   useEffect(() => {
     const checkAuth = () => {
@@ -42,7 +66,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-energy-blue-dark dark:bg-energy-blue-dark text-energy-800 dark:text-white fixed top-0 left-0 right-0 z-50 shadow-lg backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95">
+    <nav className="bg-energy-blue-dark dark:bg-energy-blue-dark  text-energy-800 dark:text-white fixed top-0 left-0 right-0 z-50 shadow-lg backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <Link
           to="/"
@@ -56,15 +80,7 @@ const Navbar = () => {
           </span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-6 ">
-          {/* <Link
-            to="/"
-            className="flex items-center gap-2 hover:text-energy-600 dark:hover:text-energy-200 transition-colors duration-200"
-          >
-            <Home className="h-5 w-5" />
-            <span>Início</span>
-          </Link> */}
-
+        <div className="hidden md:flex items-center gap-6">
           {isLoggedIn ? (
             <>
               <Link
@@ -79,15 +95,49 @@ const Navbar = () => {
                   <User className="h-4 w-4" />
                   <span className="text-sm">{userName}</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="text-energy-red/80 hover:text-energy-red hover:bg-energy-blue-light/50"
-                >
-                  <LogOut className="h-4 w-4 mr-1" />
-                  Sair
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-950 p-1"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem
+                      onClick={() => navigate("/")}
+                      className="hover:bg-blue-100"
+                    >
+                      <Home className="w-4 h-4 mr-2 text-blue-600" />
+                      Página Inicial
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <Palette className="w-4 h-4 mr-2 text-purple-600" />
+                        Tema
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setTheme("light")}>
+                          Claro
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("dark")}>
+                          Escuro
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("system")}>
+                          Sistema
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="w-4 h-4 mr-2 text-red-600" />
+                      Sair
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </>
           ) : (
@@ -106,18 +156,11 @@ const Navbar = () => {
                   Criar conta
                 </Button>
               </Link>
+              <ThemeToggle />
             </>
           )}
 
-          {/* <Link
-            to="/sobre"
-            className="flex items-center gap-2 hover:text-energy-600 dark:hover:text-energy-200 transition-colors duration-200"
-          >
-            <Info className="h-5 w-5" />
-            <span>Sobre</span>
-          </Link> */}
-
-          <ThemeToggle />
+          {/* <ThemeToggle /> */}
         </div>
 
         <div className="md:hidden">

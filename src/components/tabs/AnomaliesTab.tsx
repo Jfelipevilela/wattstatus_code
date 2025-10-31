@@ -168,7 +168,7 @@ const AnomaliesTab: React.FC<AnomaliesTabProps> = ({ anomalies }) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
             <div className="p-2 bg-energy-blue-light/10 dark:bg-energy-blue-light/5 rounded-lg">
-              <Zap className="h-5 w-5 text-energy-blue-dark dark:text-energy-blue-light" />
+              <Zap className="h-5 w-5 text-blue-800 dark:text-energy-blue-light" />
             </div>
             Como Funciona a Detecção de Anomalias
           </CardTitle>

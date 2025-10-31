@@ -93,7 +93,7 @@ const Index = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-back-cream dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+    <div className="flex flex-col min-h-screen bg-background dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       <Navbar />
 
       <main className="flex-grow  dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
@@ -123,7 +123,7 @@ const Index = () => {
                       Inteligente
                     </span>
                   </h1>
-                  <p className="text-lg text-energy-600 dark:text-energy-300 max-w-lg">
+                  <p className="text-lg text-black dark:text-energy-300 max-w-lg">
                     Conheça o futuro do consumo consciente de energia. Nossa
                     plataforma utiliza inteligência artificial para analisar seu
                     consumo, identificar anomalias e sugerir economias
@@ -134,7 +134,7 @@ const Index = () => {
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Button
                     size="lg"
-                    className="bg-energy-400 hover:bg-energy-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 group dark:bg-energy-600 dark:hover:bg-energy-700"
+                    className="bg-green-600 hover:bg-energy-400 text-white shadow-lg hover:shadow-xl transition-all duration-300 group dark:bg-energy-600 dark:hover:bg-energy-700"
                     asChild
                   >
                     <Link to="/signup" className="flex items-center gap-2">
@@ -145,12 +145,12 @@ const Index = () => {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="border-energy-300 text-energy-700 hover:bg-energy-50 hover:border-energy-400 transition-all duration-300 dark:border-energy-600 dark:text-energy-300 dark:hover:bg-energy-900/50"
+                    className="border-energy-300 bg-white dark: bg-background text-energy-700 hover:bg-energy-50 hover:border-energy-400 transition-all duration-300 dark:border-energy-600 dark:text-energy-300 dark:hover:bg-energy-900/50"
                     asChild
                   >
                     <Link to="/sobre" className="flex items-center gap-2">
-                      <Play className="h-4 w-4" />
-                      Ver Demo
+                      {/* <Play className="h-4 w-4" /> */}
+                      Saber mais
                     </Link>
                   </Button>
                 </div>
@@ -334,7 +334,7 @@ const Index = () => {
         <section className="py-20  dark:from-slate-800 dark:to-slate-900">
           <div className="container mx-auto px-4">
             <div className="max-w-4xl mx-auto text-center">
-              <div className="bg-background rounded-2xl shadow-xl p-8 md:p-12 border border-border">
+              <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 border border-border">
                 <div className="flex justify-center mb-6">
                   <div className="bg-energy-600 p-4 rounded-full">
                     <Zap className="h-12 w-12 text-white" />
@@ -359,7 +359,7 @@ const Index = () => {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="border-energy-300 text-energy-700 hover:bg-energy-50 dark:border-energy-600 dark:text-energy-300 dark:hover:bg-energy-900/50"
+                    className="border-energy-300 text-energy-700 hover:bg-energy-50 bg-green-100/50 dark:border-energy-600 dark:text-energy-300 dark:hover:bg-energy-900/50"
                     asChild
                   >
                     <Link to="/signup">Criar Conta Gratuita</Link>

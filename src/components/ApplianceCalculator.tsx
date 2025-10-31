@@ -434,6 +434,15 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
                           </SelectItem>
                         ))}
                       </SelectContent>
+                      {field.value && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          Tarifa selecionada: {field.value} - R${" "}
+                          {STATE_TARIFFS[
+                            field.value as keyof typeof STATE_TARIFFS
+                          ]?.toFixed(2)}
+                          /kWh
+                        </div>
+                      )}
                     </Select>
                   </FormControl>
                 </FormItem>

@@ -83,13 +83,13 @@ const SignUp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
         {/* Logo and Header */}
         <div className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-energy-500 p-3 rounded-full shadow-lg">
-              <img src={Icon} alt="WattStatus" className="h-8 w-8" />
+            <div className="">
+              <img src={Icon} alt="WattStatus" className="h-12 w-12" />
             </div>
           </div>
           <h1 className="text-3xl font-bold text-energy-800 dark:text-energy-100 mb-2">
@@ -101,7 +101,7 @@ const SignUp = () => {
         </div>
 
         {/* Sign Up Card */}
-        <Card className="shadow-xl border-0 bg-background/80 backdrop-blur-sm">
+        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm dark:bg-slate-800/80">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center text-energy-800 dark:text-energy-100">
               Criar conta
@@ -226,7 +226,7 @@ const SignUp = () => {
                 />
                 <Label
                   htmlFor="terms"
-                  className="text-sm text-energy-700 dark:text-energy-300"
+                  className="text-sm dark:text-energy-300"
                 >
                   Aceito os{" "}
                   <Link
@@ -262,7 +262,7 @@ const SignUp = () => {
             </form>
 
             <div className="mt-6 text-center space-y-2">
-              <p className="text-sm text-energy-600 dark:text-energy-400">
+              <p className="text-sm text-energy-600 dark:text-white">
                 Já tem uma conta?{" "}
                 <Link
                   to="/login"
@@ -283,21 +283,21 @@ const SignUp = () => {
 
         {/* Benefits Preview */}
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-background/60 backdrop-blur-sm rounded-lg p-3 shadow-sm">
-            <Leaf className="h-5 w-5 text-energy-500 dark:text-energy-400 mx-auto mb-1" />
-            <p className="text-xs text-energy-700 dark:text-energy-300 font-medium">
+          <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 shadow-sm dark:bg-slate-700/60">
+            <Leaf className="h-5 w-5 text-green-500 dark:text-green-400 mx-auto mb-1" />
+            <p className="text-xs text-green-700 dark:text-green-300 font-medium">
               Sustentável
             </p>
           </div>
-          <div className="bg-background/60 backdrop-blur-sm rounded-lg p-3 shadow-sm">
-            <Zap className="h-5 w-5 text-energy-500 dark:text-energy-400 mx-auto mb-1" />
-            <p className="text-xs text-energy-700 dark:text-energy-300 font-medium">
+          <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 shadow-sm dark:bg-slate-700/60">
+            <Zap className="h-5 w-5 text-green-500 dark:text-green-400 mx-auto mb-1" />
+            <p className="text-xs text-green-700 dark:text-green-300 font-medium">
               Eficiente
             </p>
           </div>
-          <div className="bg-background/60 backdrop-blur-sm rounded-lg p-3 shadow-sm">
-            <Battery className="h-5 w-5 text-energy-500 dark:text-energy-400 mx-auto mb-1" />
-            <p className="text-xs text-energy-700 dark:text-energy-300 font-medium">
+          <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 shadow-sm dark:bg-slate-700/60">
+            <Battery className="h-5 w-5 text-green-500 dark:text-green-400 mx-auto mb-1" />
+            <p className="text-xs text-green-700 dark:text-green-300 font-medium">
               Inteligente
             </p>
           </div>

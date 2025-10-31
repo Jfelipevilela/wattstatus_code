@@ -75,7 +75,7 @@ const TipsTab: React.FC<TipsTabProps> = ({ energySavingTips }) => {
         <Card className="p-6 hover:shadow-xl transition-all duration-300 border-l-4 border-l-energy-teal">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-energy-teal dark:bg-energy-teal rounded-lg">
-              <Target className="h-5 w-5 text-energy-blue-dark dark:text-energy-blue-light" />
+              <Target className="h-5 w-5 text-blue-800 dark:text-energy-blue-light" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground dark:text-gray-400">
@@ -157,8 +157,8 @@ const TipsTab: React.FC<TipsTabProps> = ({ energySavingTips }) => {
               </div>
             </div>
 
-            <div className="p-4 bg-gradient-to-r from-energy-blue-light/10 to-energy-blue-dark/10 dark:from-energy-blue-light/5 dark:to-energy-blue-dark/5 rounded-xl">
-              <h4 className="font-semibold text-energy-blue-dark dark:text-energy-blue-light mb-3">
+            <div className="p-4 bg-gradient-to-r from-energy-blue-light/10 to-blue-800/10 dark:from-energy-blue-light/5 dark:to-blue-800/5 rounded-xl">
+              <h4 className="font-semibold text-blue-800 dark:text-energy-blue-light mb-3">
                 Próximos Passos:
               </h4>
               <div className="space-y-2">
@@ -166,7 +166,7 @@ const TipsTab: React.FC<TipsTabProps> = ({ energySavingTips }) => {
                   <div className="w-6 h-6 bg-energy-blue-light dark:bg-energy-blue-light rounded-full flex items-center justify-center">
                     <span className="text-white text-xs font-bold">1</span>
                   </div>
-                  <span className="text-energy-blue-dark dark:text-energy-blue-light">
+                  <span className="text-blue-800 dark:text-energy-blue-light">
                     Implemente a primeira dica de economia
                   </span>
                 </div>

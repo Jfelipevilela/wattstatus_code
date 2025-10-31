@@ -190,7 +190,7 @@ const IndicatorsTab: React.FC<IndicatorsTabProps> = ({
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <div className="p-2 bg-energy-blue-light/10 dark:bg-energy-blue-light/5 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-energy-blue-dark dark:text-energy-blue-light" />
+                <TrendingUp className="h-5 w-5 text-blue-800 dark:text-energy-blue-light" />
               </div>
               Histórico de Consumo (kWh)
             </CardTitle>
