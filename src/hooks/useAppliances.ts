@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { apiClient } from "@/utils/apiClient";
 
 export interface Appliance {
   id: number;
@@ -10,47 +11,89 @@ export interface Appliance {
   monthlyConsumption: number;
   tariff: string;
   createdAt: string;
+  userId?: string; // Adicionado para compatibilidade
 }
 
 export const useAppliances = () => {
   const [appliances, setAppliances] = useState<Appliance[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Load appliances from localStorage on mount
+  // Get current user ID
   useEffect(() => {
-    const savedAppliances = localStorage.getItem("wattstatus_appliances");
-    if (savedAppliances) {
+    const userData = localStorage.getItem("wattstatus_user");
+    if (userData) {
       try {
-        setAppliances(JSON.parse(savedAppliances));
+        const user = JSON.parse(userData);
+        setCurrentUserId(user.id);
       } catch (error) {
-        console.error("Error loading appliances from localStorage:", error);
+        console.error("Error parsing user data:", error);
       }
     }
   }, []);
 
-  // Save appliances to localStorage whenever appliances change
+  // Load appliances from API on mount and when user changes
   useEffect(() => {
-    if (
-      appliances.length > 0 ||
-      localStorage.getItem("wattstatus_appliances")
-    ) {
-      localStorage.setItem("wattstatus_appliances", JSON.stringify(appliances));
+    if (currentUserId) {
+      try {
+        const loadAppliances = async () => {
+          const userAppliances = await apiClient.getUserAppliances(
+            currentUserId
+          );
+          setAppliances(userAppliances);
+        };
+        loadAppliances();
+      } catch (error) {
+        console.error("Error loading appliances from API:", error);
+        setAppliances([]);
+      }
     }
-  }, [appliances]);
+  }, [currentUserId]);
 
-  const addAppliance = (appliance: Appliance) => {
-    setAppliances((prev) => [...prev, appliance]);
+  const addAppliance = async (appliance: Appliance) => {
+    if (!currentUserId) {
+      console.error("No user logged in");
+      return;
+    }
+    try {
+      await apiClient.createAppliance(currentUserId, appliance);
+      setAppliances((prev) => [...prev, appliance]);
+    } catch (error) {
+      console.error("Error adding appliance:", error);
+    }
   };
 
-  const updateAppliance = (updatedAppliance: Appliance) => {
-    setAppliances((prev) =>
-      prev.map((appliance) =>
-        appliance.id === updatedAppliance.id ? updatedAppliance : appliance
-      )
-    );
+  const updateAppliance = async (updatedAppliance: Appliance) => {
+    if (!currentUserId) {
+      console.error("No user logged in");
+      return;
+    }
+    try {
+      await apiClient.updateAppliance(
+        currentUserId,
+        updatedAppliance.id,
+        updatedAppliance
+      );
+      setAppliances((prev) =>
+        prev.map((appliance) =>
+          appliance.id === updatedAppliance.id ? updatedAppliance : appliance
+        )
+      );
+    } catch (error) {
+      console.error("Error updating appliance:", error);
+    }
   };
 
-  const deleteAppliance = (id: number) => {
-    setAppliances((prev) => prev.filter((appliance) => appliance.id !== id));
+  const deleteAppliance = async (id: number) => {
+    if (!currentUserId) {
+      console.error("No user logged in");
+      return;
+    }
+    try {
+      await apiClient.deleteAppliance(currentUserId, id);
+      setAppliances((prev) => prev.filter((appliance) => appliance.id !== id));
+    } catch (error) {
+      console.error("Error deleting appliance:", error);
+    }
   };
 
   return {

@@ -39,7 +39,7 @@ import {
   House,
   MoreVertical,
   Palette,
-  FileText 
+  FileText,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./ThemeToggle";
@@ -56,7 +56,7 @@ const menuItems = [
   {
     title: "Relatórios",
     url: "/relatorios",
-    icon: FileText   ,
+    icon: FileText,
   },
   {
     title: "Calculadora",
@@ -93,6 +93,8 @@ export function AppSidebar() {
   // Get user data from localStorage
   const userData = localStorage.getItem("wattstatus_user");
   const user = userData ? JSON.parse(userData) : null;
+
+  const isAdmin = user?.role === "admin";
   return (
     <ShadcnSidebar>
       <SidebarHeader>

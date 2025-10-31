@@ -1,0 +1,3 @@
+{"id":"1761935099008","name":"Administrador Teste","email":"admin@teste.com","password":"689486176","role":"admin","createdAt":"2025-10-31T18:24:59.008Z"}
+{"id":"1761937485361","name":"João Felipe Vilela","email":"jf166274@gmail.com","password":"1450572480","role":"user","createdAt":"2025-10-31T19:04:45.361Z"}
+{"id":"1761938450543","name":"12312321","email":"joaofelipe.noc@se77e.com.br","password":"1450572480","role":"user","createdAt":"2025-10-31T19:20:50.543Z"}

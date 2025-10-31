@@ -13,6 +13,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Leaf, Zap } from "lucide-react";
 import Icon from "@/components/logo_wattstatus_icon.png";
+import { apiClient } from "@/utils/apiClient";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -34,16 +35,36 @@ const Login = () => {
       return;
     }
 
-    // Simulate API call
-    setTimeout(() => {
-      // For demo purposes, accept any email/password combination
+    try {
+      // Fazer login via API
+      const user = await apiClient.login({
+        email,
+        password,
+      });
+
+      // Login bem-sucedido
       localStorage.setItem(
         "wattstatus_user",
-        JSON.stringify({ email, isLoggedIn: true })
+        JSON.stringify({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          isLoggedIn: true,
+        })
       );
+
       navigate("/dashboard");
+    } catch (error: any) {
+      if (error.message?.includes("Credenciais inválidas")) {
+        setError("E-mail ou senha incorretos.");
+      } else {
+        setError("Erro ao fazer login. Tente novamente.");
+        console.error("Error logging in:", error);
+      }
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -171,7 +192,7 @@ const Login = () => {
               Monitoramento Sustentável
             </p>
           </div>
-          <div className="bg-white/60 backdrop-blur-sm rounded-lg p-4 shadow-sm dark:bg-slate-700/60" >
+          <div className="bg-white/60 backdrop-blur-sm rounded-lg p-4 shadow-sm dark:bg-slate-700/60">
             <Zap className="h-6 w-6 text-green-500 dark:text-green-400 mx-auto mb-2" />
             <p className="text-xs text-green-700 dark:text-green-300 font-medium">
               Economia Inteligente
