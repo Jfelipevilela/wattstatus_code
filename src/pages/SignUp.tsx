@@ -14,7 +14,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Leaf, Zap, Battery } from "lucide-react";
 import Icon from "@/components/logo_wattstatus_icon.png";
-import { apiClient } from "@/utils/apiClient";
 
 const SignUp = () => {
   const [formData, setFormData] = useState({
@@ -67,37 +66,20 @@ const SignUp = () => {
 
     setIsLoading(true);
 
-    try {
-      // Criar usuário via API
-      const newUser = await apiClient.createUser({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-      });
-
-      // Fazer login automático
+    // Simulate API call
+    setTimeout(() => {
+      // For demo purposes, create user account
       localStorage.setItem(
         "wattstatus_user",
         JSON.stringify({
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email,
-          role: newUser.role,
+          name: formData.name,
+          email: formData.email,
           isLoggedIn: true,
         })
       );
-
       navigate("/dashboard");
-    } catch (error: any) {
-      if (error.message?.includes("Email já cadastrado")) {
-        setError("Este e-mail já está cadastrado.");
-      } else {
-        setError("Erro ao criar conta. Tente novamente.");
-        console.error("Error creating user:", error);
-      }
-    } finally {
       setIsLoading(false);
-    }
+    }, 1500);
   };
 
   return (
@@ -242,7 +224,10 @@ const SignUp = () => {
                     handleInputChange("acceptTerms", checked as boolean)
                   }
                 />
-                <Label htmlFor="terms" className="text-sm dark:text-energy-300">
+                <Label
+                  htmlFor="terms"
+                  className="text-sm dark:text-energy-300"
+                >
                   Aceito os{" "}
                   <Link
                     to="/termos"

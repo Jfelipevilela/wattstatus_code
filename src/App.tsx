@@ -9,7 +9,6 @@ import Dashboard from "./pages/Dashboard";
 import Sobre from "./pages/Sobre";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
-import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import Consumption from "./pages/Consumption";
 import Reports from "./pages/Reports";
@@ -54,7 +53,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/relatorios"
               element={

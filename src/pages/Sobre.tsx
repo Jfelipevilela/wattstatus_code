@@ -207,7 +207,7 @@ const Sobre = () => {
         </div>
 
         {/* Como Nossa Tecnologia Funciona */}
-        {/* <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-sm mb-16">
+        <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-sm mb-16">
           <h2 className="text-2xl font-bold mb-6 text-center text-blue-800 dark:text-energy-blue-light">
             Como Nossa Tecnologia Funciona
           </h2>
@@ -262,7 +262,7 @@ const Sobre = () => {
               </p>
             </div>
           </div>
-        </div> */}
+        </div>
 
         {/* Para Quem é o WattStatus */}
         <div className="mb-16">

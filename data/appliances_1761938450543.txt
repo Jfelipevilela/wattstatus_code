@@ -1,1 +1,0 @@
-{"id":1761938461120,"name":"TV LED 40\"","power":80,"status":"normal","usageHours":4,"monthlyCost":7.295999999999999,"monthlyConsumption":9.6,"tariff":"GO","createdAt":"2025-10-31T19:21:01.120Z"}

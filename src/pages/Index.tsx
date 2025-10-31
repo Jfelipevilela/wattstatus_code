@@ -359,7 +359,7 @@ const Index = () => {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="border-energy-300 text-energy-700 hover:bg-energy-50 bg-green-100/50 dark:bg-muted dark:border-energy-600 dark:text-energy-300 dark:hover:bg-energy-900/50"
+                    className="border-energy-300 dark:bg-muted text-energy-700 hover:bg-energy-50 bg-green-100/50 dark:border-energy-600 dark:text-energy-300 dark:hover:bg-energy-900/50"
                     asChild
                   >
                     <Link to="/signup">Criar Conta Gratuita</Link>

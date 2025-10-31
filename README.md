@@ -1,212 +1,73 @@
-# WattStatus - Sistema de Monitoramento de Energia
+# Welcome to your Lovable project
 
-Um sistema web completo para monitoramento e cálculo de consumo de energia elétrica de aparelhos domésticos, desenvolvido com React, TypeScript e Node.js.
+## Project info
 
-## 📋 Descrição
+**URL**: https://lovable.dev/projects/a63ff7c2-0df7-4062-84b5-2028948652e2
 
-O WattStatus permite aos usuários cadastrar seus aparelhos elétricos, calcular o consumo mensal de energia e acompanhar indicadores de eficiência energética. O sistema inclui funcionalidades de autenticação, gerenciamento de aparelhos e relatórios de consumo.
+## How can I edit this code?
 
-## 🚀 Funcionalidades
+There are several ways of editing your application.
 
-### Usuário Comum
+**Use Lovable**
 
-- **Cadastro e Login**: Sistema de autenticação seguro
-- **Gerenciamento de Aparelhos**: Adicionar, editar e remover aparelhos
-- **Calculadora de Consumo**: Calcular custo mensal baseado em potência, horas de uso e tarifa
-- **Dashboard**: Visualização de consumo e indicadores
-- **Relatórios**: Análise detalhada do consumo energético
-- **Dicas de Economia**: Sugestões para reduzir consumo
+Simply visit the [Lovable Project](https://lovable.dev/projects/a63ff7c2-0df7-4062-84b5-2028948652e2) and start prompting.
 
-### Administrador
+Changes made via Lovable will be committed automatically to this repo.
 
-- **Painel Administrativo**: Acesso a dados de todos os usuários
-- **Gerenciamento de Usuários**: Visualizar usuários cadastrados
-- **Relatórios Globais**: Análise geral do sistema
+**Use your preferred IDE**
 
-## 🛠️ Tecnologias Utilizadas
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
-### Frontend
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-- **React 18** - Biblioteca JavaScript para interfaces
-- **TypeScript** - Tipagem estática
-- **Vite** - Build tool e dev server
-- **Tailwind CSS** - Framework CSS utilitário
-- **shadcn/ui** - Componentes UI baseados em Radix UI
-- **React Router** - Roteamento
-- **React Hook Form** - Gerenciamento de formulários
-- **Recharts** - Gráficos e visualizações
-- **TanStack Query** - Gerenciamento de estado server
+Follow these steps:
 
-### Backend
+```sh
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
 
-- **Node.js** - Runtime JavaScript
-- **Express.js** - Framework web
-- **File System** - Persistência em arquivos TXT
-- **CORS** - Compartilhamento de recursos
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
 
-### Outros
+# Step 3: Install the necessary dependencies.
+npm i
 
-- **ESLint** - Linting de código
-- **PostCSS** - Processamento CSS
-- **Autoprefixer** - Prefixos CSS automáticos
-
-## 📁 Estrutura do Projeto
-
-```
-wattstatus_code/
-├── data/                    # Arquivos de dados
-│   ├── users.txt           # Dados dos usuários
-│   └── appliances.txt      # Dados dos aparelhos
-├── public/                 # Arquivos estáticos
-├── src/
-│   ├── components/         # Componentes React
-│   │   ├── ui/            # Componentes base shadcn/ui
-│   │   └── tabs/          # Abas das páginas
-│   ├── hooks/             # Hooks customizados
-│   ├── lib/               # Utilitários
-│   ├── pages/             # Páginas da aplicação
-│   └── utils/             # Funções utilitárias
-├── server.cjs             # Servidor principal
-├── server_admin.cjs       # Servidor administrativo
-├── package.json
-├── tsconfig.json
-├── tailwind.config.ts
-└── vite.config.ts
+# Step 4: Start the development server with auto-reloading and an instant preview.
+npm run dev
 ```
 
-## 🔧 Instalação e Configuração
+**Edit a file directly in GitHub**
 
-### Pré-requisitos
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
 
-- Node.js (versão 18 ou superior)
-- npm ou yarn
+**Use GitHub Codespaces**
 
-### Instalação
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
-1. **Clone o repositório**
+## What technologies are used for this project?
 
-   ```bash
-   git clone <URL_DO_REPOSITORIO>
-   cd wattstatus_code
-   ```
+This project is built with:
 
-2. **Instale as dependências**
+- Vite
+- TypeScript
+- React
+- shadcn-ui
+- Tailwind CSS
 
-   ```bash
-   npm install
-   ```
+## How can I deploy this project?
 
-3. **Inicie o servidor backend**
+Simply open [Lovable](https://lovable.dev/projects/a63ff7c2-0df7-4062-84b5-2028948652e2) and click on Share -> Publish.
 
-   ```bash
-   # Servidor principal (porta 3001)
-   node server.cjs
+## Can I connect a custom domain to my Lovable project?
 
-   # Ou servidor admin (porta 3001)
-   node server_admin.cjs
-   ```
+Yes, you can!
 
-4. **Inicie o frontend**
+To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
-   ```bash
-   npm run dev
-   ```
-
-5. **Acesse a aplicação**
-   - Frontend: http://localhost:5173
-   - API: http://localhost:3001
-
-## 📊 API Endpoints
-
-### Autenticação
-
-- `POST /api/login` - Login de usuário
-- `POST /api/users` - Cadastro de usuário
-
-### Aparelhos
-
-- `GET /api/appliances/:userId` - Listar aparelhos do usuário
-- `POST /api/appliances/:userId` - Adicionar aparelho
-- `PUT /api/appliances/:userId/:applianceId` - Atualizar aparelho
-- `DELETE /api/appliances/:userId/:applianceId` - Remover aparelho
-
-### Administrador
-
-- `GET /api/admin/all-data` - Dados de todos os usuários (requer token)
-
-## 💾 Persistência de Dados
-
-O sistema utiliza arquivos TXT para persistência de dados:
-
-- **users.txt**: Armazena usuários em formato JSON (uma linha por usuário)
-- **appliances.txt**: Armazena aparelhos em formato JSON (uma linha por aparelho)
-
-Cada aparelho inclui um `userId` como chave estrangeira para associar ao usuário.
-
-## 🎨 Funcionalidades Principais
-
-### Calculadora de Consumo
-
-- Cálculo automático de consumo mensal
-- Suporte a diferentes tarifas de energia
-- Visualização de custos estimados
-
-### Dashboard
-
-- Gráficos de consumo por aparelho
-- Indicadores de eficiência energética
-- Alertas de consumo elevado
-
-### Gerenciamento de Aparelhos
-
-- CRUD completo de aparelhos
-- Categorização por tipo
-- Status de monitoramento
-
-## 🚀 Scripts Disponíveis
-
-```bash
-npm run dev          # Inicia servidor de desenvolvimento
-npm run build        # Build para produção
-npm run build:dev    # Build para desenvolvimento
-npm run preview      # Preview do build
-npm run lint         # Executa linting
-```
-
-## 🔒 Segurança
-
-- Hashing de senhas com algoritmo personalizado
-- Validação de entrada de dados
-- Controle de acesso baseado em roles (user/admin)
-- CORS configurado para desenvolvimento
-
-## 📱 Responsividade
-
-A aplicação é totalmente responsiva e funciona em:
-
-- Desktop
-- Tablet
-- Mobile
-
-## 🤝 Contribuição
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
-
-## 📝 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
-
-## 👥 Autor
-
-**João Felipe Vilela** - Desenvolvimento inicial
-
-## 🙏 Agradecimentos
-
-- [shadcn/ui](https://ui.shadcn.com/) - Componentes UI
-- [Tailwind CSS](https://tailwindcss.com/) - Framework CSS
-- [React](https://reactjs.org/) - Biblioteca JavaScript
-- [Vite](https://vitejs.dev/) - Build tool
+Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)

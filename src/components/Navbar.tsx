@@ -85,12 +85,12 @@ const Navbar = () => {
             <>
               <Link
                 to="/dashboard"
-                className="flex items-center gap-2 text-white hover:text-energy-800 dark:hover:text-energy-800 transition-colors duration-200 "
+                className="flex items-center gap-2 text-white hover:text-energy-800 dark:hover:text-energy-800 transition-colors duration-200"
               >
                 <AreaChart className="h-5 w-5" />
                 <span>Dashboard</span>
               </Link>
-              <div className="flex items-center gap-3 ml-4 pl-4 border-l border-energy-green-light">
+              <div className="flex items-center gap-3 ml-4 pl-4 border-l border-energy-blue-light">
                 <div className="flex items-center gap-2 text-energy-100">
                   <User className="h-4 w-4" />
                   <span className="text-sm">{userName}</span>
@@ -100,7 +100,7 @@ const Navbar = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-energy-green-light hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-950 p-1 "
+                      className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-950 p-1"
                     >
                       <MoreVertical className="w-4 h-4" />
                     </Button>
