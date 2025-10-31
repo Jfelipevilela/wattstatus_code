@@ -84,6 +84,9 @@ export default {
           white: "#ffffff",
           red: "#ec2c2cff",
         },
+        back: {
+          cream: "#EEE7DC",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -129,17 +132,21 @@ export default {
           from: { opacity: "0", transform: "translateY(20px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
-        "float": {
+        float: {
           "0%, 100%": { transform: "translateY(0px)" },
           "50%": { transform: "translateY(-10px)" },
         },
-        "glow": {
+        glow: {
           "0%, 100%": { boxShadow: "0 0 5px rgba(59, 130, 246, 0.5)" },
           "50%": { boxShadow: "0 0 20px rgba(59, 130, 246, 0.8)" },
         },
         pulse: {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.5" },
+        },
+        "border-pulse": {
+          "0%, 100%": { borderLeftColor: "#EF4444" },
+          "50%": { borderLeftColor: "#f8afafff" }, 
         },
       },
       animation: {
@@ -148,6 +155,7 @@ export default {
         "fade-in": "fade-in 0.5s ease-out",
         "slide-in": "slide-in 0.3s ease-out",
         pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "border-pulse": "border-pulse 1.5s ease-in-out infinite",
         "bounce-in": "bounce-in 0.6s ease-out",
         "scale-in": "scale-in 0.3s ease-out",
         "stagger-fade-in": "stagger-fade-in 0.5s ease-out",

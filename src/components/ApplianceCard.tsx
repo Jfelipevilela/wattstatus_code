@@ -36,16 +36,17 @@ const ApplianceCard: React.FC<ApplianceCardProps> = ({
     <TooltipProvider>
       <Card
         className={cn(
-          "h-full transition-all duration-300 border",
+          "h-full transition-all duration-300 border shadow-lg hover:shadow-xl",
           status === "normal"
             ? "border-l-4 border-l-energy-green-light"
             : status === "warning"
             ? "border-l-4 border-l-energy-orange"
-            : "border-l-4 border-l-energy-red animate-pulse"
+            : "border-l-4 border-l-energy-red animate-border-pulse"
+    
         )}
       >
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base text-energy-800 dark:text-white">
+        <CardHeader className="flex flex-row items-center  animate-fade-in justify-between pb-2">
+          <CardTitle className="text-base text-black dark:text-white">
             {name}
           </CardTitle>
           <div className="flex items-center space-x-2">

@@ -1,7 +1,11 @@
-- [x] Edit Sidebar.tsx to add logout icon next to user name and email in the sidebar footer
-- [x] Align theme toggle to the right in sidebar footer
-- [x] Add home button with house icon to navigate to "/" in sidebar footer
-- [x] Update dark theme colors to modern deep dark with vibrant accents
-- [x] Add subtle shadows and glow effects for dark theme
-- [x] Padronizar KPIs da dashboard para manter o padrão das outras abas
-- [x] Trocar gráfico de barras por versão vertical com dados do usuário
+# TODO: Adicionar Animação de Contagem nos Dígitos da Seção Stats
+
+- [x] Implementar hook para animação de contagem
+- [x] Aplicar animação aos números da seção Stats (10K+, 2.5M, R$ 1.2M, 85%)
+- [x] Usar Intersection Observer para disparar quando a seção entrar na viewport
+
+# TODO: Atualizar cores de fundo para usar bg-background ao invés de bg-white/60 e bg-slate-800/60
+
+- [x] Atualizar src/pages/Login.tsx - Card e Features Preview
+- [x] Atualizar src/pages/SignUp.tsx - Card e Benefits Preview
+- [x] Atualizar src/pages/Index.tsx - Features Section

@@ -1,4 +1,4 @@
-  import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   AppSidebar,
   SidebarProvider,
@@ -370,7 +370,7 @@ const Dashboard = () => {
             <span className="font-semibold">Dashboard</span>
           </div>
         </header>
-        <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+        <div className="flex flex-col min-h-screen bg-background dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
           <main className="flex-grow container mx-auto px-4 pt-6 pb-10">
             {/* Hero Section */}
             <div className="relative mb-8">
@@ -384,7 +384,7 @@ const Dashboard = () => {
               </div>
 
               {/* Month Filter - Top Right */}
-              <div className="absolute top-0 right-0 flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm border">
+              <div className="absolute top-0 right-0 flex items-center gap-3 p-3  dark:bg-background rounded-lg shadow-sm border">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Filtrar por mês:
                 </span>

@@ -43,7 +43,7 @@ const TipsTab: React.FC<TipsTabProps> = ({ energySavingTips }) => {
         <Card className="p-6 hover:shadow-xl transition-all duration-300 border-l-4 border-l-energy-green-light">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-energy-green-light/10 dark:bg-energy-green-light/5 rounded-lg">
-              <Lightbulb className="h-5 w-5 text-energy-green-dark dark:text-energy-green-light" />
+              <Lightbulb className="h-5 w-5 text-energy-600 dark:text-energy-green-light" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground dark:text-gray-400">

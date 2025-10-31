@@ -47,7 +47,7 @@ const CalculatorTab: React.FC<CalculatorTabProps> = ({ onAddAppliance }) => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl">
+              <div className="p-4 bg-gradient-to-r from-blue-900/20 to-blue-700/20 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl">
                 <div className="flex items-center gap-3 mb-2">
                   <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   <h4 className="font-semibold text-blue-800 dark:text-blue-200">
@@ -58,12 +58,12 @@ const CalculatorTab: React.FC<CalculatorTabProps> = ({ onAddAppliance }) => {
                   O consumo mensal em quilowatt-hora (kWh) é calculado pela
                   fórmula:
                 </p>
-                <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-blue-200 dark:border-blue-700 font-mono text-sm">
+                <div className="bg-background p-3 rounded-lg border border-border font-mono text-sm">
                   Consumo = (Potência × Horas de uso × Dias) ÷ 1000
                 </div>
               </div>
 
-              <div className="p-4 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl">
+              <div className="p-4 bg-gradient-to-r from-green-900/20 to-green-800/20 dark:from-green-900/20 dark:to-green-800/20 rounded-xl">
                 <div className="flex items-center gap-3 mb-2">
                   <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
                   <h4 className="font-semibold text-green-800 dark:text-green-200">
@@ -74,19 +74,19 @@ const CalculatorTab: React.FC<CalculatorTabProps> = ({ onAddAppliance }) => {
                   O custo mensal é calculado multiplicando o consumo pela tarifa
                   de energia:
                 </p>
-                <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-green-200 dark:border-green-700 font-mono text-sm">
+                <div className="bg-background p-3 rounded-lg border border-border font-mono text-sm">
                   Custo = Consumo (kWh) × Tarifa (R$/kWh)
                 </div>
               </div>
 
-              <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl border border-yellow-200 dark:border-yellow-700">
+              <div className="p-4 bg-gradient-to-r from-yellow-400/20 to-orange-400/20 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl border border-yellow-500 dark:border-yellow-700">
                 <div className="flex items-center gap-3 mb-3">
                   <Lightbulb className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
                   <h4 className="font-semibold text-yellow-800 dark:text-yellow-200">
                     Exemplo Prático
                   </h4>
                 </div>
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-yellow-200 dark:border-yellow-700">
+                <div className="bg-background p-4 rounded-lg border border-border">
                   <p className="text-gray-700 dark:text-gray-300 text-sm mb-3">
                     Para um <strong>ar-condicionado de 1400W</strong>, utilizado{" "}
                     <strong>6 horas por dia</strong>, durante{" "}
@@ -113,7 +113,7 @@ const CalculatorTab: React.FC<CalculatorTabProps> = ({ onAddAppliance }) => {
                 </div>
               </div>
 
-              <div className="p-4 bg-gradient-to-r from-energy-green-light/10 to-energy-green-dark/10 dark:from-energy-green-light/5 dark:to-energy-green-dark/5 rounded-xl border border-energy-green-light/20 dark:border-energy-green-light/10">
+              <div className="p-4 bg-gradient-to-r from-energy-green-light/20 to-energy-900/20 dark:from-energy-green-light/5 dark:to-energy-green-dark/5 rounded-xl border border-energy-green-light/20 dark:border-energy-green-light/10">
                 <div className="flex items-center gap-3 mb-2">
                   <TrendingUp className="h-5 w-5 text-energy-green-dark dark:text-energy-green-light" />
                   <h4 className="font-semibold text-energy-green-dark dark:text-energy-green-light">
@@ -128,7 +128,6 @@ const CalculatorTab: React.FC<CalculatorTabProps> = ({ onAddAppliance }) => {
               </div>
             </CardContent>
           </Card>
-
         </div>
       </div>
     </div>

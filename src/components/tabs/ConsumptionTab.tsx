@@ -114,13 +114,13 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
   }, [consumptionData, activeAppliance]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 ">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="p-6 hover:shadow-xl transition-all duration-300 border-l-4 border-l-energy-green-light">
+        <Card className="p-6 hover:shadow-xl transition-all duration-300 border-l-4 border-l-energy-orange">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-3">
-              <div className="p-2 bg-energy-green-light/10 dark:bg-energy-green-light/5 rounded-lg">
-                <Zap className="h-5 w-5 text-energy-green-dark dark:text-energy-green-light" />
+              <div className="p-2 bg-energy-orange/10 dark:bg-orange/5 rounded-lg">
+                <Zap className="h-5 w-5 text-energy-orange dark:text-energy-orange" />
               </div>
               Consumo Atual
             </CardTitle>
@@ -485,7 +485,7 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
         </Card>
 
         {/* Analysis Card */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-slate-700">
+        <div className="bg-background p-6 rounded-2xl shadow-lg border border-border">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-3 bg-energy-green-light/10 rounded-xl">
               <Zap className="h-6 w-6 text-energy-green-dark" />

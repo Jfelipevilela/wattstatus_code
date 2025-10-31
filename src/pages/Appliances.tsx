@@ -82,7 +82,7 @@ const Appliances = () => {
             <span className="font-semibold">Aparelhos</span>
           </div>
         </header>
-        <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+        <div className="flex flex-col min-h-screen bg-background dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
           <main className="flex-grow container mx-auto px-4 pt-6 pb-10">
             <AppliancesTab
               appliances={appliances}

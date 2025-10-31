@@ -36,7 +36,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="light" storageKey="wattstatus-ui-theme">
+    <ThemeProvider defaultTheme="system" storageKey="wattstatus-ui-theme">
       <TooltipProvider>
         <Toaster />
         <Sonner />

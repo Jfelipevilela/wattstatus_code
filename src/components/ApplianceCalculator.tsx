@@ -332,7 +332,7 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
                         className="w-full"
                       />
                       {isOpen && filteredDevices.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
+                        <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto">
                           {filteredDevices.map((device, index) => (
                             <div
                               key={index}

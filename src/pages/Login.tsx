@@ -47,7 +47,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
         {/* Logo and Header */}
         <div className="text-center">
@@ -65,7 +65,7 @@ const Login = () => {
         </div>
 
         {/* Login Card */}
-        <Card className="shadow-xl border-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm">
+        <Card className="shadow-xl border-0 bg-background/80 backdrop-blur-sm">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center text-energy-800 dark:text-energy-100">
               Entrar na sua conta
@@ -165,13 +165,13 @@ const Login = () => {
 
         {/* Features Preview */}
         <div className="grid grid-cols-2 gap-4 text-center">
-          <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-lg p-4 shadow-sm">
+          <div className="bg-background/60 backdrop-blur-sm rounded-lg p-4 shadow-sm">
             <Leaf className="h-6 w-6 text-energy-500 dark:text-energy-400 mx-auto mb-2" />
             <p className="text-xs text-energy-700 dark:text-energy-300 font-medium">
               Monitoramento Sustentável
             </p>
           </div>
-          <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-lg p-4 shadow-sm">
+          <div className="bg-background/60 backdrop-blur-sm rounded-lg p-4 shadow-sm">
             <Zap className="h-6 w-6 text-energy-500 dark:text-energy-400 mx-auto mb-2" />
             <p className="text-xs text-energy-700 dark:text-energy-300 font-medium">
               Economia Inteligente

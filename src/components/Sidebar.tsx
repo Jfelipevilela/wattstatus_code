@@ -15,7 +15,16 @@ import {
   SidebarTrigger,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   BarChart3,
   TrendingUp,
@@ -28,8 +37,13 @@ import {
   LogOut,
   PlugZap,
   House,
+  MoreVertical,
+  Palette,
 } from "lucide-react";
 import { Button } from "./ui/button";
+import { ThemeToggle } from "./ThemeToggle";
+import { useTheme } from "@/hooks/use-theme";
+import { cn } from "@/lib/utils";
 
 const menuItems = [
   {
@@ -68,6 +82,7 @@ const menuItems = [
 export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { setTheme } = useTheme();
 
   const handleLogout = () => {
     localStorage.removeItem("wattstatus_user");
@@ -77,7 +92,6 @@ export function AppSidebar() {
   // Get user data from localStorage
   const userData = localStorage.getItem("wattstatus_user");
   const user = userData ? JSON.parse(userData) : null;
-
   return (
     <ShadcnSidebar>
       <SidebarHeader>
@@ -92,7 +106,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-energy-800 dark:text-white">
+          <SidebarGroupLabel className="text-energy-800 dark:text-white ">
             Navegação
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -102,6 +116,12 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     onClick={() => navigate(item.url)}
                     isActive={location.pathname === item.url}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2 text-base rounded-md transition-colors duration-200",
+                      location.pathname === item.url
+                        ? " text-energy-green-light font-semibold dark:bg-sidebar-accent border-l-4 border-l-energy-green-light  dark:text-energy-green-light font-semibold"
+                        : "hover:bg-energy-200 dark:hover:bg-sidebar-accent text-black dark:text-sidebar-accent-foreground"
+                    )}
                   >
                     <item.icon />
                     <span>{item.title}</span>
@@ -129,27 +149,49 @@ export function AppSidebar() {
                 {user?.email || "usuario@email.com"}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 p-1"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
-
-          {/* Home Button and Theme Toggle aligned to right */}
-          <div className="flex items-center justify-end gap-2 mt-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/")}
-              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
-            >
-              <House className="w-4 h-4" />
-            </Button>
-            <ThemeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-950 p-1"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onClick={() => navigate("/")}
+                  className="hover:bg-blue-100"
+                >
+                  <Home className="w-4 h-4 mr-2 text-blue-600" />
+                  Página Inicial
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Palette className="w-4 h-4 mr-2 text-purple-600" />
+                    Tema
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem onClick={() => setTheme("light")}>
+                      Claro
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setTheme("dark")}>
+                      Escuro
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setTheme("system")}>
+                      Sistema
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="w-4 h-4 mr-2 text-red-600 " />
+                  Sair
+                </DropdownMenuItem>{" "}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </SidebarFooter>

@@ -1,19 +1,6 @@
-import React, { useState } from "react";
 import ApplianceCard from "@/components/ApplianceCard";
-import {
-  Plus,
-  Zap,
-  Settings,
-  TrendingUp,
-  Grid3X3,
-  List,
-  OctagonAlert,
-  OctagonX,
-  CircleX,
-  CircleAlert,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -22,8 +9,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertTriangle, CheckCircle, Edit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  CheckCircle,
+  CircleAlert,
+  CircleX,
+  Edit,
+  Grid3X3,
+  List,
+  Plus,
+  Settings,
+  Trash2,
+  TrendingUp,
+  Zap
+} from "lucide-react";
+import React, { useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 interface Appliance {
@@ -92,7 +92,7 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 bg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
         <Card className="p-6 hover:shadow-xl transition-all duration-300 border-l-4 border-l-energy-green-light ">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-energy-green-light/10 dark:bg-energy-green-light/5 rounded-lg">
@@ -161,13 +161,13 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
       {/* View Toggle */}
       {appliances.length > 0 && (
         <div className="flex justify-center mb-6 p-4 rounded-lg">
-          <div className="flex flex-col sm:flex-row rounded-lg gap-2 p-1 shadow-sm">
+          <div className="flex flex-col sm:flex-row rounded-lg gap-2 p-1 shadow-sm w-full max-w-xs">
             <Button
               variant={viewMode === "cards" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("cards")}
               className={cn(
-                "flex items-center gap-2 hover:bg-energy-400",
+                "flex items-center gap-2 hover:bg-energy-400 flex-1",
                 viewMode === "cards" && "bg-energy-green-light"
               )}
             >
@@ -179,7 +179,7 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
               size="sm"
               onClick={() => setViewMode("list")}
               className={cn(
-                "flex items-center gap-2 hover:bg-energy-400",
+                "flex items-center gap-2 hover:bg-energy-400 flex-1",
                 viewMode === "list" && "bg-energy-green-light"
               )}
             >
@@ -193,7 +193,7 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
       {/* Appliances Display */}
       {appliances.length > 0 ? (
         viewMode === "cards" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6  ">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {appliances.map((appliance) => (
               <ApplianceCard
                 key={appliance.id}
@@ -211,7 +211,7 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
           </div>
         ) : (
           <Card className="bg-white dark:bg-muted">
-            <div className="overflow-x-auto">
+            <div className="">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -230,7 +230,7 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
                       key={appliance.id}
                       className={cn(
                         appliance.status === "critical" &&
-                          "animate-pulse bg-red-50 dark:bg-red-900/10"
+                          "animate-pulse bg-red-900/20 dark:bg-red-900/20"
                       )}
                     >
                       <TableCell className="font-medium">
@@ -331,7 +331,7 @@ const AppliancesTab: React.FC<AppliancesTabProps> = ({
           </Card>
         )
       ) : (
-        <Card className="p-12 text-center bg-white dark:bg-slate-800">
+        <Card className="p-12 text-center bg-white">
           <div className="max-w-md mx-auto">
             <div className="w-24 h-24 bg-gradient-to-br from-energy-green-light to-energy-blue-dark rounded-full flex items-center justify-center mx-auto mb-6">
               <Zap className="h-12 w-12 text-white" />

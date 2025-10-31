@@ -56,7 +56,7 @@ const IndicatorsTab: React.FC<IndicatorsTabProps> = ({
   }, [saveCurrentMonthData]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 ">
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2 ">
           Indicadores de Performance
@@ -66,7 +66,7 @@ const IndicatorsTab: React.FC<IndicatorsTabProps> = ({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg">
         <Card className="p-6 hover:shadow-xl transition-all duration-300 border-l-4 border-l-energy-green-light">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-3">
