@@ -1,5 +1,9 @@
+// Fallback to same-origin /api (Netlify rewrite) when VITE_API_BASE_URL is not set
 const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+  import.meta.env.VITE_API_BASE_URL ||
+  (typeof window !== "undefined"
+    ? `${window.location.origin}/api`
+    : "http://localhost:4000");
 
 export class ApiError extends Error {
   status: number;

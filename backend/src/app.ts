@@ -49,7 +49,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
   const authService = new AuthService(db);
   const applianceService = new ApplianceService(db);
 
-  app.get("/health", (_req, res) => {
+  app.get(["/health", "/api/health"], (_req, res) => {
     res.json({
       status: "ok",
       version: "v1",
