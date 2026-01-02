@@ -33,33 +33,13 @@ import {
 } from "lucide-react";
 import React, { useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-
-interface Appliance {
-  id: number;
-  name: string;
-  power: number;
-  status: "critical" | "normal" | "warning";
-  usageHours: number;
-  monthlyCost: number;
-  monthlyConsumption: number;
-  tariff: string;
-  createdAt: string;
-}
+import { Appliance, ApplianceInput } from "@/hooks/useAppliances";
 
 interface AppliancesTabProps {
   appliances: Appliance[];
   onEdit: (appliance: Appliance) => void;
   onDelete: (appliance: Appliance) => void;
-  onAddAppliance: (appliance: {
-    id: number;
-    name: string;
-    power: number;
-    status: "critical" | "normal" | "warning";
-    usageHours: number;
-    monthlyCost: number;
-    tariff: string;
-    createdAt: string;
-  }) => void;
+  onAddAppliance: (appliance: ApplianceInput) => Promise<void>;
   onNavigateToCalculator: () => void;
 }
 

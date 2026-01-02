@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useAppliances, Appliance } from "@/hooks/useAppliances";
+import { useAppliances, Appliance, ApplianceInput } from "@/hooks/useAppliances";
 
 const Appliances = () => {
   const { appliances, addAppliance, updateAppliance, deleteAppliance } =
@@ -29,8 +29,8 @@ const Appliances = () => {
   );
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  function handleAddAppliance(appliance: Appliance): void {
-    addAppliance(appliance);
+  async function handleAddAppliance(appliance: ApplianceInput): Promise<void> {
+    await addAppliance(appliance);
   }
 
   const openEditModal = (appliance: Appliance) => {
@@ -43,8 +43,11 @@ const Appliances = () => {
     setIsEditModalOpen(false);
   };
 
-  const handleSaveEditedAppliance = (updatedAppliance: Appliance) => {
-    updateAppliance(updatedAppliance);
+  const handleSaveEditedAppliance = async (
+    id: string,
+    updates: Partial<ApplianceInput>
+  ) => {
+    await updateAppliance(id, updates);
   };
 
   const [deleteApplianceModal, setDeleteApplianceModal] =

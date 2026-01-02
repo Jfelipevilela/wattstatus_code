@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   AreaChart,
@@ -26,41 +26,20 @@ import {
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
 import Icon from "@/components/logo_wattstatus_icon.png";
+import { useAuth } from "@/hooks/useAuth";
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState("");
   const navigate = useNavigate();
   const { setTheme } = useTheme();
-
-  useEffect(() => {
-    const checkAuth = () => {
-      const user = localStorage.getItem("wattstatus_user");
-      if (user) {
-        const userData = JSON.parse(user);
-        setIsLoggedIn(userData.isLoggedIn);
-        setUserName(userData.name || userData.email);
-      } else {
-        setIsLoggedIn(false);
-        setUserName("");
-      }
-    };
-
-    checkAuth();
-    // Listen for storage changes
-    window.addEventListener("storage", checkAuth);
-    return () => window.removeEventListener("storage", checkAuth);
-  }, []);
+  const { user, logout } = useAuth();
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("wattstatus_user");
-    setIsLoggedIn(false);
-    setUserName("");
+  const handleLogout = async () => {
+    await logout();
     navigate("/");
     setMobileMenuOpen(false);
   };
@@ -81,7 +60,7 @@ const Navbar = () => {
         </Link>
 
         <div className="hidden md:flex items-center gap-6">
-          {isLoggedIn ? (
+          {user ? (
             <>
               <Link
                 to="/dashboard"
@@ -93,7 +72,9 @@ const Navbar = () => {
               <div className="flex items-center gap-3 ml-4 pl-4 border-l border-energy-blue-light">
                 <div className="flex items-center gap-2 text-energy-100">
                   <User className="h-4 w-4" />
-                  <span className="text-sm">{userName}</span>
+                  <span className="text-sm">
+                    {user?.name || user?.email || "Usuario"}
+                  </span>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

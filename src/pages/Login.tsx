@@ -13,6 +13,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Leaf, Zap } from "lucide-react";
 import Icon from "@/components/logo_wattstatus_icon.png";
+import { useAuth } from "@/hooks/useAuth";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -21,6 +22,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,16 +36,15 @@ const Login = () => {
       return;
     }
 
-    // Simulate API call
-    setTimeout(() => {
-      // For demo purposes, accept any email/password combination
-      localStorage.setItem(
-        "wattstatus_user",
-        JSON.stringify({ email, isLoggedIn: true })
-      );
+    try {
+      await login(email, password);
       navigate("/dashboard");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro ao entrar.";
+      setError(message);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (

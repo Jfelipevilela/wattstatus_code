@@ -16,90 +16,111 @@ import Calculadora from "./pages/Calculator";
 import Appliances from "./pages/Appliances";
 import Anomalies from "./pages/Anomalies";
 import Tips from "./pages/Tips";
+import SmartThings from "./pages/SmartThings";
+import Apps from "./pages/Apps";
+import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { AppsProvider } from "./hooks/useApps";
+import { UserPreferencesProvider } from "./hooks/useUserPreferences";
 
 const queryClient = new QueryClient();
 
-// Simple auth check
-const isAuthenticated = () => {
-  const user = localStorage.getItem("wattstatus_user");
-  if (user) {
-    const userData = JSON.parse(user);
-    return userData.isLoggedIn;
-  }
-  return false;
-};
-
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  return isAuthenticated() ? <>{children}</> : <Navigate to="/login" replace />;
+  const { token, user, loading } = useAuth();
+  if (loading) {
+    return <div className="p-8 text-center text-sm">Carregando...</div>;
+  }
+  return user || token ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="system" storageKey="wattstatus-ui-theme">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/relatorios"
-              element={
-                <ProtectedRoute>
-                  <Reports />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/calculadora"
-              element={
-                <ProtectedRoute>
-                  <Calculadora />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/aparelhos"
-              element={
-                <ProtectedRoute>
-                  <Appliances />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/anomalias"
-              element={
-                <ProtectedRoute>
-                  <Anomalies />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dicas"
-              element={
-                <ProtectedRoute>
-                  <Tips />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/sobre" element={<Sobre />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <UserPreferencesProvider>
+        <AppsProvider>
+          <ThemeProvider defaultTheme="system">
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<SignUp />} />
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <Dashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/relatorios"
+                    element={
+                      <ProtectedRoute>
+                        <Reports />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/calculadora"
+                    element={
+                      <ProtectedRoute>
+                        <Calculadora />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/aparelhos"
+                    element={
+                      <ProtectedRoute>
+                        <Appliances />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/anomalias"
+                    element={
+                      <ProtectedRoute>
+                        <Anomalies />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/dicas"
+                    element={
+                      <ProtectedRoute>
+                        <Tips />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/integracoes/smartthings"
+                    element={
+                      <ProtectedRoute>
+                        <SmartThings />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/apps"
+                    element={
+                      <ProtectedRoute>
+                        <Apps />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/sobre" element={<Sobre />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </ThemeProvider>
+        </AppsProvider>
+      </UserPreferencesProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

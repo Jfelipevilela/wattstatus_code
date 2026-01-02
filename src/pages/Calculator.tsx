@@ -7,13 +7,13 @@ import {
 import { SidebarInset } from "@/components/ui/sidebar";
 import CalculatorTab from "@/components/tabs/CalculatorTab";
 import { Calculator } from "lucide-react";
-import { useAppliances, Appliance } from "@/hooks/useAppliances";
+import { useAppliances, ApplianceInput } from "@/hooks/useAppliances";
 
 const Calculadora = () => {
   const { addAppliance } = useAppliances();
 
-  function handleAddAppliance(appliance: Appliance): void {
-    addAppliance(appliance);
+  async function handleAddAppliance(appliance: ApplianceInput): Promise<void> {
+    await addAppliance(appliance);
   }
 
   return (

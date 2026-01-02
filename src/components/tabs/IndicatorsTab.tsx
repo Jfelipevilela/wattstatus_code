@@ -201,31 +201,50 @@ const IndicatorsTab: React.FC<IndicatorsTabProps> = ({
                 <LineChart
                   data={historicalData.slice(-6)}
                   margin={{
-                    top: 20,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
+                    top: 10,
+                    right: 24,
+                    left: 8,
+                    bottom: 10,
                   }}
                 >
+                  <defs>
+                    <linearGradient id="grad-consumption" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 6" stroke="#e5e7eb" vertical={false} />
                   <XAxis
                     dataKey="month"
                     tick={{ fontSize: 12 }}
-                    angle={-45}
+                    angle={-30}
                     textAnchor="end"
-                    height={80}
+                    height={50}
+                    tickLine={false}
+                    axisLine={false}
                   />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                   <Tooltip
-                    formatter={(value: number) => [`${value} kWh`, "Consumo"]}
+                    formatter={(value: number) => [`${value.toFixed(1)} kWh`, "Consumo"]}
                     labelFormatter={(label) => `${label}`}
+                    cursor={{ stroke: "#cbd5e1", strokeDasharray: "4 4" }}
                   />
                   <Line
                     type="monotone"
                     dataKey="consumption"
-                    stroke="#2196F3"
+                    stroke="#2563eb"
                     strokeWidth={3}
-                    dot={{ fill: "#2196F3", strokeWidth: 2, r: 6 }}
-                    activeDot={{ r: 8, stroke: "#2196F3", strokeWidth: 2 }}
+                    dot={{ fill: "#2563eb", strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 8, stroke: "#2563eb", strokeWidth: 2 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="consumption"
+                    stroke="url(#grad-consumption)"
+                    strokeWidth={10}
+                    opacity={0.18}
+                    dot={false}
+                    isAnimationActive={false}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -249,35 +268,53 @@ const IndicatorsTab: React.FC<IndicatorsTabProps> = ({
                 <LineChart
                   data={historicalData.slice(-6)}
                   margin={{
-                    top: 20,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
+                    top: 10,
+                    right: 24,
+                    left: 8,
+                    bottom: 10,
                   }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <defs>
+                    <linearGradient id="grad-cost" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 6" stroke="#e5e7eb" vertical={false} />
                   <XAxis
                     dataKey="month"
                     tick={{ fontSize: 12 }}
-                    angle={-45}
+                    angle={-30}
                     textAnchor="end"
-                    height={80}
+                    height={50}
+                    tickLine={false}
+                    axisLine={false}
                   />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                   <Tooltip
                     formatter={(value: number) => [
                       `R$ ${value.toFixed(2)}`,
                       "Custo",
                     ]}
                     labelFormatter={(label) => `${label}`}
+                    cursor={{ stroke: "#cbd5e1", strokeDasharray: "4 4" }}
                   />
                   <Line
                     type="monotone"
                     dataKey="cost"
-                    stroke="#4CAF50"
+                    stroke="#22c55e"
                     strokeWidth={3}
-                    dot={{ fill: "#4CAF50", strokeWidth: 2, r: 6 }}
-                    activeDot={{ r: 8, stroke: "#4CAF50", strokeWidth: 2 }}
+                    dot={{ fill: "#22c55e", strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 8, stroke: "#22c55e", strokeWidth: 2 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="cost"
+                    stroke="url(#grad-cost)"
+                    strokeWidth={10}
+                    opacity={0.18}
+                    dot={false}
+                    isAnimationActive={false}
                   />
                 </LineChart>
               </ResponsiveContainer>
