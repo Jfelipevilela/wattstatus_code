@@ -102,10 +102,25 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
     return new Date(year, month, 0).getDate();
   };
 
+  const isSameMonthAndYear = (
+    appliance: Appliance,
+    month: number,
+    year: number
+  ) => {
+    const createdAt = appliance.createdAt ? new Date(appliance.createdAt) : null;
+    if (!createdAt || Number.isNaN(createdAt.getTime())) {
+      return false;
+    }
+
+    return (
+      createdAt.getMonth() + 1 === month && createdAt.getFullYear() === year
+    );
+  };
+
   const generateReport = async () => {
     if (!selectedMonth || !selectedYear) {
       toast({
-        title: "Erro",
+        title: "Erro ao gerar relatório",
         description: "Selecione mês e ano para gerar o relatório.",
         variant: "destructive",
       });
@@ -121,10 +136,12 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
     const year = parseInt(selectedYear);
     const daysInMonth = getDaysInMonth(month, year);
 
-    const filteredAppliances =
-      selectedAppliance === "all"
-        ? appliances
-        : appliances.filter((app) => app.id === selectedAppliance);
+    const filteredAppliances = appliances.filter((app) => {
+      const matchesPeriod = isSameMonthAndYear(app, month, year);
+      const matchesAppliance =
+        selectedAppliance === "all" || app.id === selectedAppliance;
+      return matchesPeriod && matchesAppliance;
+    });
 
     const data: ReportData[] = filteredAppliances.map((appliance) => {
       const tariffValue =
@@ -158,8 +175,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
   const exportToPDF = async () => {
     if (reportData.length === 0) {
       toast({
-        title: "Erro",
-        description: "Gere um relatório primeiro antes de exportar.",
+        title: "Erro na exportação",
+        description: "Gere um relatório antes de exportar.",
         variant: "destructive",
       });
       return;

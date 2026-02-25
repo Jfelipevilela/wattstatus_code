@@ -9,6 +9,7 @@ export const applianceInputSchema = z.object({
   measuredConsumptionKWh: z.number().positive().optional(),
   integrationProvider: z.string().optional(),
   integrationDeviceId: z.string().optional(),
+  createdAt: z.string().optional(),
 });
 
 export const applianceUpdateSchema = applianceInputSchema.partial();

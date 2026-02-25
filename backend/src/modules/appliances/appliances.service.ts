@@ -7,6 +7,17 @@ import { calculateAppliance } from "../calculations/calculation.service";
 export class ApplianceService {
   constructor(private db: PostgresDatabase) {}
 
+  private resolveCreatedAt(timestamp?: string) {
+    if (!timestamp) return new Date().toISOString();
+
+    const parsed = new Date(timestamp);
+    if (Number.isNaN(parsed.getTime())) {
+      return new Date().toISOString();
+    }
+
+    return parsed.toISOString();
+  }
+
   list(userId: string) {
     return this.db.listAppliances(userId);
   }
@@ -25,7 +36,7 @@ export class ApplianceService {
       monthlyCost: calc.cost,
       monthlyConsumption: calc.consumptionKWh,
       tariff: input.tariff,
-      createdAt: new Date().toISOString(),
+      createdAt: this.resolveCreatedAt(input.createdAt),
       measuredConsumptionKWh: input.measuredConsumptionKWh,
       integrationProvider: input.integrationProvider,
       integrationDeviceId: input.integrationDeviceId,

@@ -32,6 +32,9 @@ export interface CalculationInput {
   days: number;
   tariff: string;
   measuredConsumptionKWh?: number;
+  integrationProvider?: string;
+  integrationDeviceId?: string;
+  createdAt?: string;
 }
 
 export interface CalculationResult {

@@ -19,7 +19,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { toast } from "@/components/ui/use-toast";
 import { useAppliances, Appliance, ApplianceInput } from "@/hooks/useAppliances";
+import { notifyError } from "@/lib/error-toast";
 
 const Appliances = () => {
   const { appliances, addAppliance, updateAppliance, deleteAppliance } =
@@ -61,10 +63,22 @@ const Appliances = () => {
     setDeleteApplianceModal(null);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (deleteApplianceModal) {
-      deleteAppliance(deleteApplianceModal.id);
-      closeDeleteModal();
+      try {
+        const applianceName = deleteApplianceModal.name;
+        await deleteAppliance(deleteApplianceModal.id);
+        toast({
+          title: "Aparelho excluído com sucesso!",
+          description: `${applianceName} foi removido da sua lista.`,
+        });
+        closeDeleteModal();
+      } catch (err) {
+        notifyError(err, {
+          title: "Erro ao excluir aparelho",
+          fallbackMessage: "Não foi possível excluir o aparelho.",
+        });
+      }
     }
   };
 
@@ -109,7 +123,7 @@ const Appliances = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir o aparelho{" "}
               <strong>{deleteApplianceModal?.name}</strong>? Esta ação é

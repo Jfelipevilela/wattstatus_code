@@ -5,7 +5,9 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { apiRequest } from "@/lib/api";
+import { ApiError, apiRequest } from "@/lib/api";
+import { notifyError } from "@/lib/error-toast";
+import { toast } from "@/components/ui/use-toast";
 
 interface User {
   id: string;
@@ -41,12 +43,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const data = await apiRequest<{ user: User }>(
           "/api/auth/me",
-          { method: "GET" },
+          { method: "GET", skipErrorToast: true },
           activeToken
         );
         setUser(data.user);
         setToken(activeToken || null);
       } catch (err) {
+        if (!(err instanceof ApiError && err.status === 401)) {
+          notifyError(err, {
+            title: "Erro ao validar sessão",
+            fallbackMessage: "Não foi possível validar sua sessão.",
+          });
+        }
         setUser(null);
         setToken(null);
       } finally {
@@ -100,15 +108,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
+    const shouldNotifyLogout = Boolean(user || token);
     setLoading(true);
     try {
-      await apiRequest("/api/auth/logout", { method: "POST" }, token || undefined);
+      await apiRequest(
+        "/api/auth/logout",
+        { method: "POST", skipErrorToast: true },
+        token || undefined
+      );
     } catch {
       // ignore logout errors to avoid trapping user
     } finally {
       setUser(null);
       setToken(null);
       setLoading(false);
+      if (shouldNotifyLogout) {
+        toast({
+          title: "Logout realizado com sucesso!",
+          description: "Você saiu da sua conta.",
+        });
+      }
     }
   };
 

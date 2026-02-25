@@ -27,6 +27,7 @@ export interface ApplianceInput {
   measuredConsumptionKWh?: number;
   integrationProvider?: string;
   integrationDeviceId?: string;
+  createdAt?: string;
 }
 
 export const useAppliances = () => {
@@ -63,9 +64,13 @@ export const useAppliances = () => {
 
   const addAppliance = async (input: ApplianceInput) => {
     if (!user) throw new Error("N\u00e3o autenticado");
+    const payload: ApplianceInput = {
+      ...input,
+      createdAt: input.createdAt || new Date().toISOString(),
+    };
     const data = await apiRequest<{ appliance: Appliance }>(
       "/api/appliances",
-      { method: "POST", body: JSON.stringify(input) },
+      { method: "POST", body: JSON.stringify(payload) },
       token || undefined
     );
     setAppliances((prev) => [data.appliance, ...prev]);

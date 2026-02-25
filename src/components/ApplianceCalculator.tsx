@@ -24,6 +24,7 @@ import * as z from "zod";
 import { toast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { Appliance } from "@/hooks/useAppliances";
+import { notifyError } from "@/lib/error-toast";
 
 // Tarifas por estado (valores aproximados em R$/kWh - 2024)
 const STATE_TARIFFS = {
@@ -73,9 +74,7 @@ const applianceFormSchema = z.object({
 type ApplianceFormValues = z.infer<typeof applianceFormSchema>;
 
 interface ApplianceCalculatorProps {
-  onAddAppliance: (
-    appliance: ApplianceFormValues
-  ) => Promise<Appliance | void>;
+  onAddAppliance: (appliance: ApplianceFormValues) => Promise<Appliance | void>;
 }
 
 const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
@@ -120,14 +119,14 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
         const position = await new Promise<GeolocationPosition>(
           (resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject);
-          }
+          },
         );
 
         const { latitude, longitude } = position.coords;
 
         // Use a reverse geocoding service to get state from coordinates
         const response = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=pt`
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=pt`,
         );
         const data = await response.json();
 
@@ -213,7 +212,7 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
 
       toast({
         title: "Aparelho adicionado com sucesso!",
-        description: `${values.name} foi adicionado a sua lista.`,
+        description: `${values.name} foi adicionado à sua lista.`,
       });
 
       form.reset({
@@ -227,12 +226,9 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
       setSearchTerm("");
       setIsOpen(false);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao adicionar aparelho";
-      toast({
-        title: "Erro",
-        description: message,
-        variant: "destructive",
+      notifyError(err, {
+        title: "Erro ao adicionar aparelho",
+        fallbackMessage: "Erro ao adicionar aparelho.",
       });
     } finally {
       setIsSubmitting(false);
@@ -272,7 +268,7 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
   }, [form.watch]);
 
   const filteredDevices = commonDevices.filter((device) =>
-    device.name.toLowerCase().includes(searchTerm.toLowerCase())
+    device.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const selectDevice = (device: (typeof commonDevices)[0]) => {
@@ -371,6 +367,7 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
                         type="number"
                         placeholder="Ex: 5"
                         step="0.1"
+                        min="0.1"
                         {...field}
                         onChange={(e) =>
                           field.onChange(parseFloat(e.target.value))
@@ -391,6 +388,7 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
                       <Input
                         type="number"
                         placeholder="Ex: 30"
+                        min="1"
                         {...field}
                         onChange={(e) =>
                           field.onChange(parseInt(e.target.value))
