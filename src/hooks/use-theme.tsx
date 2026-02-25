@@ -1,11 +1,11 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { useUserPreferences } from "./useUserPreferences";
 
 type Theme = "dark" | "light" | "system";
 
 type ThemeProviderProps = {
   children: React.ReactNode;
   defaultTheme?: Theme;
-  storageKey?: string;
 };
 
 type ThemeProviderState = {
@@ -23,12 +23,16 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 export function ThemeProvider({
   children,
   defaultTheme = "system",
-  storageKey = "wattstatus-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
+  const { preferences, updatePreferences } = useUserPreferences();
+  const [theme, setThemeState] = useState<Theme>(
+    preferences.theme || defaultTheme
   );
+
+  useEffect(() => {
+    setThemeState(preferences.theme || defaultTheme);
+  }, [preferences.theme, defaultTheme]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -51,8 +55,10 @@ export function ThemeProvider({
   const value = {
     theme,
     setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
-      setTheme(theme);
+      setThemeState(theme);
+      updatePreferences({ theme }).catch(() => {
+        // prefer manter o tema local mesmo se a API falhar
+      });
     },
   };
 

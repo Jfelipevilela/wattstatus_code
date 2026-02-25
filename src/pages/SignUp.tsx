@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Leaf, Zap, Battery } from "lucide-react";
 import Icon from "@/components/logo_wattstatus_icon.png";
+import { useAuth } from "@/hooks/useAuth";
 
 const SignUp = () => {
   const [formData, setFormData] = useState({
@@ -28,6 +29,7 @@ const SignUp = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { register } = useAuth();
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -66,20 +68,21 @@ const SignUp = () => {
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      // For demo purposes, create user account
-      localStorage.setItem(
-        "wattstatus_user",
-        JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          isLoggedIn: true,
-        })
+    try {
+      await register(
+        formData.name,
+        formData.email,
+        formData.password,
+        formData.confirmPassword
       );
       navigate("/dashboard");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Erro ao criar conta.";
+      setError(message);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (

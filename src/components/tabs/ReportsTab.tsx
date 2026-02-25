@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { Appliance } from "@/hooks/useAppliances";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ReportsTabProps {
   appliances: Appliance[];
@@ -57,9 +58,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [generationTime, setGenerationTime] = useState<string>("");
 
-  // Get user data
-  const userData = localStorage.getItem("wattstatus_user");
-  const user = userData ? JSON.parse(userData) : null;
+  const { user } = useAuth();
 
   // Tarifas por estado
   const STATE_TARIFFS = {
@@ -125,7 +124,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
     const filteredAppliances =
       selectedAppliance === "all"
         ? appliances
-        : appliances.filter((app) => app.id === parseInt(selectedAppliance));
+        : appliances.filter((app) => app.id === selectedAppliance);
 
     const data: ReportData[] = filteredAppliances.map((appliance) => {
       const tariffValue =
@@ -340,10 +339,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
                 <SelectContent>
                   <SelectItem value="all">Todos os aparelhos</SelectItem>
                   {appliances.map((appliance) => (
-                    <SelectItem
-                      key={appliance.id}
-                      value={appliance.id.toString()}
-                    >
+                    <SelectItem key={appliance.id} value={appliance.id}>
                       {appliance.name}
                     </SelectItem>
                   ))}

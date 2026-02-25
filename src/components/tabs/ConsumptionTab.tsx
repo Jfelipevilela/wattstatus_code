@@ -62,6 +62,8 @@ interface ConsumptionTabProps {
   consumptionData: any[];
   selectedMonth: number;
   setSelectedMonth: (month: number) => void;
+  historicalData?: any[];
+  dailyTrendData?: Array<{ day: string; values: Record<string, number> }>;
 }
 
 const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
@@ -72,10 +74,16 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
   consumptionData,
   selectedMonth,
   setSelectedMonth,
+  historicalData = [],
+  dailyTrendData = [],
 }) => {
   const [activeAppliance, setActiveAppliance] = useState<string>(
     consumptionData.length > 0 ? consumptionData[0].name : ""
   );
+  const daysInMonth = useMemo(() => {
+    const year = new Date().getFullYear();
+    return new Date(year, selectedMonth, 0).getDate();
+  }, [selectedMonth]);
 
   const months = [
     { value: 1, label: "Janeiro" },
@@ -97,6 +105,59 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
     ...item,
     fill: `hsl(${index * 45}, 70%, 50%)`,
   }));
+
+  const topAppliances = useMemo(() => filteredData.slice(0, 5), [filteredData]);
+
+  const fallbackDailyTrend = useMemo(() => {
+    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    return days.map((day) => {
+      const entry: Record<string, any> = { day: `Dia ${day}` };
+      topAppliances.forEach((appliance) => {
+        const daily = appliance.consumo / daysInMonth;
+        entry[appliance.name] = Number(daily.toFixed(2));
+      });
+      return entry;
+    });
+  }, [daysInMonth, topAppliances]);
+
+  const resolvedDailyTrend = useMemo(() => {
+    if (dailyTrendData && dailyTrendData.length > 0) {
+      const totals = new Map<string, number>();
+      dailyTrendData.forEach((row) => {
+        Object.entries(row.values || {}).forEach(([name, minutes]) => {
+          totals.set(name, (totals.get(name) || 0) + Number(minutes || 0));
+        });
+      });
+      const devices = Array.from(totals.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name]) => name);
+      const rows = dailyTrendData.map((row) => {
+        const formatted: Record<string, number | string> = {
+          day: row.day.includes("-")
+            ? row.day.split("-").reverse().join("/")
+            : row.day,
+        };
+        devices.forEach((device) => {
+          formatted[device] = Number((row.values || {})[device] || 0);
+        });
+        return formatted;
+      });
+      return { rows, devices };
+    }
+    return {
+      rows: fallbackDailyTrend,
+      devices: topAppliances.map((item) => item.name),
+    };
+  }, [dailyTrendData, fallbackDailyTrend, topAppliances]);
+
+  const barColors = [
+    "var(--chart-1)",
+    "var(--chart-2)",
+    "var(--chart-3, #22c55e)",
+    "var(--chart-4, #eab308)",
+    "var(--chart-5, #ef4444)",
+  ];
 
   const activeIndex = useMemo(
     () => consumptionData.findIndex((item) => item.name === activeAppliance),
@@ -127,7 +188,7 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold text-energy-green-dark mb-2">
-              {totalConsumption}
+              {totalConsumption.toFixed(1)}
             </div>
             <p className="text-sm text-muted-foreground dark:text-gray-400">
               kWh/mês
@@ -202,7 +263,7 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
               <div className="p-2 bg-energy-blue-light/10 rounded-lg">
                 <BarChart3 className="h-5 w-5 text-blue-800" />
               </div>
-              Consumo por Aparelho (kWh/mês)
+              Consumo por Aparelho (kWh/mes)
             </CardTitle>
             <CardDescription>
               Consumo mensal por aparelho cadastrado
@@ -212,17 +273,31 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
             <ChartContainer
               config={{
                 consumo: {
-                  label: "Consumo (kWh):ㅤ",
+                  label: "Consumo (kWh)",
                   color: "var(--chart-1)",
-                },
-                custo: {
-                  label: "Custo (R$):ㅤ",
-                  color: "var(--chart-2)",
                 },
               }}
             >
               <BarChart accessibilityLayer data={filteredData}>
-                <CartesianGrid vertical={false} />
+                <defs>
+                  <linearGradient id="bar-consumo" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="0%"
+                      stopColor="var(--chart-1)"
+                      stopOpacity={0.85}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor="var(--chart-1)"
+                      stopOpacity={0.25}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  vertical={false}
+                  strokeDasharray="4 6"
+                  stroke="#e5e7eb"
+                />
                 <XAxis
                   dataKey="name"
                   tickLine={false}
@@ -231,20 +306,28 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
                   tickFormatter={(value) => value.slice(0, 10)}
                 />
                 <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent hideLabel />}
+                  cursor={{ fill: "var(--muted)", opacity: 0.12 }}
+                  content={
+                    <ChartTooltipContent
+                      hideLabel
+                      formatter={(value, _key, item) => {
+                        const cost = (item?.payload?.custo as number) ?? 0;
+                        return [
+                          `${Number(value).toFixed(1)} kWh · R$ ${Number(
+                            cost
+                          ).toFixed(2)}`,
+                          " ",
+                          item?.payload?.name || "",
+                        ];
+                      }}
+                    />
+                  }
                 />
                 <Bar
                   dataKey="consumo"
-                  fill="var(--chart-1)"
-                  radius={8}
+                  fill="url(#bar-consumo)"
+                  radius={[12, 12, 8, 8]}
                   name="Consumo (kWh)"
-                />
-                <Bar
-                  dataKey="custo"
-                  fill="var(--chart-2)"
-                  radius={8}
-                  name="Custo (R$)"
                 />
               </BarChart>
             </ChartContainer>
@@ -311,14 +394,36 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
               <RechartsPieChart>
                 <ChartTooltip
                   cursor={false}
-                  content={<ChartTooltipContent hideLabel />}
+                  content={
+                    <ChartTooltipContent
+                      hideLabel
+                      formatter={(value, _key, item) => {
+                        const pct =
+                          totalConsumption > 0
+                            ? `${(
+                                (Number(value) / totalConsumption) *
+                                100
+                              ).toFixed(1)}%`
+                            : "0%";
+                        return [
+                          `${Number(value).toFixed(1)} kWh • ${pct}`,
+                          " ",
+                          (item as any)?.name,
+                        ];
+                      }}
+                    />
+                  }
                 />
                 <Pie
                   data={consumptionData}
                   dataKey="consumo"
                   nameKey="name"
-                  innerRadius={60}
-                  strokeWidth={5}
+                  innerRadius={70}
+                  outerRadius={110}
+                  paddingAngle={2}
+                  cornerRadius={6}
+                  stroke="#0f172a"
+                  strokeWidth={2}
                   activeIndex={activeIndex}
                   activeShape={({
                     outerRadius = 0,
@@ -337,7 +442,7 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
                   {consumptionData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
-                      fill={`hsl(${index * 45}, 70%, 50%)`}
+                      fill={`hsl(${index * 45}, 70%, 55%)`}
                     />
                   ))}
                   <Label
@@ -387,152 +492,149 @@ const ConsumptionTab: React.FC<ConsumptionTabProps> = ({
       </div>
 
       {/* Additional Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        {/* Area Chart - Trend Analysis */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Daily Trend */}
         <Card className="h-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <div className="p-2 bg-energy-yellow/10 rounded-lg">
                 <TrendingUp className="h-5 w-5 text-energy-yellow" />
               </div>
-              Tendência de Consumo
+              Tendencia diaria por aparelho
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={consumptionData}
+                <AreaChart data={resolvedDailyTrend.rows}>
+                  <defs>
+                    {resolvedDailyTrend.devices.map((_, idx) => (
+                      <linearGradient
+                        key={`grad-${idx}`}
+                        id={`trend-${idx}`}
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor={barColors[idx % barColors.length]}
+                          stopOpacity={0.35}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor={barColors[idx % barColors.length]}
+                          stopOpacity={0.05}
+                        />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid
+                    vertical={false}
+                    strokeDasharray="4 6"
+                    stroke="#e5e7eb"
+                  />
+                  <XAxis dataKey="day" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <Tooltip
+                    formatter={(value: number, key: string) => [
+                      `${value.toFixed(dailyTrendData.length > 0 ? 0 : 2)} ${
+                        dailyTrendData.length > 0 ? "min" : "kWh"
+                      }`,
+                      key,
+                    ]}
+                    cursor={{
+                      stroke: "var(--chart-1)",
+                      strokeWidth: 1,
+                      opacity: 0.35,
+                    }}
+                  />
+                  {resolvedDailyTrend.devices.map((name, idx) => (
+                    <Area
+                      key={name}
+                      type="monotone"
+                      dataKey={name}
+                      stroke={barColors[idx % barColors.length]}
+                      fill={`url(#trend-${idx})`}
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 5 }}
+                    />
+                  ))}
+                </AreaChart>
+              </ResponsiveContainer>
+              <p className="text-xs text-muted-foreground mt-2">
+                {dailyTrendData.length > 0
+                  ? "Minutos ligados por dia com base no historico salvo no banco."
+                  : "Consumo medio diario estimado (kWh/dia) dos 5 aparelhos com maior consumo no mes."}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Consumption History line simplified */}
+        <Card className="p-6 hover:shadow-xl transition-all duration-300">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <div className="p-2 bg-energy-blue-light/10 dark:bg-energy-blue-light/5 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-blue-800 dark:text-energy-blue-light" />
+              </div>
+              Histórico de Consumo (últimos 6 meses)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={(historicalData || []).slice(-6)}
                   margin={{
                     top: 10,
-                    right: 30,
-                    left: 0,
-                    bottom: 0,
+                    right: 24,
+                    left: 8,
+                    bottom: 10,
                   }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
+                  <CartesianGrid
+                    strokeDasharray="4 6"
+                    stroke="#e5e7eb"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 12 }}
+                    angle={-30}
+                    textAnchor="end"
+                    height={50}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <Tooltip
                     formatter={(value: number) => [
                       `${value.toFixed(1)} kWh`,
                       "Consumo",
                     ]}
+                    labelFormatter={(label) => `${label}`}
+                    cursor={{ stroke: "#cbd5e1", strokeDasharray: "4 4" }}
                   />
-                  <Area
+                  <Line
                     type="monotone"
-                    dataKey="consumo"
-                    stroke="#8884d8"
-                    fill="#8884d8"
-                    fillOpacity={0.6}
+                    dataKey="consumption"
+                    stroke="#2563eb"
+                    strokeWidth={3}
+                    dot={{ fill: "#2563eb", strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 8, stroke: "#2563eb", strokeWidth: 2 }}
                   />
-                </AreaChart>
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
-
-        {/* Radial Bar Chart - Efficiency Gauge */}
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              <div className="p-2 bg-energy-green-light/10 rounded-lg">
-                <Activity className="h-5 w-5 text-energy-green-dark" />
-              </div>
-              Eficiência Energética
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadialBarChart
-                  cx="50%"
-                  cy="50%"
-                  innerRadius="10%"
-                  outerRadius="80%"
-                  data={[
-                    {
-                      name: "Eficiência",
-                      value: Math.min(100, (totalConsumption / 250) * 100),
-                      fill:
-                        totalConsumption < 200
-                          ? "#00C49F"
-                          : totalConsumption < 250
-                          ? "#FFBB28"
-                          : "#FF8042",
-                    },
-                  ]}
-                >
-                  <RadialBar dataKey="value" cornerRadius={10} />
-                  <Tooltip
-                    formatter={(value: number) => [
-                      `${value.toFixed(0)}%`,
-                      "Eficiência",
-                    ]}
-                  />
-                </RadialBarChart>
-              </ResponsiveContainer>
-              <div className="text-center mt-4">
-                <p className="text-2xl font-bold text-energy-green-dark">
-                  {Math.min(100, (totalConsumption / 250) * 100).toFixed(0)}%
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  vs. Média Nacional
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Analysis Card */}
-        <div className="bg-background p-6 rounded-2xl shadow-lg border border-border">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-energy-green-light/10 rounded-xl">
-              <Zap className="h-6 w-6 text-energy-green-dark" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-              Análise Inteligente
-            </h3>
-          </div>
-
-          <div className="space-y-4">
-            <div className="p-4 bg-gradient-to-r from-energy-50 to-energy-100 dark:from-slate-700 dark:to-slate-600 rounded-xl border border-energy-200 dark:border-slate-600">
-              <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                Seu consumo está{" "}
-                <span
-                  className={`font-semibold ${
-                    consumptionDifference < 0
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400"
-                  }`}
-                >
-                  {consumptionPercent}%{" "}
-                  {consumptionDifference < 0 ? "abaixo" : "acima"}
-                </span>{" "}
-                da média para residências do seu perfil em sua região.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">
-                  {((totalConsumption / 250) * 100).toFixed(0)}%
-                </div>
-                <div className="text-sm text-blue-700 dark:text-blue-300">
-                  vs. Média Nacional
-                </div>
-              </div>
-              <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
-                  {((1 - totalConsumption / 250) * 100).toFixed(0)}%
-                </div>
-                <div className="text-sm text-green-700 dark:text-green-300">
-                  Potencial de Economia
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

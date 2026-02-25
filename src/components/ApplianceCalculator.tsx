@@ -23,6 +23,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
+import { Appliance } from "@/hooks/useAppliances";
 
 // Tarifas por estado (valores aproximados em R$/kWh - 2024)
 const STATE_TARIFFS = {
@@ -72,17 +73,9 @@ const applianceFormSchema = z.object({
 type ApplianceFormValues = z.infer<typeof applianceFormSchema>;
 
 interface ApplianceCalculatorProps {
-  onAddAppliance: (appliance: {
-    id: number;
-    name: string;
-    power: number;
-    status: "normal" | "warning" | "critical";
-    usageHours: number;
-    monthlyCost: number;
-    monthlyConsumption: number;
-    tariff: string;
-    createdAt: string;
-  }) => void;
+  onAddAppliance: (
+    appliance: ApplianceFormValues
+  ) => Promise<Appliance | void>;
 }
 
 const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
@@ -95,6 +88,7 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
   const [userState, setUserState] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const commonDevices = [
@@ -204,53 +198,45 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
     return { consumptionKWh, cost };
   };
 
-  const onSubmit = (values: ApplianceFormValues) => {
-    const { consumptionKWh, cost } = calculateEnergyCost(values);
+  const onSubmit = async (values: ApplianceFormValues) => {
+    setIsSubmitting(true);
+    try {
+      const created = await onAddAppliance(values);
+      if (created) {
+        setCalculatedCost(created.monthlyCost);
+        setCalculatedConsumption(created.monthlyConsumption);
+      } else {
+        const result = calculateEnergyCost(values);
+        setCalculatedCost(result.cost);
+        setCalculatedConsumption(result.consumptionKWh);
+      }
 
-    // Determinando o status do aparelho com base no consumo
-    let status: "normal" | "warning" | "critical" = "normal";
-    if (consumptionKWh > 100) {
-      status = "critical";
-    } else if (consumptionKWh > 50) {
-      status = "warning";
+      toast({
+        title: "Aparelho adicionado com sucesso!",
+        description: `${values.name} foi adicionado a sua lista.`,
+      });
+
+      form.reset({
+        name: "",
+        power: 0,
+        usageHours: 0,
+        days: 30,
+        tariff: "",
+      });
+
+      setSearchTerm("");
+      setIsOpen(false);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Erro ao adicionar aparelho";
+      toast({
+        title: "Erro",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // Gerando um ID único para o aparelho
-    const newId = Date.now();
-
-    // Adicionando o aparelho usando a callback
-    onAddAppliance({
-      id: newId,
-      name: values.name,
-      power: values.power,
-      status: status,
-      usageHours: values.usageHours,
-      monthlyCost: cost,
-      monthlyConsumption: consumptionKWh,
-      tariff: values.tariff,
-      createdAt: new Date().toISOString(),
-    });
-
-    // Mostrando toast de sucesso
-    toast({
-      title: "Aparelho adicionado com sucesso!",
-      description: `${values.name} foi adicionado à sua lista.`,
-    });
-
-    // Resetando o formulário
-    form.reset({
-      name: "",
-      power: 0,
-      usageHours: 0,
-      days: 30,
-      tariff: "",
-    });
-
-    // Limpando resultados
-    setCalculatedCost(null);
-    setCalculatedConsumption(null);
-    setSearchTerm("");
-    setIsOpen(false);
   };
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
@@ -269,14 +255,16 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
     const subscription = form.watch((value, { name }) => {
       if (form.formState.isValid) {
         const values = form.getValues();
-        calculateEnergyCost({
-          name: values.name,
-          power: values.power,
-          usageHours: values.usageHours,
-          days: values.days,
-          // state: values.state,
-          tariff: values.tariff,
-        });
+        if (values.tariff) {
+          calculateEnergyCost({
+            name: values.name,
+            power: values.power,
+            usageHours: values.usageHours,
+            days: values.days,
+            // state: values.state,
+            tariff: values.tariff,
+          });
+        }
       }
     });
 
@@ -479,9 +467,10 @@ const ApplianceCalculator: React.FC<ApplianceCalculatorProps> = ({
             <Button
               type="submit"
               className="w-full bg-energy-green-light hover:bg-energy-green-dark text-white"
+              disabled={isSubmitting}
             >
               <PlusCircle className="h-4 w-4 mr-2" />
-              Adicionar aparelho
+              {isSubmitting ? "Adicionando..." : "Adicionar aparelho"}
             </Button>
           </form>
         </Form>

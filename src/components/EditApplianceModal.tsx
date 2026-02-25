@@ -22,6 +22,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "@/components/ui/use-toast";
+import { Appliance, ApplianceInput } from "@/hooks/useAppliances";
 
 // Tarifas por estado (valores aproximados em R$/kWh - 2024)
 const STATE_TARIFFS = {
@@ -54,7 +55,7 @@ const STATE_TARIFFS = {
   TO: 0.75,
 };
 
-// Definindo o schema de validação para o form
+// Definindo o schema de validacao para o form
 const applianceFormSchema = z.object({
   name: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres" }),
   power: z.number().min(1, { message: "Potência deve ser maior que 0" }),
@@ -70,23 +71,11 @@ const applianceFormSchema = z.object({
 
 type ApplianceFormValues = z.infer<typeof applianceFormSchema>;
 
-interface Appliance {
-  id: number;
-  name: string;
-  power: number;
-  status: "critical" | "normal" | "warning";
-  usageHours: number;
-  monthlyCost: number;
-  monthlyConsumption: number;
-  tariff: string;
-  createdAt: string;
-}
-
 interface EditApplianceModalProps {
   appliance: Appliance | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updatedAppliance: Appliance) => void;
+  onSave: (id: string, updated: ApplianceInput) => Promise<void> | void;
 }
 
 const EditApplianceModal: React.FC<EditApplianceModalProps> = ({
@@ -118,16 +107,16 @@ const EditApplianceModal: React.FC<EditApplianceModalProps> = ({
         name: appliance.name,
         power: appliance.power,
         usageHours: appliance.usageHours,
-        days: 30, // Default, since we don't store days in the appliance object
-        tariff: "", // We don't store state in appliance, so default to empty
+        days: appliance.days || 30,
+        tariff: appliance.tariff || "SP",
       });
       // Calculate initial values
       calculateEnergyCost({
         name: appliance.name,
         power: appliance.power,
         usageHours: appliance.usageHours,
-        days: 30,
-        tariff: "SP", // Default to SP for calculation
+        days: appliance.days || 30,
+        tariff: appliance.tariff || "SP",
       });
     }
   }, [appliance, form]);
@@ -155,33 +144,17 @@ const EditApplianceModal: React.FC<EditApplianceModalProps> = ({
     return { consumptionKWh, cost };
   };
 
-  const onSubmit = (values: ApplianceFormValues) => {
+  const onSubmit = async (values: ApplianceFormValues) => {
     if (!appliance) return;
 
-    const { consumptionKWh, cost } = calculateEnergyCost(values);
-
-    // Determinando o status do aparelho com base no consumo
-    let status: "normal" | "warning" | "critical" = "normal";
-    if (consumptionKWh > 100) {
-      status = "critical";
-    } else if (consumptionKWh > 50) {
-      status = "warning";
-    }
-
-    const updatedAppliance: Appliance = {
-      ...appliance,
+    await onSave(appliance.id, {
       name: values.name,
       power: values.power,
-      status: status,
       usageHours: values.usageHours,
-      monthlyCost: cost,
-      monthlyConsumption: consumptionKWh,
+      days: values.days,
       tariff: values.tariff,
-    };
+    });
 
-    onSave(updatedAppliance);
-
-    // Mostrando toast de sucesso
     toast({
       title: "Aparelho atualizado com sucesso!",
       description: `${values.name} foi atualizado na sua lista.`,

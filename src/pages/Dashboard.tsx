@@ -27,7 +27,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAppliances, Appliance } from "@/hooks/useAppliances";
+import { useAppliances, Appliance, ApplianceInput } from "@/hooks/useAppliances";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/api";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 const TARIFF = 0.75; // R$ per kWh
 const AVERAGE_CONSUMPTION = 250; // example average consumption in kWh
@@ -84,6 +93,14 @@ const Dashboard = () => {
   const [historicalData, setHistoricalData] = useState<any[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState("current");
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [smartUsage, setSmartUsage] = useState<{ name: string; minutes: number }[]>([]);
+  const { token, user } = useAuth();
+  const [dailyTrendData, setDailyTrendData] = useState<
+    Array<{ day: string; values: Record<string, number> }>
+  >([]);
+  const [appUsage, setAppUsage] = useState<
+    Array<{ provider: string; minutes: number; devices: number }>
+  >([]);
 
   // Modal state for editing
   const [editingAppliance, setEditingAppliance] = useState<Appliance | null>(
@@ -122,47 +139,98 @@ const Dashboard = () => {
     0
   );
 
-  // Load historical data from localStorage on component mount
+  // Deriva historico basico a partir dos aparelhos persistidos no backend
   useEffect(() => {
-    const storedData = localStorage.getItem("wattstatus_historical_data");
-    if (storedData) {
-      setHistoricalData(JSON.parse(storedData));
-    } else {
-      // Initialize with some sample historical data
-      const sampleData = [
-        { month: "Jan", consumption: 220, cost: 165 },
-        { month: "Fev", consumption: 240, cost: 180 },
-        { month: "Mar", consumption: 260, cost: 195 },
-        { month: "Abr", consumption: 250, cost: 187.5 },
-        { month: "Mai", consumption: 230, cost: 172.5 },
-        { month: "Jun", consumption: 0, cost: 0 },
-      ];
-      setHistoricalData(sampleData);
-      localStorage.setItem(
-        "wattstatus_historical_data",
-        JSON.stringify(sampleData)
+    const now = new Date();
+    const monthsBack = 6;
+    const history: { month: string; consumption: number; cost: number }[] = [];
+    for (let i = monthsBack - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = date.toLocaleString("pt-BR", { month: "short" });
+      const consumption = appliances.reduce(
+        (sum, a) => sum + (a.monthlyConsumption || 0),
+        0
       );
+      const cost = appliances.reduce(
+        (sum, a) => sum + (a.monthlyCost || 0),
+        0
+      );
+      history.push({ month: label, consumption, cost });
     }
-  }, []);
+    setHistoricalData(history);
+  }, [appliances]);
 
-  // Save current month data to localStorage
-  const saveCurrentMonthData = () => {
-    const currentMonth = new Date().toLocaleString("pt-BR", { month: "short" });
-    const newData = {
-      month: currentMonth,
-      consumption: totalConsumption,
-      cost: totalCost,
+  // Carrega analytics persistidos (uso por app e tendencia diaria)
+  useEffect(() => {
+    if (!user) return;
+    const loadAnalytics = async () => {
+      try {
+        const resp = await apiRequest<{
+          dailyTrend: Array<{ day: string; values: Record<string, number> }>;
+          appUsage: Array<{ provider: string; minutes: number; devices: number }>;
+        }>("/api/analytics/usage", { method: "GET" }, token || undefined);
+        setDailyTrendData(resp.dailyTrend || []);
+        setAppUsage(resp.appUsage || []);
+      } catch (err) {
+        console.error("Erro ao carregar analytics do backend", err);
+      }
     };
-    const updatedData = [
-      ...historicalData.filter((d) => d.month !== currentMonth),
-      newData,
-    ];
-    setHistoricalData(updatedData);
-    localStorage.setItem(
-      "wattstatus_historical_data",
-      JSON.stringify(updatedData)
-    );
-  };
+    loadAnalytics();
+    const id = setInterval(loadAnalytics, 60000);
+    return () => clearInterval(id);
+  }, [token, user]);
+
+  // Load SmartThings tempo de uso (persistido no backend)
+  useEffect(() => {
+    if (!user) return;
+    const loadUsage = async () => {
+      try {
+        const resp = await apiRequest<{
+          usage: Array<{
+            deviceId: string;
+            accumulatedMs: number;
+            lastOn?: string | null;
+            deviceName?: string | null;
+          }>;
+        }>("/api/integrations/smartthings/usage", { method: "GET" }, token || undefined);
+        const now = Date.now();
+        const data = resp.usage.map((entry) => {
+          const total =
+            (entry.accumulatedMs || 0) +
+            (entry.lastOn ? now - new Date(entry.lastOn).getTime() : 0);
+          const applianceName =
+            entry.deviceName ||
+            appliances.find((a) => a.integrationDeviceId === entry.deviceId)?.name ||
+            `Dispositivo ${entry.deviceId.slice(0, 4)}`;
+          return { name: applianceName, minutes: Math.floor(total / 60000) };
+        });
+        setSmartUsage(data);
+      } catch (err) {
+        console.error("Erro ao carregar tempo de uso SmartThings", err);
+      }
+    };
+    loadUsage();
+    const id = setInterval(loadUsage, 30000);
+    return () => clearInterval(id);
+  }, [appliances, token, user]);
+
+  const usageChartData = smartUsage.map((item, idx) => ({
+    ...item,
+    color: idx === 0 ? "var(--chart-1)" : idx === 1 ? "var(--chart-2)" : "var(--chart-3, #0ea5e9)",
+  }));
+  const appUsageChartData = appUsage
+    .map((item) => ({
+      app:
+        item.provider === "smartthings"
+          ? "SmartThings"
+          : item.provider === "lg-thinq"
+          ? "LG ThinQ"
+          : item.provider,
+      minutes: item.minutes,
+      hours: Number((item.minutes / 60).toFixed(1)),
+      devices: item.devices,
+    }))
+    .sort((a, b) => b.minutes - a.minutes);
 
   // Calculate efficiency score (0-100 based on consumption vs average)
   const efficiencyScore = Math.max(
@@ -319,8 +387,11 @@ const Dashboard = () => {
     setIsEditModalOpen(false);
   };
 
-  const handleSaveEditedAppliance = (updatedAppliance: Appliance) => {
-    updateAppliance(updatedAppliance);
+  const handleSaveEditedAppliance = async (
+    id: string,
+    updates: ApplianceInput
+  ) => {
+    await updateAppliance(id, updates);
   };
 
   const openDeleteModal = (appliance: Appliance) => {
@@ -353,8 +424,8 @@ const Dashboard = () => {
   ).toFixed(0);
   const consumptionStatus = consumptionDifference < 0 ? "abaixo" : "acima";
 
-  function handleAddAppliance(appliance: Appliance): void {
-    addAppliance(appliance);
+  async function handleAddAppliance(appliance: ApplianceInput): Promise<void> {
+    await addAppliance(appliance);
   }
 
   return (
@@ -432,9 +503,103 @@ const Dashboard = () => {
                   consumptionData={consumptionData}
                   selectedMonth={selectedMonth}
                   setSelectedMonth={setSelectedMonth}
+                  historicalData={historicalData}
+                  dailyTrendData={dailyTrendData}
                 />
               </TabsContent>
             </Tabs>
+            {(appUsageChartData.length > 0 || smartUsage.length > 0) && (
+              <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {appUsageChartData.length > 0 && (
+                  <Card className="border border-border/60 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-energy-green-light" />
+                        Tempo de uso por app (ultimos 7 dias)
+                      </CardTitle>
+                      <CardDescription>
+                        Horas somadas por integracao com base no historico salvo no banco.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ChartContainer
+                        config={{ hours: { label: "Horas", color: "var(--chart-1)" } }}
+                        className="h-72"
+                      >
+                        <BarChart data={appUsageChartData}>
+                          <CartesianGrid
+                            vertical={false}
+                            strokeDasharray="4 6"
+                            stroke="#e5e7eb"
+                          />
+                          <XAxis dataKey="app" tickLine={false} axisLine={false} />
+                          <YAxis tickLine={false} axisLine={false} />
+                          <ChartTooltip
+                            content={
+                              <ChartTooltipContent
+                                formatter={(value) => `${value} h`}
+                                hideLabel
+                              />
+                            }
+                          />
+                          <Bar
+                            dataKey="hours"
+                            fill="var(--chart-1, #22c55e)"
+                            radius={[12, 12, 8, 8]}
+                          />
+                        </BarChart>
+                      </ChartContainer>
+                      <div className="mt-3 text-xs text-muted-foreground">
+                        Inclui {appUsageChartData.reduce((sum, item) => sum + item.devices, 0)}{" "}
+                        dispositivos conectados as integracoes ativas.
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {smartUsage.length > 0 && (
+                  <Card className="border border-border/60 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-energy-blue-light" />
+                        Tempo de uso por dispositivo (ao vivo)
+                      </CardTitle>
+                      <CardDescription>
+                        Leituras em minutos, atualizadas continuamente.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ChartContainer
+                        config={{ tempo: { label: "Tempo (min)", color: "#0ea5e9" } }}
+                        className="h-72"
+                      >
+                        <BarChart data={usageChartData}>
+                          <CartesianGrid
+                            vertical={false}
+                            strokeDasharray="4 6"
+                            stroke="#e5e7eb"
+                          />
+                          <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                          <YAxis tickLine={false} axisLine={false} />
+                          <ChartTooltip
+                            content={
+                              <ChartTooltipContent
+                                formatter={(value) => `${value} min`}
+                                hideLabel
+                              />
+                            }
+                          />
+                          <Bar
+                            dataKey="minutes"
+                            fill="var(--chart-1, #0ea5e9)"
+                            radius={[10, 10, 6, 6]}
+                          />
+                        </BarChart>
+                      </ChartContainer>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
           </main>
         </div>
 

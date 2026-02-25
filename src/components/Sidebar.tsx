@@ -27,72 +27,51 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   BarChart3,
-  TrendingUp,
   Calculator,
   Zap,
-  AlertTriangle,
   Lightbulb,
   Home,
   User,
   LogOut,
   PlugZap,
-  House,
   MoreVertical,
   Palette,
-  FileText 
+  FileText,
 } from "lucide-react";
+import { RiApps2AiLine } from "react-icons/ri";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./ThemeToggle";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useApps } from "@/hooks/useApps";
+import { FaLaptopHouse } from "react-icons/fa";
+import { BsFillHouseAddFill } from "react-icons/bs";
+import { MdOutlineTipsAndUpdates } from "react-icons/md";
+import { BiSolidReport } from "react-icons/bi";
+
+
 
 const menuItems = [
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: BarChart3,
-  },
-
-  {
-    title: "Relatórios",
-    url: "/relatorios",
-    icon: FileText   ,
-  },
-  {
-    title: "Calculadora",
-    url: "/calculadora",
-    icon: Calculator,
-  },
-  {
-    title: "Aparelhos",
-    url: "/aparelhos",
-    icon: PlugZap,
-  },
-  // {
-  //   title: "Anomalias",
-  //   url: "/anomalias",
-  //   icon: AlertTriangle,
-  // },
-  {
-    title: "Dicas",
-    url: "/dicas",
-    icon: Lightbulb,
-  },
+  { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
+  { title: "Relatorios", url: "/relatorios", icon: BiSolidReport },
+  { title: "Calculadora", url: "/calculadora", icon: BsFillHouseAddFill },
+  { title: "Aparelhos", url: "/aparelhos", icon: FaLaptopHouse },
+  { title: "Dicas", url: "/dicas", icon: MdOutlineTipsAndUpdates },
 ];
 
 export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setTheme } = useTheme();
+  const { user, logout } = useAuth();
+  const { apps } = useApps();
 
-  const handleLogout = () => {
-    localStorage.removeItem("wattstatus_user");
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 
-  // Get user data from localStorage
-  const userData = localStorage.getItem("wattstatus_user");
-  const user = userData ? JSON.parse(userData) : null;
   return (
     <ShadcnSidebar>
       <SidebarHeader>
@@ -108,7 +87,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-energy-800 dark:text-white ">
-            Navegação
+            Navegacao
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -132,19 +111,59 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <SidebarSeparator />
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-energy-800 dark:text-white ">
+            Apps
+          </SidebarGroupLabel>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => navigate("/apps")}
+              isActive={location.pathname === "/apps"}
+              className={cn(
+                "flex items-center gap-3  py-2 text-base rounded-md transition-colors duration-200",
+                location.pathname === "/apps"
+                  ? " text-energy-green-light font-semibold dark:bg-sidebar-accent border-l-4 border-l-energy-green-light  dark:text-energy-green-light font-semibold"
+                  : "hover:bg-energy-200 dark:hover:bg-sidebar-accent text-black dark:text-sidebar-accent-foreground"
+              )}
+            >
+              <RiApps2AiLine />
+              <span>Biblioteca de apps</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {apps.map((app) => (
+                <SidebarMenuItem key={app.url}>
+                  <SidebarMenuButton
+                    onClick={() => navigate(app.url)}
+                    isActive={location.pathname === app.url}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2 text-base rounded-md transition-colors duration-200",
+                      location.pathname === app.url
+                        ? " text-energy-green-light font-semibold dark:bg-sidebar-accent border-l-4 border-l-energy-green-light  dark:text-energy-green-light font-semibold"
+                        : "hover:bg-energy-200 dark:hover:bg-sidebar-accent text-black dark:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    {app.icon}
+                    <span>{app.name}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <SidebarSeparator />
         <div className="p-2">
-          {/* User Info */}
-
           <div className="flex items-center gap-3 px-2 py-2 rounded-md bg-energy-100 dark:bg-sidebar-accent">
             <div className="w-8 h-8 bg-energy-blue-light rounded-full flex items-center justify-center">
               <User className="w-4 h-4 text-white" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-energy-800 dark:text-sidebar-accent-foreground truncate">
-                {user?.name || "Usuário"}
+                {user?.name || "Usuario"}
               </p>
               <p className="text-xs text-energy-600 dark:text-sidebar-accent-foreground/70 truncate">
                 {user?.email || "usuario@email.com"}
@@ -166,7 +185,7 @@ export function AppSidebar() {
                   className="hover:bg-blue-100"
                 >
                   <Home className="w-4 h-4 mr-2 text-blue-600" />
-                  Página Inicial
+                  Pagina Inicial
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
@@ -190,7 +209,7 @@ export function AppSidebar() {
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="w-4 h-4 mr-2 text-red-600 " />
                   Sair
-                </DropdownMenuItem>{" "}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

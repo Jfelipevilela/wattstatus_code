@@ -2,17 +2,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X, Zap, InfoIcon } from "lucide-react";
-
-interface Appliance {
-  id: number;
-  name: string;
-  power: number;
-  status: "critical" | "normal" | "warning";
-  usageHours: number;
-  monthlyCost: number;
-  tariff: string;
-  createdAt: string;
-}
+import { Appliance } from "@/hooks/useAppliances";
 
 interface ApplianceDetailsModalProps {
   appliance: Appliance | null;
@@ -31,7 +21,7 @@ const ApplianceDetailsModal: React.FC<ApplianceDetailsModalProps> = ({
 
   // Calcular consumo mensal em kWh
   const monthlyConsumption =
-    (appliance.power * appliance.usageHours * 30) / 1000;
+    (appliance.power * appliance.usageHours * (appliance.days || 30)) / 1000;
 
   // Obter tarifa baseada no estado
   const STATE_TARIFFS = {

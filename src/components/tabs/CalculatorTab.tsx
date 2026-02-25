@@ -8,17 +8,10 @@ import {
   TrendingUp,
   Lightbulb,
 } from "lucide-react";
+import { ApplianceInput } from "@/hooks/useAppliances";
 
 interface CalculatorTabProps {
-  onAddAppliance: (appliance: {
-    id: number;
-    name: string;
-    power: number;
-    status: "critical" | "normal" | "warning";
-    usageHours: number;
-    monthlyCost: number;
-    tariff: string;
-  }) => void;
+  onAddAppliance: (appliance: ApplianceInput) => Promise<void>;
 }
 
 const CalculatorTab: React.FC<CalculatorTabProps> = ({ onAddAppliance }) => {
