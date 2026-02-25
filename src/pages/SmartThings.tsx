@@ -10,8 +10,8 @@ import { PlugZap, LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/components/ui/use-toast";
 import { useSmartThingsToken } from "@/hooks/useSmartThingsToken";
+import { notifyError } from "@/lib/error-toast";
 
 const SmartThings = () => {
   const [tokenInput, setTokenInput] = useState("");
@@ -20,10 +20,8 @@ const SmartThings = () => {
 
   const sendToken = async () => {
     if (!tokenInput) {
-      toast({
-        title: "Token obrigatorio",
-        description: "Cole o token SmartThings para continuar.",
-        variant: "destructive",
+      notifyError("Cole o token SmartThings para continuar.", {
+        title: "Token obrigatório",
       });
       return;
     }
@@ -59,7 +57,7 @@ const SmartThings = () => {
                   <CardContent className="text-sm text-muted-foreground space-y-2">
                     <ol className="list-decimal list-inside space-y-1">
                       <li>
-                        Abra a URL oficial de autorizacao Samsung (abaixo) e
+                        Abra a URL oficial de autorização Samsung (abaixo) e
                         entre com sua conta.
                       </li>
                       <li>
@@ -80,7 +78,7 @@ const SmartThings = () => {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Abrir autorizacao SmartThings
+                        Abrir autorização SmartThings
                       </a>
                     </Button>
                   </CardContent>
@@ -92,7 +90,7 @@ const SmartThings = () => {
                   <CardContent className="space-y-3">
                     <p className="text-sm text-muted-foreground">
                       Cole o token gerado no portal Samsung e clique em Enviar
-                      para ativar a integracao.
+                      para ativar a integração.
                     </p>
                     <Input
                       value={tokenInput}
@@ -129,7 +127,7 @@ const SmartThings = () => {
                       aguarde alguns segundos antes de atualizar.
                     </p>
                     <p>
-                      Aparelhos importados recebem marcador de integracao,
+                      Aparelhos importados recebem marcador de integração,
                       preservando o vinculo com o SmartThings.
                     </p>
                   </CardContent>

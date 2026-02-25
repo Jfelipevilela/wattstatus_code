@@ -2,6 +2,7 @@ import { useAuth } from "./useAuth";
 import { apiRequest } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { toast } from "@/components/ui/use-toast";
+import { notifyError } from "@/lib/error-toast";
 
 export const useSmartThingsToken = () => {
   const { token, user } = useAuth();
@@ -39,9 +40,10 @@ export const useSmartThingsToken = () => {
       setHasToken(true);
       toast({ title: "Token salvo", description: "Integração ativada." });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao salvar token";
-      toast({ title: "Erro", description: message, variant: "destructive" });
+      notifyError(err, {
+        title: "Erro ao conectar SmartThings",
+        fallbackMessage: "Erro ao salvar token.",
+      });
       throw err;
     } finally {
       setSaving(false);
@@ -59,9 +61,10 @@ export const useSmartThingsToken = () => {
       setHasToken(false);
       toast({ title: "SmartThings desconectado", description: "Token removido." });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao desconectar SmartThings";
-      toast({ title: "Erro", description: message, variant: "destructive" });
+      notifyError(err, {
+        title: "Erro ao desconectar SmartThings",
+        fallbackMessage: "Erro ao desconectar SmartThings.",
+      });
     } finally {
       setRevoking(false);
     }

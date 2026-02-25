@@ -10,11 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Leaf, Zap, Battery } from "lucide-react";
 import Icon from "@/components/logo_wattstatus_icon.png";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/components/ui/use-toast";
+import { notifyError } from "@/lib/error-toast";
 
 const SignUp = () => {
   const [formData, setFormData] = useState({
@@ -26,7 +27,6 @@ const SignUp = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { register } = useAuth();
@@ -58,11 +58,10 @@ const SignUp = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
     const validationError = validateForm();
     if (validationError) {
-      setError(validationError);
+      notifyError(validationError, { title: "Revise os dados" });
       return;
     }
 
@@ -75,11 +74,16 @@ const SignUp = () => {
         formData.password,
         formData.confirmPassword
       );
+      toast({
+        title: "Conta criada com sucesso!",
+        description: "Redirecionando para o dashboard...",
+      });
       navigate("/dashboard");
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao criar conta.";
-      setError(message);
+      notifyError(err, {
+        title: "Erro ao criar conta",
+        fallbackMessage: "Erro ao criar conta.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -115,12 +119,6 @@ const SignUp = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
               <div className="space-y-2">
                 <Label
                   htmlFor="name"

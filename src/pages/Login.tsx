@@ -10,38 +10,45 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Leaf, Zap } from "lucide-react";
 import Icon from "@/components/logo_wattstatus_icon.png";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/components/ui/use-toast";
+import { notifyError } from "@/lib/error-toast";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setIsLoading(true);
 
     // Simple validation
     if (!email || !password) {
-      setError("Por favor, preencha todos os campos.");
+      notifyError("Por favor, preencha todos os campos.", {
+        title: "Campos obrigatórios",
+      });
       setIsLoading(false);
       return;
     }
 
     try {
       await login(email, password);
+      toast({
+        title: "Login realizado com sucesso!",
+        description: "Redirecionando para o dashboard...",
+      });
       navigate("/dashboard");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Erro ao entrar.";
-      setError(message);
+      notifyError(err, {
+        title: "Erro ao entrar",
+        fallbackMessage: "Erro ao entrar.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -77,12 +84,6 @@ const Login = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
               <div className="space-y-2">
                 <Label
                   htmlFor="email"

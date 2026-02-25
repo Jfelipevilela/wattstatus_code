@@ -23,6 +23,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "@/components/ui/use-toast";
 import { Appliance, ApplianceInput } from "@/hooks/useAppliances";
+import { notifyError } from "@/lib/error-toast";
 
 // Tarifas por estado (valores aproximados em R$/kWh - 2024)
 const STATE_TARIFFS = {
@@ -55,7 +56,7 @@ const STATE_TARIFFS = {
   TO: 0.75,
 };
 
-// Definindo o schema de validacao para o form
+// Definindo o schema de validação para o form
 const applianceFormSchema = z.object({
   name: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres" }),
   power: z.number().min(1, { message: "Potência deve ser maior que 0" }),
@@ -147,20 +148,27 @@ const EditApplianceModal: React.FC<EditApplianceModalProps> = ({
   const onSubmit = async (values: ApplianceFormValues) => {
     if (!appliance) return;
 
-    await onSave(appliance.id, {
-      name: values.name,
-      power: values.power,
-      usageHours: values.usageHours,
-      days: values.days,
-      tariff: values.tariff,
-    });
+    try {
+      await onSave(appliance.id, {
+        name: values.name,
+        power: values.power,
+        usageHours: values.usageHours,
+        days: values.days,
+        tariff: values.tariff,
+      });
 
-    toast({
-      title: "Aparelho atualizado com sucesso!",
-      description: `${values.name} foi atualizado na sua lista.`,
-    });
+      toast({
+        title: "Aparelho atualizado com sucesso!",
+        description: `${values.name} foi atualizado na sua lista.`,
+      });
 
-    onClose();
+      onClose();
+    } catch (err) {
+      notifyError(err, {
+        title: "Erro ao atualizar aparelho",
+        fallbackMessage: "Não foi possível atualizar o aparelho.",
+      });
+    }
   };
 
   useEffect(() => {

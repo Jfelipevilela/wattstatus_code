@@ -30,6 +30,8 @@ import {
 import { useAppliances, Appliance, ApplianceInput } from "@/hooks/useAppliances";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
+import { notifyError } from "@/lib/error-toast";
+import { toast } from "@/components/ui/use-toast";
 import {
   ChartContainer,
   ChartTooltip,
@@ -122,7 +124,10 @@ const Dashboard = () => {
 
   // Filter appliances by selected month
   const filteredAppliances = appliances.filter((appliance) => {
-    const createdDate = new Date(appliance.createdAt);
+    const createdDate = appliance.createdAt ? new Date(appliance.createdAt) : null;
+    if (!createdDate || Number.isNaN(createdDate.getTime())) {
+      return false;
+    }
     const applianceMonth = createdDate.getMonth() + 1;
     return applianceMonth === selectedMonth;
   });
@@ -139,7 +144,7 @@ const Dashboard = () => {
     0
   );
 
-  // Deriva historico basico a partir dos aparelhos persistidos no backend
+  // Deriva histórico básico a partir dos aparelhos persistidos no backend
   useEffect(() => {
     const now = new Date();
     const monthsBack = 6;
@@ -168,7 +173,11 @@ const Dashboard = () => {
         const resp = await apiRequest<{
           dailyTrend: Array<{ day: string; values: Record<string, number> }>;
           appUsage: Array<{ provider: string; minutes: number; devices: number }>;
-        }>("/api/analytics/usage", { method: "GET" }, token || undefined);
+        }>(
+          "/api/analytics/usage",
+          { method: "GET", skipErrorToast: true },
+          token || undefined
+        );
         setDailyTrendData(resp.dailyTrend || []);
         setAppUsage(resp.appUsage || []);
       } catch (err) {
@@ -192,7 +201,11 @@ const Dashboard = () => {
             lastOn?: string | null;
             deviceName?: string | null;
           }>;
-        }>("/api/integrations/smartthings/usage", { method: "GET" }, token || undefined);
+        }>(
+          "/api/integrations/smartthings/usage",
+          { method: "GET", skipErrorToast: true },
+          token || undefined
+        );
         const now = Date.now();
         const data = resp.usage.map((entry) => {
           const total =
@@ -402,10 +415,22 @@ const Dashboard = () => {
     setDeleteApplianceModal(null);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (deleteApplianceModal) {
-      deleteAppliance(deleteApplianceModal.id);
-      closeDeleteModal();
+      try {
+        const applianceName = deleteApplianceModal.name;
+        await deleteAppliance(deleteApplianceModal.id);
+        toast({
+          title: "Aparelho excluído com sucesso!",
+          description: `${applianceName} foi removido da sua lista.`,
+        });
+        closeDeleteModal();
+      } catch (err) {
+        notifyError(err, {
+          title: "Erro ao excluir aparelho",
+          fallbackMessage: "Não foi possível excluir o aparelho.",
+        });
+      }
     }
   };
 
@@ -518,7 +543,7 @@ const Dashboard = () => {
                         Tempo de uso por app (ultimos 7 dias)
                       </CardTitle>
                       <CardDescription>
-                        Horas somadas por integracao com base no historico salvo no banco.
+                        Horas somadas por integração com base no histórico salvo no banco.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -616,7 +641,7 @@ const Dashboard = () => {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
               <AlertDialogDescription>
                 Tem certeza que deseja excluir o aparelho{" "}
                 <strong>{deleteApplianceModal?.name}</strong>? Esta ação é

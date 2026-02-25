@@ -23,6 +23,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { useSmartThingsToken } from "@/hooks/useSmartThingsToken";
 import { LuPower, LuPowerOff } from "react-icons/lu";
+import { notifyError } from "@/lib/error-toast";
 interface DeviceSummary {
   id: string;
   name: string;
@@ -116,7 +117,11 @@ const SmartThingsPanel: React.FC = () => {
             lastOn?: string | null;
             day?: string;
           }>;
-        }>("/api/integrations/smartthings/usage", { method: "GET" }, token);
+        }>(
+          "/api/integrations/smartthings/usage",
+          { method: "GET", skipErrorToast: true },
+          token
+        );
         const today = new Date().toISOString().slice(0, 10);
         const map: Record<
           string,
@@ -153,7 +158,7 @@ const SmartThingsPanel: React.FC = () => {
     try {
       const data = await apiRequest<{ devices: DeviceSummary[] }>(
         "/api/integrations/smartthings/devices",
-        { method: "GET" },
+        { method: "GET", skipErrorToast: true },
         token || undefined
       );
       setDevices(data.devices);
@@ -161,7 +166,7 @@ const SmartThingsPanel: React.FC = () => {
         data.devices.map((d) =>
           apiRequest<{ status: DeviceStatus }>(
             `/api/integrations/smartthings/devices/${d.id}/status`,
-            { method: "GET" },
+            { method: "GET", skipErrorToast: true },
             token || undefined
           ).catch(() => null)
         )
@@ -216,6 +221,7 @@ const SmartThingsPanel: React.FC = () => {
           {
             method: "POST",
             body: JSON.stringify({ usage: payload }),
+            skipErrorToast: true,
           },
           token || undefined
         );
@@ -251,12 +257,12 @@ const SmartThingsPanel: React.FC = () => {
   ) => {
     if (!user) return;
     if (!energyKWh) {
-      toast({
-        title: "Dados insuficientes",
-        description:
-          "O dispositivo n\u00e3o retornou consumo. Ligue-o e tente novamente.",
-        variant: "destructive",
-      });
+      notifyError(
+        "O dispositivo não retornou consumo. Ligue-o e tente novamente.",
+        {
+          title: "Dados insuficientes",
+        }
+      );
       return;
     }
     setImporting(device.id);
@@ -267,6 +273,7 @@ const SmartThingsPanel: React.FC = () => {
         usageHours: 1,
         days: 30,
         tariff: "SP",
+        createdAt: new Date().toISOString(),
         measuredConsumptionKWh: energyKWh,
         integrationProvider: "smartthings",
         integrationDeviceId: device.id,
@@ -276,9 +283,10 @@ const SmartThingsPanel: React.FC = () => {
         description: `${device.name} importado do SmartThings.`,
       });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao importar dispositivo";
-      toast({ title: "Erro", description: message, variant: "destructive" });
+      notifyError(err, {
+        title: "Erro ao importar dispositivo",
+        fallbackMessage: "Erro ao importar dispositivo.",
+      });
     } finally {
       setImporting(null);
     }
@@ -313,9 +321,10 @@ const SmartThingsPanel: React.FC = () => {
       await new Promise((r) => setTimeout(r, 800));
       await fetchDevices();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao enviar comando";
-      toast({ title: "Erro", description: message, variant: "destructive" });
+      notifyError(err, {
+        title: "Erro ao enviar comando",
+        fallbackMessage: "Erro ao enviar comando.",
+      });
     } finally {
       setToggling((prev) => ({ ...prev, [device.id]: false }));
     }
@@ -719,7 +728,7 @@ const SmartThingsPanel: React.FC = () => {
                         Ambiente
                       </div>
                       <div className="font-semibold">
-                        {detailsDevice?.device.room || "Nao informado"}
+                        {detailsDevice?.device.room || "Não informado"}
                       </div>
                       <div className="mt-2 text-xs text-muted-foreground">
                         ID do dispositivo
@@ -762,7 +771,7 @@ const SmartThingsPanel: React.FC = () => {
                               ? `${info.power.toFixed(2)} ${
                                   info.unitPower || "W"
                                 }`
-                              : "Nao disponivel"}
+                              : "Não disponível"}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             Uso em tempo real (ex.: ligar o ar aumenta este
@@ -778,7 +787,7 @@ const SmartThingsPanel: React.FC = () => {
                               ? `${info.energy.toFixed(2)} ${
                                   info.unitEnergy || "kWh"
                                 }`
-                              : "Nao disponivel"}
+                              : "Não disponível"}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             Soma de consumo medida pelo dispositivo desde o
@@ -812,7 +821,7 @@ const SmartThingsPanel: React.FC = () => {
                   </div>
                   <div className="rounded-lg border border-border/60 p-4 bg-gradient-to-br from-slate-100 to-white dark:from-slate-800 dark:to-slate-900/80">
                     <h4 className="font-semibold mb-2 text-sm">
-                      Como ler estes numeros
+                      Como ler estes números
                     </h4>
                     <ul className="space-y-2 text-xs text-muted-foreground">
                       <li>
@@ -841,7 +850,7 @@ const SmartThingsPanel: React.FC = () => {
                           Capacidades:
                         </span>{" "}
                         recursos que podem ser usados em automacoes ou comandos
-                        (modo, ventilacao, etc.).
+                        (modo, ventilação, etc.).
                       </li>
                     </ul>
                   </div>
