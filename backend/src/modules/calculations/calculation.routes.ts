@@ -4,6 +4,7 @@ import { ApiError } from "../../middleware/error-handler";
 import { calculationSchema } from "./calculation.schema";
 import { calculateAppliance } from "./calculation.service";
 import { env } from "../../config/env";
+import { ZodError } from "zod";
 
 export const createCalculationRouter = () => {
   const router = Router();
@@ -32,6 +33,10 @@ export const createCalculationRouter = () => {
       const result = calculateAppliance(parsed);
       res.json({ input: parsed, result });
     } catch (err) {
+      if (err instanceof ZodError) {
+        next(err);
+        return;
+      }
       if (err instanceof Error) {
         next(new ApiError(400, err.message));
         return;

@@ -2,6 +2,7 @@ import { NextFunction, Response, Request } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 import { ApiError } from "./error-handler";
+import { logger, updateLogContext } from "../logging/logger";
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
@@ -37,14 +38,20 @@ export const authenticate = (
   const cookieToken = getCookieToken(req.headers.cookie);
   const token = bearerToken || cookieToken;
   if (!token) {
+    logger.warn("auth.unauthorized_access", { reason: "missing_token" });
     return next(new ApiError(401, "Token n\u00e3o fornecido"));
   }
 
   try {
     const payload = jwt.verify(token, env.jwtSecret) as { sub: string };
     req.userId = payload.sub;
+    updateLogContext({ userId: payload.sub });
     return next();
   } catch (err) {
+    const expired = err instanceof jwt.TokenExpiredError;
+    logger.warn(expired ? "auth.token_expired" : "auth.token_invalid", {
+      reason: expired ? "expired_token" : "invalid_token",
+    });
     return next(new ApiError(401, "Token inv\u00e1lido ou expirado"));
   }
 };

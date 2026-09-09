@@ -217,7 +217,7 @@ export class PostgresDatabase {
       "delete from appliances where id=$1 and user_id=$2",
       [applianceId, userId]
     );
-    return res.rowCount > 0;
+    return (res.rowCount ?? 0) > 0;
   }
 
   async getUserSettings(userId: string): Promise<UserSettingsRecord> {

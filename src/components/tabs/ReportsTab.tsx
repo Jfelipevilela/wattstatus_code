@@ -33,6 +33,7 @@ import { toast } from "@/components/ui/use-toast";
 import { Appliance } from "@/hooks/useAppliances";
 import { useAuth } from "@/hooks/useAuth";
 import { estimateAppliance, getMonthlyEstimate, formatNumber } from "@/lib/energy";
+import { apiRequest } from "@/lib/api";
 
 interface ReportsTabProps {
   appliances: Appliance[];
@@ -60,7 +61,28 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
   const [generationTime, setGenerationTime] = useState<string>("");
   const [hasGeneratedReport, setHasGeneratedReport] = useState(false);
 
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+
+  const recordReportEvent = (
+    event:
+      | "generation_started"
+      | "generation_completed"
+      | "generation_failed"
+      | "export_started"
+      | "export_completed"
+      | "export_failed",
+    fields: { itemCount?: number; durationMs?: number } = {}
+  ) => {
+    void apiRequest(
+      "/api/reports/events",
+      {
+        method: "POST",
+        body: JSON.stringify({ event, ...fields }),
+        skipErrorToast: true,
+      },
+      token || undefined
+    ).catch(() => undefined);
+  };
 
   // Initialize with current month/year
   useEffect(() => {
@@ -90,57 +112,73 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
     }
 
     setIsGenerating(true);
+    const startedAt = Date.now();
+    recordReportEvent("generation_started");
 
+    try {
+      const month = parseInt(selectedMonth, 10);
+      const year = parseInt(selectedYear, 10);
+      const daysInMonth = getDaysInMonth(month, year);
 
-
-    const month = parseInt(selectedMonth, 10);
-    const year = parseInt(selectedYear, 10);
-    const daysInMonth = getDaysInMonth(month, year);
-
-    const availableIds = new Set(getMonthlyEstimate(appliances, year, month).rows.map((row) => row.id));
-    const filteredAppliances = appliances.filter((app) => {
-      const matchesPeriod = availableIds.has(app.id);
-      const matchesAppliance =
-        selectedAppliance === "all" || app.id === selectedAppliance;
-      return matchesPeriod && matchesAppliance;
-    });
-
-    const data: ReportData[] = filteredAppliances.map((appliance) => {
-      const { consumption, cost } = estimateAppliance(appliance, daysInMonth);
-      const tariffValue = consumption > 0 ? cost / consumption : 0;
-
-      return {
-        applianceName: appliance.name,
-        power: appliance.power,
-        usageHours: appliance.usageHours,
-        daysInMonth: Math.min(appliance.days, daysInMonth),
-        tariff: appliance.tariff,
-        tariffValue,
-        consumption,
-        cost,
-      };
-    });
-
-    setGenerationTime(new Date().toLocaleString("pt-BR"));
-    setHasGeneratedReport(true);
-    setIsGenerating(false);
-
-    if (data.length === 0) {
-      setReportData([]);
-      toast({
-        title: "Nenhum aparelho encontrado no período",
-        description:
-          'Tente outro mês/ano ou selecione "Todos os aparelhos" para gerar o relatório.',
+      const availableIds = new Set(getMonthlyEstimate(appliances, year, month).rows.map((row) => row.id));
+      const filteredAppliances = appliances.filter((app) => {
+        const matchesPeriod = availableIds.has(app.id);
+        const matchesAppliance =
+          selectedAppliance === "all" || app.id === selectedAppliance;
+        return matchesPeriod && matchesAppliance;
       });
-      return;
+
+      const data: ReportData[] = filteredAppliances.map((appliance) => {
+        const { consumption, cost } = estimateAppliance(appliance, daysInMonth);
+        const tariffValue = consumption > 0 ? cost / consumption : 0;
+
+        return {
+          applianceName: appliance.name,
+          power: appliance.power,
+          usageHours: appliance.usageHours,
+          daysInMonth: Math.min(appliance.days, daysInMonth),
+          tariff: appliance.tariff,
+          tariffValue,
+          consumption,
+          cost,
+        };
+      });
+
+      setGenerationTime(new Date().toLocaleString("pt-BR"));
+      setHasGeneratedReport(true);
+      setIsGenerating(false);
+      recordReportEvent("generation_completed", {
+        itemCount: data.length,
+        durationMs: Date.now() - startedAt,
+      });
+
+      if (data.length === 0) {
+        setReportData([]);
+        toast({
+          title: "Nenhum aparelho encontrado no período",
+          description:
+            'Tente outro mês/ano ou selecione "Todos os aparelhos" para gerar o relatório.',
+        });
+        return;
+      }
+
+      setReportData(data);
+
+      toast({
+        title: "Relatório gerado com sucesso!",
+        description: `Relatório de ${month}/${year} gerado com ${data.length} aparelho(s).`,
+      });
+    } catch {
+      setIsGenerating(false);
+      recordReportEvent("generation_failed", {
+        durationMs: Date.now() - startedAt,
+      });
+      toast({
+        title: "Erro ao gerar relatório",
+        description: "Não foi possível gerar o relatório.",
+        variant: "destructive",
+      });
     }
-
-    setReportData(data);
-
-    toast({
-      title: "Relatório gerado com sucesso!",
-      description: `Relatório de ${month}/${year} gerado com ${data.length} aparelho(s).`,
-    });
   };
 
   const exportToPDF = async () => {
@@ -153,6 +191,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
       return;
     }
 
+    const startedAt = Date.now();
+    recordReportEvent("export_started", { itemCount: reportData.length });
     try {
       const jsPDF = (await import("jspdf")).default;
       const pdf = new jsPDF({ orientation: "landscape" });
@@ -215,12 +255,20 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
       pdf.text(`Total Custo: R$ ${formatNumber(totalCost)}`, 150, yPosition);
 
       pdf.save(`relatorio_${selectedMonth}_${selectedYear}.pdf`);
+      recordReportEvent("export_completed", {
+        itemCount: reportData.length,
+        durationMs: Date.now() - startedAt,
+      });
 
       toast({
         title: "PDF exportado com sucesso!",
         description: "O relatório foi salvo em PDF.",
       });
     } catch (error) {
+      recordReportEvent("export_failed", {
+        itemCount: reportData.length,
+        durationMs: Date.now() - startedAt,
+      });
       toast({
         title: "Erro na exportação",
         description: "Não foi possível exportar o PDF.",

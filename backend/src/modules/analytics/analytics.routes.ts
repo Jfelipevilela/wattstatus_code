@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { ApiError } from "../../middleware/error-handler";
-import { PostgresDatabase } from "../../storage/postgres-db";
+import { MongoDatabase } from "../../storage/mongo-db";
 
-export const createAnalyticsRouter = (db: PostgresDatabase) => {
+export const createAnalyticsRouter = (db: MongoDatabase) => {
   const router = Router();
 
   router.get("/usage", async (req: AuthenticatedRequest, res, next) => {

@@ -1,10 +1,10 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import { authenticate } from "./middleware/auth-middleware";
 import { errorHandler } from "./middleware/error-handler";
+import { requestLogging } from "./middleware/request-logging";
 import { ApplianceService } from "./modules/appliances/appliances.service";
 import { createApplianceRouter } from "./modules/appliances/appliances.routes";
 import { createCalculationRouter } from "./modules/calculations/calculation.routes";
@@ -14,11 +14,11 @@ import { IntegrationManager } from "./modules/integrations/integration-manager";
 import { createIntegrationRouter } from "./modules/integrations/integration.routes";
 import { SmartThingsIntegration } from "./modules/integrations/providers/smartthings";
 import { LgThinQIntegration } from "./modules/integrations/providers/lg-thinq";
-import { PostgresDatabase } from "./storage/postgres-db";
 import { env } from "./config/env";
 import { createUserSettingsRouter } from "./modules/user-settings/user-settings.routes";
 import { createAnalyticsRouter } from "./modules/analytics/analytics.routes";
 import { MongoDatabase } from "./storage/mongo-db";
+import { createReportRouter } from "./modules/reports/report.routes";
 
 export interface AppDependencies {
   db: MongoDatabase;
@@ -35,8 +35,8 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
       credentials: true,
     })
   );
+  app.use(requestLogging);
   app.use(express.json());
-  app.use(morgan("dev"));
   app.use(
     rateLimit({
       windowMs: 60 * 1000,
@@ -71,6 +71,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
   );
   app.use("/api/user-settings", authenticate, createUserSettingsRouter(db));
   app.use("/api/analytics", authenticate, createAnalyticsRouter(db));
+  app.use("/api/reports", authenticate, createReportRouter());
 
   app.use(errorHandler);
 

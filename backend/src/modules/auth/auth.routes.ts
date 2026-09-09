@@ -4,6 +4,8 @@ import { ApiError } from "../../middleware/error-handler";
 import { loginSchema, registerSchema } from "./auth.schema";
 import { AuthService } from "./auth.service";
 import { AUTH_COOKIE_NAME } from "../../middleware/auth-middleware";
+import { getErrorFields, logger, updateLogContext } from "../../logging/logger";
+import { ZodError } from "zod";
 
 export const createAuthRouter = (service: AuthService) => {
   const router = Router();
@@ -21,9 +23,16 @@ export const createAuthRouter = (service: AuthService) => {
     try {
       const parsed = registerSchema.parse(req.body);
       const result = await service.register(parsed);
+      updateLogContext({ userId: result.user.id });
+      logger.info("auth.registration_succeeded");
       setAuthCookie(res, result.token);
       res.status(201).json(result);
     } catch (err) {
+      if (err instanceof ApiError && err.status < 500) {
+        logger.warn("auth.registration_refused", { reason: "registration_rejected" });
+      } else if (!(err instanceof ZodError)) {
+        logger.error("auth.registration_failed", getErrorFields(err));
+      }
       next(err);
     }
   });
@@ -32,9 +41,16 @@ export const createAuthRouter = (service: AuthService) => {
     try {
       const parsed = loginSchema.parse(req.body);
       const result = await service.login(parsed);
+      updateLogContext({ userId: result.user.id });
+      logger.info("auth.login_succeeded");
       setAuthCookie(res, result.token);
       res.json(result);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        logger.warn("auth.login_refused", { reason: "invalid_credentials" });
+      } else if (!(err instanceof ZodError)) {
+        logger.error("auth.login_failed", getErrorFields(err));
+      }
       next(err);
     }
   });
@@ -55,6 +71,7 @@ export const createAuthRouter = (service: AuthService) => {
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     });
+    logger.info("auth.logout_succeeded");
     res.json({ ok: true });
   });
 

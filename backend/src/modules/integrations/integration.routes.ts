@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { ApiError } from "../../middleware/error-handler";
 import { AuthenticatedRequest } from "../../middleware/auth-middleware";
-import { PostgresDatabase } from "../../storage/postgres-db";
+import { MongoDatabase } from "../../storage/mongo-db";
 import { IntegrationManager } from "./integration-manager";
+import { logger } from "../../logging/logger";
 
 export const createIntegrationRouter = (
   manager: IntegrationManager,
-  db: PostgresDatabase
+  db: MongoDatabase
 ) => {
   const router = Router();
 
@@ -23,8 +24,8 @@ export const createIntegrationRouter = (
     // Tenta carregar token salvo no banco para este usu\u00e1rio
     if (!req.userId) throw new ApiError(401, "N\u00e3o autenticado");
     const savedToken = await db.getIntegrationToken(req.userId, provider);
-    if (savedToken && typeof (integration as any).setToken === "function") {
-      (integration as any).setToken(savedToken);
+    if (savedToken && integration.setToken) {
+      integration.setToken(savedToken);
       return integration;
     }
     // sem token salvo -> erro
@@ -62,8 +63,10 @@ export const createIntegrationRouter = (
       integration.setToken(token);
       if (token) {
         await db.saveIntegrationToken(req.userId, integration.id, token);
+        logger.info("integration.token_saved", { provider: integration.id });
       } else {
         await db.deleteIntegrationToken(req.userId, integration.id);
+        logger.info("integration.token_removed", { provider: integration.id });
       }
       res.json({ provider: integration.id, configured: Boolean(token) });
     } catch (err) {

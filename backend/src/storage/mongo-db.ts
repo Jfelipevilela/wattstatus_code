@@ -7,6 +7,7 @@ import {
   UserSettingsRecord,
 } from "../types";
 import { env } from "../config/env";
+import { getErrorFields, logger } from "../logging/logger";
 
 type IntegrationTokenDoc = { userId: string; provider: string; token: string };
 type IntegrationUsageDoc = {
@@ -40,21 +41,59 @@ export class MongoDatabase {
       .digest();
   }
 
+  private async operation<T>(
+    type: "query" | "persistence",
+    operation: string,
+    action: () => Promise<T>
+  ): Promise<T> {
+    const startedAt = Date.now();
+    try {
+      const result = await action();
+      logger.debug(`mongodb.${type}_succeeded`, {
+        operation,
+        durationMs: Date.now() - startedAt,
+      });
+      return result;
+    } catch (error) {
+      logger.error(`mongodb.${type}_failed`, {
+        operation,
+        durationMs: Date.now() - startedAt,
+        ...getErrorFields(error),
+      });
+      throw error;
+    }
+  }
+
   async init() {
-    await this.client.connect();
-    this.db = this.client.db(this.dbName);
-    await this.db.collection("users").createIndex({ email: 1 }, { unique: true });
-    await this.db.collection("appliances").createIndex({ userId: 1 });
-    await this.db.collection("integration_tokens").createIndex({ userId: 1, provider: 1 }, { unique: true });
-    await this.db.collection("integration_usage").createIndex(
-      { userId: 1, provider: 1, deviceId: 1 },
-      { unique: true }
-    );
-    await this.db.collection("integration_usage_history").createIndex(
-      { userId: 1, provider: 1, deviceId: 1, day: 1 },
-      { unique: true }
-    );
-    await this.db.collection("user_settings").createIndex({ userId: 1 }, { unique: true });
+    const startedAt = Date.now();
+    logger.info("mongodb.connection_started", { database: this.dbName });
+    try {
+      await this.client.connect();
+      this.db = this.client.db(this.dbName);
+      await this.db.collection("users").createIndex({ email: 1 }, { unique: true });
+      await this.db.collection("appliances").createIndex({ userId: 1 });
+      await this.db.collection("integration_tokens").createIndex({ userId: 1, provider: 1 }, { unique: true });
+      await this.db.collection("integration_usage").createIndex(
+        { userId: 1, provider: 1, deviceId: 1 },
+        { unique: true }
+      );
+      await this.db.collection("integration_usage_history").createIndex(
+        { userId: 1, provider: 1, deviceId: 1, day: 1 },
+        { unique: true }
+      );
+      await this.db.collection("user_settings").createIndex({ userId: 1 }, { unique: true });
+      logger.info("mongodb.connection_succeeded", {
+        database: this.dbName,
+        durationMs: Date.now() - startedAt,
+      });
+    } catch (error) {
+      logger.error("mongodb.connection_failed", {
+        database: this.dbName,
+        durationMs: Date.now() - startedAt,
+        ...getErrorFields(error),
+      });
+      throw error;
+    }
   }
 
   private users(): Collection<UserRecord> {
@@ -77,56 +116,66 @@ export class MongoDatabase {
   }
 
   async getUserByEmail(email: string) {
-    return this.users().findOne({ email: { $regex: new RegExp(`^${email}$`, "i") } });
+    return this.operation("query", "users.getByEmail", () =>
+      this.users().findOne({ email: { $regex: new RegExp(`^${email}$`, "i") } })
+    );
   }
 
   async getUserById(id: string) {
-    return this.users().findOne({ id });
+    return this.operation("query", "users.getById", () => this.users().findOne({ id }));
   }
 
   async addUser(user: UserRecord) {
-    await this.users().insertOne(user);
+    await this.operation("persistence", "users.insert", () => this.users().insertOne(user));
     return user;
   }
 
   async listAppliances(userId: string) {
-    return this.appliances().find({ userId }).sort({ createdAt: -1 }).toArray();
+    return this.operation("query", "appliances.list", () =>
+      this.appliances().find({ userId }).sort({ createdAt: -1 }).toArray()
+    );
   }
 
   async addAppliance(record: ApplianceRecord) {
-    await this.appliances().insertOne(record);
+    await this.operation("persistence", "appliances.insert", () => this.appliances().insertOne(record));
     return record;
   }
 
   async updateAppliance(userId: string, record: ApplianceRecord) {
-    const res = await this.appliances().findOneAndUpdate(
+    const res = await this.operation("persistence", "appliances.update", () => this.appliances().findOneAndUpdate(
       { id: record.id, userId },
       { $set: record },
       { returnDocument: "after" }
-    );
-    return res.value;
+    ));
+    return res;
   }
 
   async deleteAppliance(userId: string, applianceId: string) {
-    const res = await this.appliances().deleteOne({ id: applianceId, userId });
+    const res = await this.operation("persistence", "appliances.delete", () =>
+      this.appliances().deleteOne({ id: applianceId, userId })
+    );
     return res.deletedCount > 0;
   }
 
   async saveIntegrationToken(userId: string, provider: string, token: string) {
     const encrypted = this.encrypt(token);
-    await this.tokens().updateOne(
+    await this.operation("persistence", "integrationTokens.upsert", () => this.tokens().updateOne(
       { userId, provider },
       { $set: { token: encrypted } },
       { upsert: true }
-    );
+    ));
   }
 
   async deleteIntegrationToken(userId: string, provider: string) {
-    await this.tokens().deleteOne({ userId, provider });
+    await this.operation("persistence", "integrationTokens.delete", () =>
+      this.tokens().deleteOne({ userId, provider })
+    );
   }
 
   async getIntegrationToken(userId: string, provider: string) {
-    const row = await this.tokens().findOne({ userId, provider });
+    const row = await this.operation("query", "integrationTokens.get", () =>
+      this.tokens().findOne({ userId, provider })
+    );
     if (!row?.token) return null;
     try {
       return this.decrypt(row.token);
@@ -136,19 +185,21 @@ export class MongoDatabase {
   }
 
   async getIntegrationUsage(userId: string, provider: string) {
-    const rows = await this.usage()
-      .find({ userId, provider })
-      .project<IntegrationUsageHistory>({
-        userId: 1,
-        provider: 1,
-        deviceId: 1,
-        accumulatedMs: 1,
-        lastOn: 1,
-        day: 1,
-        updatedAt: 1,
-        _id: 0,
-      })
-      .toArray();
+    const rows = await this.operation("query", "integrationUsage.list", () =>
+      this.usage()
+        .find({ userId, provider })
+        .project<IntegrationUsageHistory>({
+          userId: 1,
+          provider: 1,
+          deviceId: 1,
+          accumulatedMs: 1,
+          lastOn: 1,
+          day: 1,
+          updatedAt: 1,
+          _id: 0,
+        })
+        .toArray()
+    );
     return rows;
   }
 
@@ -186,35 +237,41 @@ export class MongoDatabase {
     });
 
     if (usages.length > 0) {
-      await bulkCurrent.execute();
-      await bulkHistory.execute();
+      await this.operation("persistence", "integrationUsage.upsert", async () => {
+        await bulkCurrent.execute();
+        await bulkHistory.execute();
+      });
     }
   }
 
   async getIntegrationUsageHistory(userId: string, days = 7) {
     const since = new Date();
     since.setDate(since.getDate() - Math.max(1, days));
-    const rows = await this.usageHistory()
-      .find({ userId, updatedAt: { $gte: since } })
-      .project<IntegrationUsageHistory>({
-        userId: 1,
-        provider: 1,
-        deviceId: 1,
-        day: 1,
-        accumulatedMs: 1,
-        lastOn: 1,
-        _id: 0,
-      })
-      .toArray();
+    const rows = await this.operation("query", "integrationUsageHistory.list", () =>
+      this.usageHistory()
+        .find({ userId, updatedAt: { $gte: since } })
+        .project<IntegrationUsageHistory>({
+          userId: 1,
+          provider: 1,
+          deviceId: 1,
+          day: 1,
+          accumulatedMs: 1,
+          lastOn: 1,
+          _id: 0,
+        })
+        .toArray()
+    );
     return rows;
   }
 
   async getUserSettings(userId: string): Promise<UserSettingsRecord> {
-    const row = await this.settings().findOne({ userId });
+    const row = await this.operation("query", "userSettings.get", () =>
+      this.settings().findOne({ userId })
+    );
     if (row) {
       return {
         userId,
-        theme: (row.theme as any) || "system",
+        theme: (row.theme as UserSettingsRecord["theme"]) || "system",
         apps: Array.isArray(row.apps) ? row.apps : [],
         historicalData: row.historicalData || [],
         createdAt: row.createdAt?.toISOString?.() || new Date().toISOString(),
@@ -222,14 +279,16 @@ export class MongoDatabase {
       };
     }
     const now = new Date();
-    await this.settings().insertOne({
-      userId,
-      theme: "system",
-      apps: [],
-      historicalData: [],
-      createdAt: now,
-      updatedAt: now,
-    });
+    await this.operation("persistence", "userSettings.insertDefault", () =>
+      this.settings().insertOne({
+        userId,
+        theme: "system",
+        apps: [],
+        historicalData: [],
+        createdAt: now,
+        updatedAt: now,
+      })
+    );
     return {
       userId,
       theme: "system",
@@ -251,18 +310,20 @@ export class MongoDatabase {
       historicalData: input.historicalData ?? existing.historicalData ?? [],
       updatedAt: now.toISOString(),
     };
-    await this.settings().updateOne(
-      { userId },
-      {
-        $set: {
-          theme: merged.theme,
-          apps: merged.apps,
-          historicalData: merged.historicalData,
-          updatedAt: now,
+    await this.operation("persistence", "userSettings.update", () =>
+      this.settings().updateOne(
+        { userId },
+        {
+          $set: {
+            theme: merged.theme,
+            apps: merged.apps,
+            historicalData: merged.historicalData,
+            updatedAt: now,
+          },
+          $setOnInsert: { createdAt: now },
         },
-        $setOnInsert: { createdAt: now },
-      },
-      { upsert: true }
+        { upsert: true }
+      )
     );
     return merged;
   }
