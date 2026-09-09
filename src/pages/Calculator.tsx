@@ -24,7 +24,7 @@ const Calculadora = () => {
           <SidebarTrigger className="-ml-1" />
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-energy-green-light rounded flex items-center justify-center">
-              <Calculator className="w-5 h-5 text-energy-green-light absolute" />
+              <Calculator className="w-5 h-5 text-white" />
             </div>
             <span className="font-semibold">Calculadora</span>
           </div>

@@ -67,13 +67,13 @@ const Navbar = () => {
                 className="flex items-center gap-2 text-white hover:text-energy-800 dark:hover:text-energy-800 transition-colors duration-200"
               >
                 <AreaChart className="h-5 w-5" />
-                <span>Dashboard</span>
+                <span>Visão geral</span>
               </Link>
               <div className="flex items-center gap-3 ml-4 pl-4 border-l border-energy-blue-light">
                 <div className="flex items-center gap-2 text-energy-100">
                   <User className="h-4 w-4" />
                   <span className="text-sm">
-                    {user?.name || user?.email || "Usuario"}
+                    {user?.name || user?.email || "Usuário"}
                   </span>
                 </div>
                 <DropdownMenu>
@@ -149,7 +149,8 @@ const Navbar = () => {
             variant="ghost"
             className="text-energy-800 dark:text-white hover:text-energy-600 dark:hover:text-energy-200 hover:bg-energy-100 dark:hover:bg-energy-blue-light/20"
             onClick={toggleMobileMenu}
-            aria-label="Toggle menu"
+            aria-label="Abrir ou fechar menu"
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? (
               <X className="h-6 w-6" />
@@ -171,7 +172,7 @@ const Navbar = () => {
             <span>Início</span>
           </Link>
 
-          {isLoggedIn ? (
+          {user ? (
             <>
               <Link
                 to="/dashboard"
@@ -179,12 +180,12 @@ const Navbar = () => {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <AreaChart className="h-5 w-5" />
-                <span>Dashboard</span>
+                <span>Visão geral</span>
               </Link>
               <div className="flex items-center justify-between py-2 border-t border-energy-blue-light/20 mt-2 pt-3">
                 <div className="flex items-center gap-2 text-energy-100">
                   <User className="h-4 w-4" />
-                  <span className="text-sm">{userName}</span>
+                  <span className="text-sm">{user.name || user.email}</span>
                 </div>
                 <Button
                   variant="ghost"

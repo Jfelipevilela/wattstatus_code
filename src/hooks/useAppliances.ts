@@ -32,13 +32,15 @@ export interface ApplianceInput {
 
 export const useAppliances = () => {
   const [appliances, setAppliances] = useState<Appliance[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { token, user } = useAuth();
 
   const fetchAppliances = useCallback(async () => {
     if (!user) {
       setAppliances([]);
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -50,6 +52,7 @@ export const useAppliances = () => {
         token || undefined
       );
       setAppliances(data.appliances);
+      setLastUpdated(new Date());
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro ao carregar aparelhos";
       setError(message);
@@ -103,6 +106,7 @@ export const useAppliances = () => {
     loading,
     error,
     refetch: fetchAppliances,
+    lastUpdated,
     addAppliance,
     updateAppliance,
     deleteAppliance,

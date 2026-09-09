@@ -32,6 +32,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { Appliance } from "@/hooks/useAppliances";
 import { useAuth } from "@/hooks/useAuth";
+import { estimateAppliance, getMonthlyEstimate, formatNumber } from "@/lib/energy";
 
 interface ReportsTabProps {
   appliances: Appliance[];
@@ -57,39 +58,9 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
   const [sortColumn, setSortColumn] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [generationTime, setGenerationTime] = useState<string>("");
+  const [hasGeneratedReport, setHasGeneratedReport] = useState(false);
 
   const { user } = useAuth();
-
-  // Tarifas por estado
-  const STATE_TARIFFS = {
-    AC: 0.89,
-    AL: 0.78,
-    AP: 0.85,
-    AM: 0.82,
-    BA: 0.75,
-    CE: 0.71,
-    DF: 0.79,
-    ES: 0.73,
-    GO: 0.76,
-    MA: 0.69,
-    MT: 0.74,
-    MS: 0.72,
-    MG: 0.77,
-    PA: 0.81,
-    PB: 0.7,
-    PR: 0.78,
-    PE: 0.72,
-    PI: 0.68,
-    RJ: 0.79,
-    RN: 0.71,
-    RS: 0.8,
-    RO: 0.83,
-    RR: 0.84,
-    SC: 0.76,
-    SP: 0.82,
-    SE: 0.7,
-    TO: 0.75,
-  };
 
   // Initialize with current month/year
   useEffect(() => {
@@ -98,23 +69,14 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
     setSelectedYear(now.getFullYear().toString());
   }, []);
 
+  // A result and its export must correspond to the currently selected filters.
+  useEffect(() => {
+    setReportData([]);
+    setHasGeneratedReport(false);
+  }, [selectedMonth, selectedYear, selectedAppliance, appliances]);
+
   const getDaysInMonth = (month: number, year: number): number => {
     return new Date(year, month, 0).getDate();
-  };
-
-  const isSameMonthAndYear = (
-    appliance: Appliance,
-    month: number,
-    year: number
-  ) => {
-    const createdAt = appliance.createdAt ? new Date(appliance.createdAt) : null;
-    if (!createdAt || Number.isNaN(createdAt.getTime())) {
-      return false;
-    }
-
-    return (
-      createdAt.getMonth() + 1 === month && createdAt.getFullYear() === year
-    );
   };
 
   const generateReport = async () => {
@@ -129,32 +91,29 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
 
     setIsGenerating(true);
 
-    // Simulate processing time for UX
-    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    const month = parseInt(selectedMonth);
-    const year = parseInt(selectedYear);
+
+    const month = parseInt(selectedMonth, 10);
+    const year = parseInt(selectedYear, 10);
     const daysInMonth = getDaysInMonth(month, year);
 
+    const availableIds = new Set(getMonthlyEstimate(appliances, year, month).rows.map((row) => row.id));
     const filteredAppliances = appliances.filter((app) => {
-      const matchesPeriod = isSameMonthAndYear(app, month, year);
+      const matchesPeriod = availableIds.has(app.id);
       const matchesAppliance =
         selectedAppliance === "all" || app.id === selectedAppliance;
       return matchesPeriod && matchesAppliance;
     });
 
     const data: ReportData[] = filteredAppliances.map((appliance) => {
-      const tariffValue =
-        STATE_TARIFFS[appliance.tariff as keyof typeof STATE_TARIFFS] || 0.82;
-      const consumption =
-        (appliance.power * appliance.usageHours * daysInMonth) / 1000;
-      const cost = consumption * tariffValue;
+      const { consumption, cost } = estimateAppliance(appliance, daysInMonth);
+      const tariffValue = consumption > 0 ? cost / consumption : 0;
 
       return {
         applianceName: appliance.name,
         power: appliance.power,
         usageHours: appliance.usageHours,
-        daysInMonth,
+        daysInMonth: Math.min(appliance.days, daysInMonth),
         tariff: appliance.tariff,
         tariffValue,
         consumption,
@@ -162,9 +121,21 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
       };
     });
 
-    setReportData(data);
     setGenerationTime(new Date().toLocaleString("pt-BR"));
+    setHasGeneratedReport(true);
     setIsGenerating(false);
+
+    if (data.length === 0) {
+      setReportData([]);
+      toast({
+        title: "Nenhum aparelho encontrado no período",
+        description:
+          'Tente outro mês/ano ou selecione "Todos os aparelhos" para gerar o relatório.',
+      });
+      return;
+    }
+
+    setReportData(data);
 
     toast({
       title: "Relatório gerado com sucesso!",
@@ -184,11 +155,11 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
 
     try {
       const jsPDF = (await import("jspdf")).default;
-      const pdf = new jsPDF();
+      const pdf = new jsPDF({ orientation: "landscape" });
 
       // Title
       pdf.setFontSize(20);
-      pdf.text("Relatório Mensal de Consumo de Energia", 20, 30);
+      pdf.text("Relatório Mensal de Consumo Estimado", 20, 30);
 
       // Client info
       pdf.setFontSize(12);
@@ -196,6 +167,9 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
       pdf.text(`Email: ${user?.email || "usuario@email.com"}`, 20, 60);
       pdf.text(`Mês/Ano: ${selectedMonth}/${selectedYear}`, 20, 70);
       pdf.text(`Data de geração: ${generationTime}`, 20, 80);
+
+      pdf.setFontSize(9);
+      pdf.text("Estimativa com os dados atuais de uso e tarifa; não representa medição histórica.", 20, 90);
 
       // Table header
       let yPosition = 100;
@@ -212,13 +186,13 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
       reportData.forEach((item) => {
         pdf.text(item.applianceName.substring(0, 15), 20, yPosition);
         pdf.text(item.power.toString(), 80, yPosition);
-        pdf.text(item.usageHours.toString(), 120, yPosition);
+        pdf.text(formatNumber(item.usageHours), 120, yPosition);
         pdf.text(item.daysInMonth.toString(), 150, yPosition);
-        pdf.text(item.consumption.toFixed(2), 170, yPosition);
-        pdf.text(item.cost.toFixed(2), 220, yPosition);
+        pdf.text(formatNumber(item.consumption), 170, yPosition);
+        pdf.text(formatNumber(item.cost), 220, yPosition);
         yPosition += 10;
 
-        if (yPosition > 270) {
+        if (yPosition > 180) {
           pdf.addPage();
           yPosition = 30;
         }
@@ -234,11 +208,11 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
       yPosition += 10;
       pdf.setFontSize(12);
       pdf.text(
-        `Total Consumo: ${totalConsumption.toFixed(2)} kWh`,
+        `Total Consumo: ${formatNumber(totalConsumption)} kWh`,
         20,
         yPosition
       );
-      pdf.text(`Total Custo: R$ ${totalCost.toFixed(2)}`, 150, yPosition);
+      pdf.text(`Total Custo: R$ ${formatNumber(totalCost)}`, 150, yPosition);
 
       pdf.save(`relatorio_${selectedMonth}_${selectedYear}.pdf`);
 
@@ -262,10 +236,10 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
     setSortDirection(direction);
 
     const sorted = [...reportData].sort((a, b) => {
-      let aValue: any = a[column as keyof ReportData];
-      let bValue: any = b[column as keyof ReportData];
+      let aValue: string | number = a[column as keyof ReportData];
+      let bValue: string | number = b[column as keyof ReportData];
 
-      if (typeof aValue === "string") {
+      if (typeof aValue === "string" && typeof bValue === "string") {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }
@@ -293,10 +267,15 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
           Relatórios Mensais
         </h2>
         <p className="text-gray-600 dark:text-gray-300">
-          Gere relatórios detalhados do consumo de energia por aparelho
+          Gere relatórios de consumo e custo estimados por aparelho
         </p>
       </div>
 
+      <p className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+        Estimativas para um mês completo, com potência, tempo de uso e tarifa cadastrados atualmente.
+        Os dias de uso respeitam o limite do mês. Leituras importadas não entram neste relatório;
+        alterações no cadastro podem mudar projeções de meses anteriores.
+      </p>
       {/* Controls */}
       <Card className="p-6">
         <CardHeader className="pb-4">
@@ -308,9 +287,9 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium mb-2">Mês</label>
+              <label htmlFor="report-month" className="block text-sm font-medium mb-2">Mês</label>
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger>
+                <SelectTrigger id="report-month">
                   <SelectValue placeholder="Mês" />
                 </SelectTrigger>
                 <SelectContent>
@@ -329,15 +308,15 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Ano</label>
+              <label htmlFor="report-year" className="block text-sm font-medium mb-2">Ano</label>
               <Select value={selectedYear} onValueChange={setSelectedYear}>
-                <SelectTrigger>
+                <SelectTrigger id="report-year">
                   <SelectValue placeholder="Ano" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <SelectItem key={2024 + i} value={(2024 + i).toString()}>
-                      {2024 + i}
+                  {Array.from({ length: 7 }, (_, i) => (
+                    <SelectItem key={i} value={(new Date().getFullYear() - 5 + i).toString()}>
+                      {new Date().getFullYear() - 5 + i}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -345,12 +324,12 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Aparelho</label>
+              <label htmlFor="report-appliance" className="block text-sm font-medium mb-2">Aparelho</label>
               <Select
                 value={selectedAppliance}
                 onValueChange={setSelectedAppliance}
               >
-                <SelectTrigger>
+                <SelectTrigger id="report-appliance">
                   <SelectValue placeholder="Todos os aparelhos" />
                 </SelectTrigger>
                 <SelectContent>
@@ -368,7 +347,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
               <Button
                 onClick={generateReport}
                 disabled={isGenerating}
-                className="w-full bg-energy-green-light hover:bg-energy-green-dark"
+                className="h-11 w-full"
               >
                 {isGenerating ? (
                   <>
@@ -391,7 +370,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
       {reportData.length > 0 && (
         <Card className="p-6">
           <CardHeader className="pb-4">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
               <CardTitle className="flex items-center gap-3">
                 <FileText className="h-5 w-5 text-energy-green-dark" />
                 Relatório de {selectedMonth}/{selectedYear}
@@ -472,14 +451,14 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
                         {item.applianceName}
                       </TableCell>
                       <TableCell>{item.power}</TableCell>
-                      <TableCell>{item.usageHours}</TableCell>
+                      <TableCell>{formatNumber(item.usageHours)}</TableCell>
                       <TableCell>{item.daysInMonth}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{item.tariff}</Badge>
                       </TableCell>
-                      <TableCell>{item.consumption.toFixed(2)}</TableCell>
+                      <TableCell>{formatNumber(item.consumption)}</TableCell>
                       <TableCell className="font-medium dark:text-green-400 text-green-600">
-                        R$ {item.cost.toFixed(2)}
+                        R$ {formatNumber(item.cost)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -497,7 +476,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
                       Consumo Total
                     </p>
                     <p className="text-2xl font-bold dark:text-yellow-300 text-yellow-400">
-                      {totalConsumption.toFixed(2)} kWh
+                      {formatNumber(totalConsumption)} kWh
                     </p>
                   </div>
                 </div>
@@ -508,10 +487,29 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
                       Custo Total
                     </p>
                     <p className="text-2xl font-bold dark:text-green-400 text-green-600" >
-                      R$ {totalCost.toFixed(2)}
+                      R$ {formatNumber(totalCost)}
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {hasGeneratedReport && reportData.length === 0 && (
+        <Card className="p-6 border border-border/60 shadow-sm">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4 rounded-lg border border-dashed border-border/80 bg-muted/20 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background shadow-sm">
+                <Filter className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-semibold">Nenhum dado para este filtro</p>
+                <p className="text-sm text-muted-foreground">
+                  Não há aparelhos disponíveis até o fim do período selecionado. Ajuste o
+                  mês/ano ou escolha outro aparelho para gerar o relatório.
+                </p>
               </div>
             </div>
           </CardContent>

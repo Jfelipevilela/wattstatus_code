@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   AppSidebar,
   SidebarProvider,
@@ -7,8 +7,7 @@ import {
 import { SidebarInset } from "@/components/ui/sidebar";
 import AppliancesTab from "@/components/tabs/AppliancesTab";
 import EditApplianceModal from "@/components/EditApplianceModal";
-import { Navigation, PlugZap } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { PlugZap } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,14 +19,29 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
-import { useAppliances, Appliance, ApplianceInput } from "@/hooks/useAppliances";
+import {
+  useAppliances,
+  Appliance,
+  ApplianceInput,
+} from "@/hooks/useAppliances";
 import { notifyError } from "@/lib/error-toast";
+import { DataState } from "@/components/DataState";
+import { useSearchParams } from "react-router-dom";
 
 const Appliances = () => {
-  const { appliances, addAppliance, updateAppliance, deleteAppliance } =
-    useAppliances();
+  const {
+    appliances,
+    loading,
+    error,
+    refetch,
+    addAppliance,
+    updateAppliance,
+    deleteAppliance,
+  } = useAppliances();
+  const [searchParams] = useSearchParams();
+  const [deleting, setDeleting] = useState(false);
   const [editingAppliance, setEditingAppliance] = useState<Appliance | null>(
-    null
+    null,
   );
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -47,7 +61,7 @@ const Appliances = () => {
 
   const handleSaveEditedAppliance = async (
     id: string,
-    updates: Partial<ApplianceInput>
+    updates: Partial<ApplianceInput>,
   ) => {
     await updateAppliance(id, updates);
   };
@@ -64,7 +78,8 @@ const Appliances = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (deleteApplianceModal) {
+    if (deleteApplianceModal && !deleting) {
+      setDeleting(true);
       try {
         const applianceName = deleteApplianceModal.name;
         await deleteAppliance(deleteApplianceModal.id);
@@ -78,36 +93,38 @@ const Appliances = () => {
           title: "Erro ao excluir aparelho",
           fallbackMessage: "Não foi possível excluir o aparelho.",
         });
+      } finally {
+        setDeleting(false);
       }
     }
-  };
-
-  const navigateToCalculator = () => {
-    window.location.href = "/calculadora";
   };
 
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-energy-green-light rounded flex items-center justify-center">
-              <PlugZap className="w-5 h-5 text-energy-green-light absolute " />
+              <PlugZap className="w-5 h-5 text-white" />
             </div>
             <span className="font-semibold">Aparelhos</span>
           </div>
         </header>
         <div className="flex flex-col min-h-screen bg-background dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
           <main className="flex-grow container mx-auto px-4 pt-6 pb-10">
-            <AppliancesTab
-              appliances={appliances}
-              onEdit={openEditModal}
-              onDelete={openDeleteModal}
-              onAddAppliance={handleAddAppliance}
-              onNavigateToCalculator={navigateToCalculator}
-            />
+            {loading || error ? (
+              <DataState loading={loading} error={error} onRetry={refetch} />
+            ) : (
+              <AppliancesTab
+                appliances={appliances}
+                onEdit={openEditModal}
+                onDelete={openDeleteModal}
+                onAddAppliance={handleAddAppliance}
+                initialAddOpen={searchParams.get("adicionar") === "1"}
+              />
+            )}
           </main>
         </div>
       </SidebarInset>
@@ -119,7 +136,7 @@ const Appliances = () => {
       />
       <AlertDialog
         open={!!deleteApplianceModal}
-        onOpenChange={(open) => !open && closeDeleteModal()}
+        onOpenChange={(open) => !open && !deleting && closeDeleteModal()}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -131,14 +148,18 @@ const Appliances = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={closeDeleteModal}>
+            <AlertDialogCancel disabled={deleting} onClick={closeDeleteModal}>
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteConfirm}
+              disabled={deleting}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDeleteConfirm();
+              }}
               className="bg-red-600 text-white hover:bg-red-700"
             >
-              Excluir
+              {deleting ? "Excluindo…" : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,6 +1,20 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Plus, Grid3X3, List, Edit, Trash2 } from "lucide-react";
 import ApplianceCard from "@/components/ApplianceCard";
+import ApplianceCalculator from "@/components/ApplianceCalculator";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -9,431 +23,331 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { Appliance, ApplianceInput } from "@/hooks/useAppliances";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import { cn } from "@/lib/utils";
-import {
-  CheckCircle,
-  CircleAlert,
-  CircleX,
-  Edit,
-  Grid3X3,
-  List,
-  Plus,
-  Settings,
-  Trash2,
-  TrendingUp,
-  Zap,
-} from "lucide-react";
-import React, { useState } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { Appliance, ApplianceInput } from "@/hooks/useAppliances";
+  estimateAppliance,
+  formatNumber,
+  formatCurrency,
+  normalizeSearch,
+} from "@/lib/energy";
 
-interface AppliancesTabProps {
+interface Props {
   appliances: Appliance[];
   onEdit: (appliance: Appliance) => void;
   onDelete: (appliance: Appliance) => void;
-  onAddAppliance: (appliance: ApplianceInput) => Promise<void>;
-  onNavigateToCalculator: () => void;
+  onAddAppliance: (appliance: ApplianceInput) => Promise<Appliance | void>;
+  onNavigateToCalculator?: () => void;
+  initialAddOpen?: boolean;
 }
-
-const AppliancesTab: React.FC<AppliancesTabProps> = ({
+export default function AppliancesTab({
   appliances,
   onEdit,
   onDelete,
   onAddAppliance,
-  onNavigateToCalculator,
-}) => {
+  initialAddOpen = false,
+}: Props) {
+  const [adding, setAdding] = useState(initialAddOpen);
+  const [busy, setBusy] = useState(false);
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [search, setSearch] = useState("");
+  const [source, setSource] = useState("all");
+  const [sort, setSort] = useState("cost");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
-
-  const totalPower = appliances.reduce((sum, app) => sum + app.power, 0);
-  const totalMonthlyConsumption = appliances.reduce(
-    (sum, app) => sum + app.monthlyConsumption,
-    0
-  );
-  const totalMonthlyCost = appliances.reduce(
-    (sum, app) => sum + app.monthlyCost,
-    0
-  );
-  const criticalCount = appliances.filter(
-    (app) => app.status === "critical"
-  ).length;
-  const warningCount = appliances.filter(
-    (app) => app.status === "warning"
-  ).length;
-
-  const totalPages = Math.ceil(appliances.length / itemsPerPage);
-  const paginatedAppliances = appliances.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
+  const estimates = appliances.map((appliance) => ({
+    appliance,
+    ...estimateAppliance(appliance),
+  }));
+  const filtered = estimates
+    .filter(
+      ({ appliance }) =>
+        normalizeSearch(appliance.name).includes(normalizeSearch(search)) &&
+        (source === "all" ||
+          (source === "connected"
+            ? Boolean(appliance.integrationProvider)
+            : !appliance.integrationProvider)),
+    )
+    .sort((a, b) =>
+      sort === "name"
+        ? a.appliance.name.localeCompare(b.appliance.name, "pt-BR")
+        : sort === "consumption"
+          ? b.consumption - a.consumption
+          : b.cost - a.cost,
+    );
+  const pages = Math.max(1, Math.ceil(filtered.length / 8));
+  const page = Math.min(currentPage, pages);
+  const visible = filtered.slice((page - 1) * 8, page * 8);
+  const clearFilters = () => {
+    setSearch("");
+    setSource("all");
+    setCurrentPage(1);
+  };
+  const selectClass =
+    "h-11 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   return (
-    <div className="space-y-8">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-          Seus Aparelhos
-        </h2>
-        <p className="text-gray-600 dark:text-gray-300">
-          Gerencie e monitore todos os seus equipamentos elétricos
-        </p>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-        <Card className="p-6 hover:shadow-xl transition-all duration-300 border-l-4 border-l-energy-green-light ">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-energy-green-light/10 dark:bg-energy-green-light/5 rounded-lg">
-              <Zap className="h-5 w-5 text-energy-green-dark dark:text-energy-green-light" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground dark:text-white ">
-                Total Aparelhos
-              </p>
-              <p className="text-2xl font-bold text-energy-green-dark dark:text-energy-green-light">
-                {appliances.length}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 hover:shadow-xl transition-all duration-300 border-l-4 border-l-energy-yellow">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-energy-yellow/10 dark:bg-energy-yellow/5 rounded-lg">
-              <TrendingUp className="h-5 w-5 text-energy-yellow dark:text-energy-yellow" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground dark:text-white">
-                Potência Total
-              </p>
-              <p className="text-2xl font-bold text-energy-yellow dark:text-energy-yellow">
-                {totalPower}W
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 hover:shadow-xl transition-all duration-300 border-l-4 border-l-energy-teal">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-energy-blue-light/10 dark:bg-energy-blue-light/5 rounded-lg">
-              <Settings className="h-5 w-5 text-energy-teal dark:text-energy-teal" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground dark:text-white">
-                Consumo Mensal
-              </p>
-              <p className="text-2xl font-bold text-energy-teal dark:text-energy-teal">
-                {totalMonthlyConsumption.toFixed(2)} kWh
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 hover:shadow-xl transition-all duration-300 border-l-4 border-l-energy-red ">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
-              <Plus className="h-5 w-5 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground dark:text-white">
-                Alertas
-              </p>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                {criticalCount + warningCount}
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* View Toggle */}
-      {appliances.length > 0 && (
-        <div className="flex justify-center mb-6 p-4 rounded-lg">
-          <div className="hidden sm:flex flex-col sm:flex-row rounded-lg gap-2 p-1 shadow-sm w-full max-w-xs">
-            <Button
-              variant={viewMode === "cards" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("cards")}
-              className={cn(
-                "flex items-center gap-2 hover:bg-energy-400 flex-1",
-                viewMode === "cards" && "bg-energy-green-light"
-              )}
-            >
-              <Grid3X3 className="h-4 w-4" />
-              Cards
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-              className={cn(
-                "flex items-center gap-2 hover:bg-energy-400 flex-1",
-                viewMode === "list" && "bg-energy-green-light"
-              )}
-            >
-              <List className="h-4 w-4" />
-              Lista
-            </Button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Seus aparelhos</h1>
+          <p className="mt-2 text-muted-foreground">
+            Encontre os maiores gastos e ajuste sua estimativa de consumo.
+          </p>
         </div>
-      )}
-
-      {/* Appliances Display */}
-      {appliances.length > 0 ? (
-        viewMode === "cards" ? (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {paginatedAppliances.map((appliance) => (
+        <Dialog open={adding} onOpenChange={(open) => { if (!busy) setAdding(open); }}>
+          <DialogTrigger asChild>
+            <Button className="h-11 shrink-0">
+              <Plus className="mr-2 h-4 w-4" />
+              Adicionar aparelho
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Adicionar aparelho</DialogTitle>
+              <DialogDescription>
+                Escolha um modelo ou preencha os dados do seu equipamento.
+              </DialogDescription>
+            </DialogHeader>
+            <ApplianceCalculator
+              onAddAppliance={onAddAppliance}
+              onSaved={() => setAdding(false)}
+              onBusyChange={setBusy}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+      {appliances.length === 0 ? (
+        <Card className="space-y-4 p-6 text-center sm:p-10">
+          <h2 className="text-xl font-semibold">
+            Comece pelo seu primeiro aparelho
+          </h2>
+          <p className="mx-auto max-w-lg text-muted-foreground">
+            Cadastre um equipamento para estimar seus gastos ou conecte uma
+            integração para importar dispositivos.
+          </p>
+          <div className="flex flex-col justify-center gap-3 sm:flex-row">
+            <Button className="h-11" onClick={() => setAdding(true)}>
+              Cadastrar primeiro aparelho
+            </Button>
+            <Button asChild variant="outline" className="h-11">
+              <Link to="/apps">Conectar integração</Link>
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[
+              {
+                label: "Aparelhos cadastrados",
+                value: formatNumber(appliances.length, 0),
+              },
+              {
+                label: "Consumo mensal estimado",
+                value: `${formatNumber(estimates.reduce((sum, row) => sum + row.consumption, 0))} kWh`,
+              },
+              {
+                label: "Custo mensal estimado",
+                value: formatCurrency(
+                  estimates.reduce((sum, row) => sum + row.cost, 0),
+                ),
+              },
+            ].map((item) => (
+              <Card key={item.label} className="min-w-0 p-5">
+                <p className="text-sm text-muted-foreground">{item.label}</p>
+                <p className="mt-2 break-words text-2xl font-bold">
+                  {item.value}
+                </p>
+              </Card>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Estimativas de todos os aparelhos, calculadas com os dias de uso
+            cadastrados. Leituras importadas aparecem separadamente nos detalhes
+            de cada aparelho.
+          </p>
+          <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2 sm:col-span-2 lg:col-span-2">
+              <Label htmlFor="appliance-search">Buscar aparelho</Label>
+              <Input
+                id="appliance-search"
+                type="search"
+                placeholder="Digite o nome do aparelho"
+                className="h-11"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="appliance-source">Origem</Label>
+              <select
+                id="appliance-source"
+                className={selectClass}
+                value={source}
+                onChange={(event) => {
+                  setSource(event.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">Todos os aparelhos</option>
+                <option value="manual">Cadastro manual</option>
+                <option value="connected">Integrações</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="appliance-sort">Ordenar por</Label>
+              <select
+                id="appliance-sort"
+                className={selectClass}
+                value={sort}
+                onChange={(event) => {
+                  setSort(event.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="cost">Maior custo estimado</option>
+                <option value="consumption">Maior consumo estimado</option>
+                <option value="name">Nome (A–Z)</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p role="status" className="text-sm text-muted-foreground">
+              {filtered.length} de {appliances.length} aparelhos
+            </p>
+            <div
+              className="flex gap-2"
+              role="group"
+              aria-label="Visualização dos aparelhos"
+            >
+              <Button
+                variant={viewMode === "cards" ? "default" : "outline"}
+                aria-pressed={viewMode === "cards"}
+                className="h-11"
+                onClick={() => setViewMode("cards")}
+              >
+                <Grid3X3 className="mr-2 h-4 w-4" />
+                Cartões
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "outline"}
+                aria-pressed={viewMode === "list"}
+                className="h-11"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="mr-2 h-4 w-4" />
+                Lista
+              </Button>
+            </div>
+          </div>
+          {filtered.length === 0 ? (
+            <Card className="space-y-3 p-8 text-center">
+              <h2 className="font-semibold">Nenhum aparelho encontrado</h2>
+              <p className="text-sm text-muted-foreground">
+                Tente outro nome ou remova o filtro de origem.
+              </p>
+              <Button variant="outline" onClick={clearFilters}>
+                Limpar filtros
+              </Button>
+            </Card>
+          ) : viewMode === "cards" ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {visible.map(({ appliance }) => (
                 <ApplianceCard
                   key={appliance.id}
-                  name={appliance.name}
-                  power={appliance.power}
-                  status={appliance.status}
-                  usageHours={appliance.usageHours}
-                  monthlyCost={appliance.monthlyCost}
-                  monthlyConsumption={appliance.monthlyConsumption}
-                  tariff={appliance.tariff}
+                  {...appliance}
                   onEdit={() => onEdit(appliance)}
                   onDelete={() => onDelete(appliance)}
                 />
               ))}
             </div>
-            {totalPages > 1 && (
-              <Pagination className="mt-8">
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() =>
-                        setCurrentPage(Math.max(1, currentPage - 1))
-                      }
-                      className={cn(
-                        currentPage === 1 && "pointer-events-none opacity-50"
-                      )}
-                    />
-                  </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  )}
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage(Math.min(totalPages, currentPage + 1))
-                      }
-                      className={cn(
-                        currentPage === totalPages &&
-                          "pointer-events-none opacity-50"
-                      )}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            )}
-          </>
-        ) : (
-          <>
-            <Card className="bg-white dark:bg-muted">
-              <div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Potência</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Consumo Mensal</TableHead>
-                      <TableHead>Custo Mensal</TableHead>
-                      <TableHead>Tarifa</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedAppliances.map((appliance) => (
-                      <TableRow
-                        key={appliance.id}
-                        className={cn(
-                          appliance.status === "critical" &&
-                            "animate-pulse bg-red-900/20 dark:bg-red-900/20"
+          ) : (
+            <Card className="min-w-0 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Aparelho</TableHead>
+                    <TableHead>Consumo estimado/mês</TableHead>
+                    <TableHead>Custo estimado/mês</TableHead>
+                    <TableHead>Origem / leitura</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visible.map(({ appliance, consumption, cost }) => (
+                    <TableRow key={appliance.id}>
+                      <TableCell className="font-medium">
+                        {appliance.name}
+                      </TableCell>
+                      <TableCell>{formatNumber(consumption)} kWh</TableCell>
+                      <TableCell>{formatCurrency(cost)}</TableCell>
+                      <TableCell>
+                        {appliance.integrationProvider || "Manual"}
+                        {appliance.measuredConsumptionKWh > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Medido:{" "}
+                            {formatNumber(appliance.measuredConsumptionKWh)} kWh
+                            (período não informado)
+                          </p>
                         )}
-                      >
-                        <TableCell className="font-medium">
-                          {appliance.name}
-                        </TableCell>
-                        <TableCell>{appliance.power} W</TableCell>
-                        <TableCell>
-                          <div
-                            className={cn(
-                              "flex items-center gap-2",
-                              appliance.status === "critical" && "animate-pulse"
-                            )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-11 w-11"
+                            aria-label={`Editar ${appliance.name}`}
+                            onClick={() => onEdit(appliance)}
                           >
-                            {appliance.status === "normal" && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <CheckCircle className="h-5 w-5 text-energy-green-light" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Status normal</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-
-                            {appliance.status === "warning" && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <CircleAlert className="h-5 w-5 text-orange-400" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Consumo acima do ideal</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-
-                            {appliance.status === "critical" && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <CircleX className="h-5 w-5 text-energy-red " />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Consumo crítico!</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-
-                            <span
-                              className={cn(
-                                "text-sm",
-                                appliance.status === "normal"
-                                  ? "text-energy-green-dark dark:text-energy-green-light"
-                                  : appliance.status === "warning"
-                                  ? "text-orange-400 dark:text-orange-400"
-                                  : "text-energy-red dark:text-energy-red"
-                              )}
-                            >
-                              {appliance.status === "normal"
-                                ? "Normal"
-                                : appliance.status === "warning"
-                                ? "Atenção"
-                                : "Crítico"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {appliance.monthlyConsumption.toFixed(2)} kWh
-                        </TableCell>
-                        <TableCell>
-                          R$ {appliance.monthlyCost.toFixed(2)}
-                        </TableCell>
-                        <TableCell>{appliance.tariff}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onEdit(appliance)}
-                              className="h-8 w-8 p-0 hover:text-energy-yellow hover:bg-energy-yellow/20"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onDelete(appliance)}
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-400"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-11 w-11 text-destructive"
+                            aria-label={`Excluir ${appliance.name}`}
+                            onClick={() => onDelete(appliance)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </Card>
-            {totalPages > 1 && (
-              <Pagination className="mt-8">
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() =>
-                        setCurrentPage(Math.max(1, currentPage - 1))
-                      }
-                      className={cn("cuisor-pointer",
-                        currentPage === 1 && "pointer-events-none opacity-50"
-                      )}
-                    />
-                  </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          className="cursor-pointer"
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  )}
-                  <PaginationItem>
-                    <PaginationNext
-                    
-                      onClick={() =>
-                        setCurrentPage(Math.min(totalPages, currentPage + 1))
-                      }
-                      className={cn("cuisor-pointer",
-                        currentPage === totalPages &&
-                          "pointer-events-none opacity-50 "
-                      )}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            )}
-          </>
-        )
-      ) : (
-        <Card className="p-12 text-center bg-white dark:bg-muted">
-          <div className="max-w-md mx-auto">
-            <div className="w-24 h-24 bg-gradient-to-br from-energy-green-light to-blue-800 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Zap className="h-12 w-12 text-white" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">
-              Nenhum aparelho cadastrado
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Adicione seus aparelhos elétricos para começar a monitorar o
-              consumo de energia.
-            </p>
-            <Button
-              onClick={onNavigateToCalculator}
-              className="bg-gradient-to-r from-energy-green-light to-blue-800 hover:from-blue-800 hover:to-energy-green-light transition-all duration-300 transform hover:scale-105"
+          )}
+          {pages > 1 && (
+            <nav
+              aria-label="Paginação dos aparelhos"
+              className="flex items-center justify-center gap-3"
             >
-              <Plus className="h-5 w-5 mr-2" />
-              Adicionar Primeiro Aparelho
-            </Button>
-          </div>
-        </Card>
+              <Button
+                variant="outline"
+                className="h-11"
+                disabled={page === 1}
+                onClick={() => setCurrentPage(page - 1)}
+              >
+                Anterior
+              </Button>
+              <span className="text-sm">
+                Página {page} de {pages}
+              </span>
+              <Button
+                variant="outline"
+                className="h-11"
+                disabled={page === pages}
+                onClick={() => setCurrentPage(page + 1)}
+              >
+                Próxima
+              </Button>
+            </nav>
+          )}
+        </>
       )}
     </div>
   );
-};
-
-export default AppliancesTab;
+}

@@ -1,192 +1,102 @@
-import React from "react";
+import { Edit, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, CircleAlert, CircleX, Edit, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
-  Tooltip,
-  TooltipProvider,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
+  estimateAppliance,
+  formatCurrency,
+  formatDuration,
+  formatNumber,
+} from "@/lib/energy";
+import type { Appliance } from "@/hooks/useAppliances";
 
-interface ApplianceCardProps {
-  name: string;
-  power: number;
-  status: "normal" | "warning" | "critical";
-  usageHours: number;
-  monthlyCost: number;
-  monthlyConsumption: number;
-  tariff: string;
-  onEdit?: () => void;
-  onDelete?: () => void;
-}
-
-const ApplianceCard: React.FC<ApplianceCardProps> = ({
-  name,
-  power,
-  status,
-  usageHours,
-  monthlyCost,
-  monthlyConsumption,
-  tariff,
+type Props = Pick<
+  Appliance,
+  | "name"
+  | "power"
+  | "status"
+  | "usageHours"
+  | "monthlyCost"
+  | "monthlyConsumption"
+  | "tariff"
+> &
+  Partial<Appliance> & { onEdit?: () => void; onDelete?: () => void };
+export default function ApplianceCard({
   onEdit,
   onDelete,
-}) => {
+  ...appliance
+}: Props) {
+  const estimate = estimateAppliance({
+    ...appliance,
+    days: appliance.days || 30,
+  } as Appliance);
+  const items = [
+    ["Potência", `${formatNumber(appliance.power, 0)} W`],
+    ["Uso diário", formatDuration(appliance.usageHours)],
+    ["Consumo estimado/mês", `${formatNumber(estimate.consumption)} kWh`],
+    ["Custo estimado/mês", formatCurrency(estimate.cost)],
+    ["Dias de uso/mês", String(appliance.days || 30)],
+    ["Estado da tarifa", appliance.tariff],
+  ];
   return (
-    <TooltipProvider>
-      <Card
-        className={cn(
-          "h-full transition-all duration-300 border shadow-lg hover:shadow-xl",
-          status === "normal"
-            ? "border-l-4 border-l-energy-green-light"
-            : status === "warning"
-            ? "border-l-4 border-l-orange-400"
-            : "border-l-4 border-l-energy-red animate-border-pulse"
-    
-        )}
-      >
-        <CardHeader className="flex flex-row items-center  animate-fade-in justify-between pb-2">
-          <CardTitle className="text-base text-black dark:text-white">
-            {name}
+    <Card className="h-full min-w-0 border-l-4 border-l-energy-green-light">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="break-words text-base">
+            {appliance.name}
           </CardTitle>
-          <div className="flex items-center space-x-2">
-            {status === "normal" && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <CheckCircle className="h-5 w-5 text-energy-green-light" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Status normal</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-
-            {status === "warning" && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <CircleAlert className="h-5 w-5 text-orange-400" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Consumo acima do ideal</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-
-            {status === "critical" && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <CircleX className="h-5 w-5 text-energy-red" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Consumo crítico!</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-
+          <div className="flex shrink-0">
             {onEdit && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    aria-label="Editar aparelho"
-                    onClick={onEdit}
-                    className="text-energy-yellow dark:text-energy-white hover:text-energy-yellow dark:hover:text-energy-yellow hover:bg-energy-yellow/20"
-                  >
-                    <Edit className="h-5 w-5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Editar</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-
-            {onDelete && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    aria-label="Excluir aparelho"
-                    onClick={onDelete}
-                    className="text-energy-red hover:text-red-700 dark:text-red-400 dark:hover:text-red-600"
-                  >
-                    <Trash2 className="h-5 w-5 " />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Excluir</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <p className="text-muted-foreground dark:text-gray-400">
-                Potência:
-              </p>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                {power} W
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground dark:text-gray-400">
-                Uso diário:
-              </p>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                {usageHours} horas
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground dark:text-gray-400">
-                Consumo mensal:
-              </p>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                {monthlyConsumption.toFixed(2)} kWh
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground dark:text-gray-400">
-                Custo mensal:
-              </p>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                R$ {monthlyCost.toFixed(2)}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground dark:text-gray-400">
-                Tarifa:
-              </p>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                {tariff}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground dark:text-gray-400">
-                Status:
-              </p>
-              <p
-                className={cn(
-                  "font-medium",
-                  status === "normal"
-                    ? "text-energy-green-dark dark:text-energy-green-light"
-                    : status === "warning"
-                    ? "text-orange-400 dark:text-orange-400"
-                    : "text-energy-red dark:text-red-400"
-                )}
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-11 w-11"
+                aria-label={`Editar ${appliance.name}`}
+                onClick={onEdit}
               >
-                {status === "normal"
-                  ? "Normal"
-                  : status === "warning"
-                  ? "Atenção"
-                  : "Crítico"}
-              </p>
-            </div>
+                <Edit className="h-4 w-4" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-11 w-11 text-destructive"
+                aria-label={`Excluir ${appliance.name}`}
+                onClick={onDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
-        </CardContent>
-      </Card>
-    </TooltipProvider>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {appliance.integrationProvider
+            ? `Integração: ${appliance.integrationProvider}`
+            : "Cadastro manual"}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          {items.map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-muted-foreground">{label}</dt>
+              <dd className="break-words font-medium">{value}</dd>
+            </div>
+          ))}
+        </dl>
+        {appliance.measuredConsumptionKWh > 0 && (
+          <div className="rounded-md bg-muted p-3 text-sm">
+            <p className="font-medium">
+              Medido pelo dispositivo:{" "}
+              {formatNumber(appliance.measuredConsumptionKWh)} kWh
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Leitura importada. Período e horário da medição não informados;
+              não representa necessariamente o consumo do mês.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
-};
-
-export default ApplianceCard;
+}

@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
@@ -53,8 +53,8 @@ import { BiSolidReport } from "react-icons/bi";
 
 
 const menuItems = [
-  { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
-  { title: "Relatorios", url: "/relatorios", icon: BiSolidReport },
+  { title: "Visão geral", url: "/dashboard", icon: BarChart3 },
+  { title: "Relatórios", url: "/relatorios", icon: BiSolidReport },
   { title: "Calculadora", url: "/calculadora", icon: BsFillHouseAddFill },
   { title: "Aparelhos", url: "/aparelhos", icon: FaLaptopHouse },
   { title: "Dicas", url: "/dicas", icon: MdOutlineTipsAndUpdates },
@@ -87,24 +87,23 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-energy-800 dark:text-white ">
-            Navegacao
+            Navegação
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
-                    onClick={() => navigate(item.url)}
+                    asChild
                     isActive={location.pathname === item.url}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-2 text-base rounded-md transition-colors duration-200",
+                      "flex h-11 items-center gap-3 px-4 py-2 text-base rounded-md transition-colors duration-200",
                       location.pathname === item.url
                         ? " text-energy-green-light font-semibold dark:bg-sidebar-accent border-l-4 border-l-energy-green-light  dark:text-energy-green-light font-semibold"
                         : "hover:bg-energy-200 dark:hover:bg-sidebar-accent text-black dark:text-sidebar-accent-foreground"
                     )}
                   >
-                    <item.icon />
-                    <span>{item.title}</span>
+                    <Link to={item.url} aria-current={location.pathname === item.url ? "page" : undefined}><item.icon /><span>{item.title}</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -114,21 +113,20 @@ export function AppSidebar() {
         <SidebarSeparator />
         <SidebarGroup>
           <SidebarGroupLabel className="text-energy-800 dark:text-white ">
-            Apps
+            Integrações
           </SidebarGroupLabel>
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={() => navigate("/apps")}
+              asChild
               isActive={location.pathname === "/apps"}
               className={cn(
-                "flex items-center gap-3  py-2 text-base rounded-md transition-colors duration-200",
+                "flex h-11 items-center gap-3 py-2 text-base rounded-md transition-colors duration-200",
                 location.pathname === "/apps"
                   ? " text-energy-green-light font-semibold dark:bg-sidebar-accent border-l-4 border-l-energy-green-light  dark:text-energy-green-light font-semibold"
                   : "hover:bg-energy-200 dark:hover:bg-sidebar-accent text-black dark:text-sidebar-accent-foreground"
               )}
             >
-              <RiApps2AiLine />
-              <span>Biblioteca de apps</span>
+              <Link to="/apps" aria-current={location.pathname === "/apps" ? "page" : undefined}><RiApps2AiLine /><span>Ver integrações</span></Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarGroupContent>
@@ -136,17 +134,16 @@ export function AppSidebar() {
               {apps.map((app) => (
                 <SidebarMenuItem key={app.url}>
                   <SidebarMenuButton
-                    onClick={() => navigate(app.url)}
+                    asChild
                     isActive={location.pathname === app.url}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-2 text-base rounded-md transition-colors duration-200",
+                      "flex h-11 items-center gap-3 px-4 py-2 text-base rounded-md transition-colors duration-200",
                       location.pathname === app.url
                         ? " text-energy-green-light font-semibold dark:bg-sidebar-accent border-l-4 border-l-energy-green-light  dark:text-energy-green-light font-semibold"
                         : "hover:bg-energy-200 dark:hover:bg-sidebar-accent text-black dark:text-sidebar-accent-foreground"
                     )}
                   >
-                    {app.icon}
-                    <span>{app.name}</span>
+                    <Link to={app.url} aria-current={location.pathname === app.url ? "page" : undefined}>{app.icon}<span>{app.name}</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -163,7 +160,7 @@ export function AppSidebar() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-energy-800 dark:text-sidebar-accent-foreground truncate">
-                {user?.name || "Usuario"}
+                {user?.name || "Usuário"}
               </p>
               <p className="text-xs text-energy-600 dark:text-sidebar-accent-foreground/70 truncate">
                 {user?.email || "usuario@email.com"}
@@ -173,6 +170,7 @@ export function AppSidebar() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
+                  aria-label="Opções da conta"
                   size="sm"
                   className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-950 p-1"
                 >
@@ -185,7 +183,7 @@ export function AppSidebar() {
                   className="hover:bg-blue-100"
                 >
                   <Home className="w-4 h-4 mr-2 text-blue-600" />
-                  Pagina Inicial
+                  Página inicial
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
