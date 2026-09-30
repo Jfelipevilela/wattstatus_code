@@ -194,7 +194,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
     const startedAt = Date.now();
     recordReportEvent("export_started", { itemCount: reportData.length });
     try {
-      const jsPDF = (await import("jspdf")).default;
+      const { jsPDF } = await import("jspdf");
       const pdf = new jsPDF({ orientation: "landscape" });
 
       // Title
