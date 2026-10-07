@@ -1,8 +1,7 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
-import { authenticate } from "./middleware/auth-middleware";
+import { createAuthenticate } from "./middleware/auth-middleware";
 import { errorHandler } from "./middleware/error-handler";
 import { requestLogging } from "./middleware/request-logging";
 import { ApplianceService } from "./modules/appliances/appliances.service";
@@ -19,6 +18,8 @@ import { createUserSettingsRouter } from "./modules/user-settings/user-settings.
 import { createAnalyticsRouter } from "./modules/analytics/analytics.routes";
 import { MongoDatabase } from "./storage/mongo-db";
 import { createReportRouter } from "./modules/reports/report.routes";
+import { ApiError } from "./middleware/error-handler";
+import { createRequestLimiter, protectMutation } from "./middleware/security";
 
 export interface AppDependencies {
   db: MongoDatabase;
@@ -27,24 +28,23 @@ export interface AppDependencies {
 
 export const createApp = ({ db, integrationManager }: AppDependencies) => {
   const app = express();
+  const authenticate = createAuthenticate(db);
+  app.set("trust proxy", env.trustProxy);
 
   app.use(helmet());
   app.use(
     cors({
-      origin: true,
+      origin: (origin, callback) => {
+        if (!origin || env.allowedOrigins.includes(origin)) callback(null, true);
+        else callback(new ApiError(403, "Origem não autorizada."));
+      },
       credentials: true,
     })
   );
   app.use(requestLogging);
-  app.use(express.json());
-  app.use(
-    rateLimit({
-      windowMs: 60 * 1000,
-      max: 120,
-      standardHeaders: true,
-      legacyHeaders: false,
-    })
-  );
+  app.use(createRequestLimiter(db, "http", 120, 60000));
+  app.use(express.json({ limit: "100kb", inflate: false }));
+  app.use("/api", protectMutation);
 
   const authService = new AuthService(db);
   const applianceService = new ApplianceService(db);
@@ -57,7 +57,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
     });
   });
 
-  app.use("/api/auth", createAuthRouter(authService));
+  app.use("/api/auth", createAuthRouter(authService, db));
   app.use(
     "/api/appliances",
     authenticate,

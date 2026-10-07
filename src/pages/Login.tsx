@@ -93,6 +93,8 @@ const Login = () => {
                 </Label>
                 <Input
                   id="email"
+                  autoComplete="username"
+                  maxLength={254}
                   type="email"
                   placeholder="seu@email.com"
                   value={email}
@@ -112,6 +114,8 @@ const Login = () => {
                 <div className="relative">
                   <Input
                     id="password"
+                    autoComplete="current-password"
+                    maxLength={1024}
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={password}
@@ -122,6 +126,7 @@ const Login = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-energy-500 dark:text-energy-400 hover:text-energy-700 dark:hover:text-energy-300"
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}

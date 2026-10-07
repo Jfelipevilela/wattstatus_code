@@ -1,21 +1,31 @@
 import { Router, Response } from "express";
-import { AuthenticatedRequest, authenticate } from "../../middleware/auth-middleware";
+import { AuthenticatedRequest, createAuthenticate, readAuthToken, verifyAuthToken } from "../../middleware/auth-middleware";
 import { ApiError } from "../../middleware/error-handler";
 import { loginSchema, registerSchema } from "./auth.schema";
 import { AuthService } from "./auth.service";
 import { AUTH_COOKIE_NAME } from "../../middleware/auth-middleware";
 import { getErrorFields, logger, updateLogContext } from "../../logging/logger";
 import { ZodError } from "zod";
+import { MongoDatabase } from "../../storage/mongo-db";
+import { cookieOptions, SESSION_SECONDS } from "./auth-security";
+import { createAccountLimiter, createDistributedAccountLimiter, createRequestLimiter, issueCsrf } from "../../middleware/security";
 
-export const createAuthRouter = (service: AuthService) => {
+export const createAuthRouter = (service: AuthService, db: MongoDatabase) => {
   const router = Router();
+  const authenticate = createAuthenticate(db);
+  router.use((_req, res, next) => {
+    res.setHeader("Cache-Control", "no-store");
+    next();
+  });
+  router.get("/csrf", issueCsrf);
+  router.use(["/login", "/register"], createRequestLimiter(db, "auth-ip", 20, 15 * 60 * 1000));
+  router.use("/login", createAccountLimiter(db));
+  router.use("/login", createDistributedAccountLimiter(db));
 
   const setAuthCookie = (res: Response, token: string) => {
     res.cookie(AUTH_COOKIE_NAME, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
+      ...cookieOptions,
+      maxAge: SESSION_SECONDS * 1000,
     });
   };
 
@@ -26,7 +36,7 @@ export const createAuthRouter = (service: AuthService) => {
       updateLogContext({ userId: result.user.id });
       logger.info("auth.registration_succeeded");
       setAuthCookie(res, result.token);
-      res.status(201).json(result);
+      res.status(201).json({ user: result.user });
     } catch (err) {
       if (err instanceof ApiError && err.status < 500) {
         logger.warn("auth.registration_refused", { reason: "registration_rejected" });
@@ -44,7 +54,7 @@ export const createAuthRouter = (service: AuthService) => {
       updateLogContext({ userId: result.user.id });
       logger.info("auth.login_succeeded");
       setAuthCookie(res, result.token);
-      res.json(result);
+      res.json({ user: result.user });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         logger.warn("auth.login_refused", { reason: "invalid_credentials" });
@@ -65,14 +75,20 @@ export const createAuthRouter = (service: AuthService) => {
     }
   });
 
-  router.post("/logout", authenticate, async (_req, res) => {
-    res.clearCookie(AUTH_COOKIE_NAME, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-    });
-    logger.info("auth.logout_succeeded");
-    res.json({ ok: true });
+  router.post("/logout", async (req, res, next) => {
+    try {
+      let sessionId: string | undefined;
+      try {
+        const token = readAuthToken(req);
+        if (token) sessionId = verifyAuthToken(token, true).jti;
+      } catch { /* Invalid/expired cookies must not prevent local logout. */ }
+      if (sessionId) await db.deleteSession(sessionId);
+      res.clearCookie(AUTH_COOKIE_NAME, cookieOptions);
+      // Remove the cookie name used before the production __Host- migration as well.
+      if (AUTH_COOKIE_NAME !== "wattstatus_token") res.clearCookie("wattstatus_token", cookieOptions);
+      logger.info("auth.logout_succeeded");
+      res.json({ ok: true });
+    } catch (error) { next(error); }
   });
 
   return router;

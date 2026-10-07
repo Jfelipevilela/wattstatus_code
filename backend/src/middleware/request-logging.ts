@@ -16,6 +16,7 @@ export const requestLogging = (
   const provided = req.header("x-request-id");
   const requestId = provided && validRequestId.test(provided) ? provided : randomUUID();
   const startedAt = process.hrtime.bigint();
+  let completed = false;
   const context = {
     requestId,
     method: req.method,
@@ -27,6 +28,7 @@ export const requestLogging = (
     logger.info("http.request_started");
 
     res.once("finish", () => {
+      completed = true;
       updateLogContext({
         route: typeof req.route?.path === "string" ? req.route.path : "unmatched",
       });
@@ -38,7 +40,7 @@ export const requestLogging = (
     });
 
     res.once("close", () => {
-      if (!res.writableFinished) {
+      if (!completed && !res.writableFinished) {
         const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
         logger.warn("http.request_aborted", {
           statusCode: res.statusCode,

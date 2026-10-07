@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";
 import { env } from "../../config/env";
@@ -6,50 +5,68 @@ import { ApiError } from "../../middleware/error-handler";
 import { MongoDatabase } from "../../storage/mongo-db";
 import { UserRecord } from "../../types";
 import { LoginInput, RegisterInput } from "./auth.schema";
+import { hashPassword, verifyPassword } from "./password";
+import { JWT_AUDIENCE, JWT_ISSUER, SESSION_SECONDS, normalizeEmail } from "./auth-security";
 
 export class AuthService {
   constructor(private db: MongoDatabase) {}
 
-  private signToken(userId: string) {
-    return jwt.sign({ sub: userId }, env.jwtSecret, { expiresIn: "12h" });
+  private async signToken(userId: string) {
+    const id = randomUUID();
+    const token = jwt.sign({ sub: userId, purpose: "access" }, env.jwtSecret, {
+      expiresIn: SESSION_SECONDS, algorithm: "HS256", issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE, jwtid: id,
+    });
+    await this.db.addSession({ id, userId, expiresAt: new Date(Date.now() + SESSION_SECONDS * 1000) });
+    return token;
   }
 
   async register(input: RegisterInput) {
     const existing = await this.db.getUserByEmail(input.email);
     if (existing) {
-      throw new ApiError(409, "Usu\u00e1rio j\u00e1 existe");
+      throw new ApiError(409, "Não foi possível criar a conta com os dados informados.");
     }
 
-    const passwordHash = await bcrypt.hash(input.password, 10);
+    const passwordHash = await hashPassword(input.password);
     const user: UserRecord = {
       id: randomUUID(),
       name: input.name,
       email: input.email,
+      emailCanonical: normalizeEmail(input.email),
+      termsAcceptedAt: new Date().toISOString(),
       passwordHash,
       createdAt: new Date().toISOString(),
     };
 
-    await this.db.addUser(user);
+    try { await this.db.addUser(user); }
+    catch (error) {
+      if ((error as { code?: number }).code === 11000) {
+        throw new ApiError(409, "Não foi possível criar a conta com os dados informados.");
+      }
+      throw error;
+    }
 
     return {
-      token: this.signToken(user.id),
+      token: await this.signToken(user.id),
       user: { id: user.id, name: user.name, email: user.email },
     };
   }
 
   async login(input: LoginInput) {
     const user = await this.db.getUserByEmail(input.email);
-    if (!user) {
+    const isValid = await verifyPassword(input.password, user?.passwordHash);
+    if (!user || !isValid) {
       throw new ApiError(401, "Credenciais inv\u00e1lidas");
     }
 
-    const isValid = await bcrypt.compare(input.password, user.passwordHash);
-    if (!isValid) {
-      throw new ApiError(401, "Credenciais inv\u00e1lidas");
+    // At 72 bytes bcrypt cannot prove the original suffix; do not silently redefine it.
+    if (user.passwordHash.startsWith("$2") && Buffer.byteLength(input.password, "utf8") < 72) {
+      const passwordHash = await hashPassword(input.password);
+      await this.db.updatePasswordHash(user.id, user.passwordHash, passwordHash);
     }
 
     return {
-      token: this.signToken(user.id),
+      token: await this.signToken(user.id),
       user: { id: user.id, name: user.name, email: user.email },
     };
   }

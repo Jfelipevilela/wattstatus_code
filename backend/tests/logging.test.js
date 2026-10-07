@@ -13,6 +13,7 @@ const {
   sanitizeForLog,
 } = require("../dist/logging/logger");
 const { env } = require("../dist/config/env");
+const { AuthService } = require("../dist/modules/auth/auth.service");
 
 const captureLogs = async (action) => {
   const lines = [];
@@ -68,10 +69,16 @@ test("instrumenta HTTP, autenticação, validação, SmartThings, MongoDB e rela
     createdAt: new Date().toISOString(),
   };
   let failAppliances = false;
+  const sessions = new Map();
   const db = {
     getUserByEmail: async (email) => (email === user.email ? user : null),
     getUserById: async (id) => (id === user.id ? user : null),
     addUser: async (record) => record,
+    updatePasswordHash: async (_id, _previous, hash) => { user.passwordHash = hash; },
+    addSession: async (session) => sessions.set(session.id, session),
+    getSession: async (id) => sessions.get(id),
+    deleteSession: async (id) => sessions.delete(id),
+    consumeRateLimit: async () => ({ totalHits: 1, resetTime: new Date(Date.now() + 60000) }),
     listAppliances: async () => {
       if (failAppliances) throw new Error("private database diagnostic");
       return [];
@@ -102,9 +109,15 @@ test("instrumenta HTTP, autenticação, validação, SmartThings, MongoDB e rela
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   const base = `http://127.0.0.1:${address.port}`;
-  const authToken = jwt.sign({ sub: user.id }, env.jwtSecret, { expiresIn: "1h" });
+  const { token: authToken } = await new AuthService(db).login({ email: user.email, password });
 
   const logs = await captureLogs(async () => {
+    const csrf = await fetch(`${base}/api/auth/csrf`);
+    const { csrfToken } = await csrf.json();
+    const csrfHeaders = {
+      "Content-Type": "application/json", "X-CSRF-Token": csrfToken,
+      Cookie: csrf.headers.get("set-cookie").split(";")[0],
+    };
     const health = await fetch(`${base}/api/health`, {
       headers: { "X-Request-Id": "support-case-123" },
     });
@@ -113,19 +126,19 @@ test("instrumenta HTTP, autenticação, validação, SmartThings, MongoDB e rela
 
     const login = await fetch(`${base}/api/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: csrfHeaders,
       body: JSON.stringify({ email: user.email, password }),
     });
     assert.equal(login.status, 200);
 
     const refused = await fetch(`${base}/api/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: csrfHeaders,
       body: JSON.stringify({ email: user.email, password: "wrong-password" }),
     });
     assert.equal(refused.status, 401);
 
-    const unauthorized = await fetch(`${base}/api/calculations/appliance`, { method: "POST" });
+    const unauthorized = await fetch(`${base}/api/calculations/appliance`, { method: "POST", headers: csrfHeaders, body: "{}" });
     assert.equal(unauthorized.status, 401);
 
     const invalid = await fetch(`${base}/api/calculations/appliance`, {

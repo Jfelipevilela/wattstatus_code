@@ -5,9 +5,12 @@ import {
   IntegrationUsageHistory,
   UserRecord,
   UserSettingsRecord,
+  AuthSession,
 } from "../types";
 import { env } from "../config/env";
 import { getErrorFields, logger } from "../logging/logger";
+import { normalizeEmail } from "../modules/auth/auth-security";
+import { ApiError } from "../middleware/error-handler";
 
 type IntegrationTokenDoc = { userId: string; provider: string; token: string };
 type IntegrationUsageDoc = {
@@ -34,7 +37,11 @@ export class MongoDatabase {
   private encKey: Buffer;
 
   constructor(uri?: string, private dbName: string = env.mongoDbName) {
-    this.client = new MongoClient(uri || env.mongoUrl);
+    this.client = new MongoClient(uri || env.mongoUrl, {
+      maxPoolSize: 10, minPoolSize: 0, maxConnecting: 2, maxIdleTimeMS: 60000,
+      waitQueueTimeoutMS: 5000, serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000, socketTimeoutMS: 10000,
+    });
     this.encKey = crypto
       .createHash("sha256")
       .update(env.smartThingsTokenSecret || "wattstatus-dev-secret")
@@ -71,6 +78,18 @@ export class MongoDatabase {
       await this.client.connect();
       this.db = this.client.db(this.dbName);
       await this.db.collection("users").createIndex({ email: 1 }, { unique: true });
+      // Legacy records stay untouched; new records enforce canonical uniqueness atomically.
+      await this.db.collection("users").createIndex({ emailCanonical: 1 }, {
+        unique: true, partialFilterExpression: { emailCanonical: { $type: "string" } },
+      });
+      await this.db.collection("users").createIndex({ email: 1 }, {
+        name: "users_email_lookup", collation: { locale: "en", strength: 2 },
+      });
+      await this.db.collection("users").createIndex({ id: 1 }, { unique: true });
+      await this.db.collection("auth_sessions").createIndex({ id: 1 }, { unique: true });
+      await this.db.collection("auth_sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+      await this.db.collection("auth_limits").createIndex({ key: 1 }, { unique: true });
+      await this.db.collection("auth_limits").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
       await this.db.collection("appliances").createIndex({ userId: 1 });
       await this.db.collection("integration_tokens").createIndex({ userId: 1, provider: 1 }, { unique: true });
       await this.db.collection("integration_usage").createIndex(
@@ -92,6 +111,7 @@ export class MongoDatabase {
         durationMs: Date.now() - startedAt,
         ...getErrorFields(error),
       });
+      await this.client.close().catch(() => undefined);
       throw error;
     }
   }
@@ -116,9 +136,16 @@ export class MongoDatabase {
   }
 
   async getUserByEmail(email: string) {
-    return this.operation("query", "users.getByEmail", () =>
-      this.users().findOne({ email: { $regex: new RegExp(`^${email}$`, "i") } })
-    );
+    return this.operation("query", "users.getByEmail", async () => {
+      const users = await this.users().find({ email: normalizeEmail(email) }, {
+        collation: { locale: "en", strength: 2 },
+      }).limit(2).maxTimeMS(3000).toArray();
+      if (users.length > 1) {
+        logger.error("auth.ambiguous_identity", { reason: "duplicate_identity" });
+        throw new ApiError(401, "Não foi possível validar as credenciais.");
+      }
+      return users[0] || null;
+    });
   }
 
   async getUserById(id: string) {
@@ -128,6 +155,50 @@ export class MongoDatabase {
   async addUser(user: UserRecord) {
     await this.operation("persistence", "users.insert", () => this.users().insertOne(user));
     return user;
+  }
+
+  async updatePasswordHash(id: string, previousHash: string, passwordHash: string) {
+    await this.operation("persistence", "users.upgradePassword", () =>
+      this.users().updateOne({ id, passwordHash: previousHash }, { $set: { passwordHash } })
+    );
+  }
+
+  async addSession(session: AuthSession) {
+    await this.operation("persistence", "sessions.insert", () =>
+      this.db.collection<AuthSession>("auth_sessions").insertOne(session)
+    );
+  }
+
+  async getSession(id: string) {
+    return this.operation("query", "sessions.get", () =>
+      this.db.collection<AuthSession>("auth_sessions").findOne({ id, expiresAt: { $gt: new Date() } })
+    );
+  }
+
+  async deleteSession(id: string) {
+    await this.operation("persistence", "sessions.delete", () =>
+      this.db.collection<AuthSession>("auth_sessions").deleteOne({ id })
+    );
+  }
+
+  async consumeRateLimit(scope: string, identity: string, windowMs: number) {
+    const start = Math.floor(Date.now() / windowMs) * windowMs;
+    const key = `${scope}:${start}:${identity}`;
+    const expiresAt = new Date(start + windowMs);
+    const collection = this.db.collection<{ key: string; hits: number; expiresAt: Date }>("auth_limits");
+    let row;
+    try {
+      row = await collection.findOneAndUpdate({ key }, {
+        $inc: { hits: 1 }, $setOnInsert: { expiresAt },
+      }, { upsert: true, returnDocument: "after", maxTimeMS: 3000 });
+    } catch (error) {
+      if ((error as { code?: number }).code !== 11000) throw error;
+      row = await collection.findOneAndUpdate({ key }, { $inc: { hits: 1 } }, {
+        returnDocument: "after", maxTimeMS: 3000,
+      });
+    }
+    if (!row) throw new Error("Rate limit persistence failed");
+    return { totalHits: row.hits, resetTime: expiresAt };
   }
 
   async listAppliances(userId: string) {

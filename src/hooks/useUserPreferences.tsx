@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "./useAuth";
 import { AvailableAppId } from "@/types/apps";
@@ -28,6 +28,7 @@ export const UserPreferencesProvider = ({ children }: { children: React.ReactNod
   const { user, token } = useAuth();
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [loading, setLoading] = useState(false);
+  const requestVersion = useRef(0);
 
   const sanitizeApps = (apps?: unknown): AvailableAppId[] => {
     const allowed: AvailableAppId[] = ["smartthings", "lg-thinq"];
@@ -35,32 +36,38 @@ export const UserPreferencesProvider = ({ children }: { children: React.ReactNod
     return apps.filter((item): item is AvailableAppId => allowed.includes(item as AvailableAppId));
   };
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (signal?: AbortSignal) => {
+    const version = ++requestVersion.current;
     if (!user) {
       setPreferences(DEFAULT_PREFERENCES);
+      setLoading(false);
       return;
     }
     setLoading(true);
     try {
       const res = await apiRequest<{ settings: UserPreferences }>(
         "/api/user-settings",
-        { method: "GET" },
+        { method: "GET", signal },
         token || undefined
       );
+      if (signal?.aborted || version !== requestVersion.current) return;
       setPreferences({
         ...DEFAULT_PREFERENCES,
         ...res.settings,
         apps: sanitizeApps(res.settings?.apps),
       });
     } catch {
-      setPreferences(DEFAULT_PREFERENCES);
+      if (!signal?.aborted && version === requestVersion.current) setPreferences(DEFAULT_PREFERENCES);
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [token, user]);
 
   useEffect(() => {
-    refresh();
+    const requests = requestVersion;
+    const controller = new AbortController();
+    void refresh(controller.signal);
+    return () => { requests.current++; controller.abort(); };
   }, [refresh]);
 
   const updatePreferences = useCallback(
