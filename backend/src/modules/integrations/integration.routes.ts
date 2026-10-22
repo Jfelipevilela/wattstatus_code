@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { ApiError } from "../../middleware/error-handler";
 import { AuthenticatedRequest } from "../../middleware/auth-middleware";
-import { PostgresDatabase } from "../../storage/postgres-db";
+import { MongoDatabase } from "../../storage/mongo-db";
 import { IntegrationManager } from "./integration-manager";
+import { SmartThingsIntegration } from "./providers/smartthings";
 
 export const createIntegrationRouter = (
   manager: IntegrationManager,
-  db: PostgresDatabase
+  db: MongoDatabase
 ) => {
   const router = Router();
 
@@ -14,24 +15,20 @@ export const createIntegrationRouter = (
     req: AuthenticatedRequest,
     provider: string
   ) => {
-    const integration = manager.get(provider);
-    if (!integration) {
+    if (provider !== "smartthings" || !manager.get(provider)) {
       throw new ApiError(404, "Integra\u00e7\u00e3o n\u00e3o encontrada");
     }
-    // Se j\u00e1 configurada, segue
-    if (integration.isConfigured()) return integration;
-    // Tenta carregar token salvo no banco para este usu\u00e1rio
     if (!req.userId) throw new ApiError(401, "N\u00e3o autenticado");
     const savedToken = await db.getIntegrationToken(req.userId, provider);
-    if (savedToken && typeof (integration as any).setToken === "function") {
-      (integration as any).setToken(savedToken);
-      return integration;
+    if (!savedToken) throw new ApiError(400, "Integra\u00e7\u00e3o n\u00e3o configurada. Salve o token e tente novamente.");
+    return new SmartThingsIntegration(savedToken);
+  };
+
+  const ensureOwnedDevice = async (integration: SmartThingsIntegration, deviceId: string) => {
+    const devices = await integration.listDevices();
+    if (!devices.some((device) => device.id === deviceId)) {
+      throw new ApiError(404, "Dispositivo n\u00e3o encontrado");
     }
-    // sem token salvo -> erro
-    throw new ApiError(
-      400,
-      "Integra\u00e7\u00e3o n\u00e3o configurada. Salve o token e tente novamente."
-    );
   };
 
   router.get("/", (_req, res) => {
@@ -52,14 +49,11 @@ export const createIntegrationRouter = (
     try {
       if (!req.userId) throw new ApiError(401, "N\u00e3o autenticado");
       const integration = manager.get(req.params.provider);
-      if (!integration) {
+      if (!integration || integration.id !== "smartthings") {
         throw new ApiError(404, "Integra\u00e7\u00e3o n\u00e3o encontrada");
       }
-      if (typeof integration.setToken !== "function") {
-        throw new ApiError(400, "Integra\u00e7\u00e3o n\u00e3o suporta token din\u00e2mico");
-      }
-      const token = req.body?.token || "";
-      integration.setToken(token);
+      const token = req.body?.token;
+      if (typeof token !== "string" || token.length > 4096) throw new ApiError(400, "Token inv\u00e1lido");
       if (token) {
         await db.saveIntegrationToken(req.userId, integration.id, token);
       } else {
@@ -90,6 +84,7 @@ export const createIntegrationRouter = (
         req as AuthenticatedRequest,
         req.params.provider
       );
+      await ensureOwnedDevice(integration, req.params.deviceId);
       const status = await integration.getDeviceStatus(req.params.deviceId);
       res.json({ provider: integration.id, status });
     } catch (err) {
@@ -105,6 +100,7 @@ export const createIntegrationRouter = (
           req as AuthenticatedRequest,
           req.params.provider
         );
+        await ensureOwnedDevice(integration, req.params.deviceId);
         if (!req.body?.capability || !req.body?.command) {
           throw new ApiError(
             400,

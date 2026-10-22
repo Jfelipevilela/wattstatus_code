@@ -1,11 +1,11 @@
-import { v4 as uuid } from "uuid";
+import { randomUUID } from "crypto";
 import { ApiError } from "../../middleware/error-handler";
-import { PostgresDatabase } from "../../storage/postgres-db";
+import { MongoDatabase } from "../../storage/mongo-db";
 import { ApplianceRecord, CalculationInput } from "../../types";
 import { calculateAppliance } from "../calculations/calculation.service";
 
 export class ApplianceService {
-  constructor(private db: PostgresDatabase) {}
+  constructor(private db: MongoDatabase) {}
 
   private resolveCreatedAt(timestamp?: string) {
     if (!timestamp) return new Date().toISOString();
@@ -26,7 +26,7 @@ export class ApplianceService {
     const calc = calculateAppliance(input);
 
     const record: ApplianceRecord = {
-      id: uuid(),
+      id: randomUUID(),
       userId,
       name: input.name || "Aparelho",
       power: input.power,

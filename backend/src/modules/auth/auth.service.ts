@@ -1,14 +1,14 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { v4 as uuid } from "uuid";
+import { randomUUID } from "crypto";
 import { env } from "../../config/env";
 import { ApiError } from "../../middleware/error-handler";
-import { PostgresDatabase } from "../../storage/postgres-db";
+import { MongoDatabase } from "../../storage/mongo-db";
 import { UserRecord } from "../../types";
 import { LoginInput, RegisterInput } from "./auth.schema";
 
 export class AuthService {
-  constructor(private db: PostgresDatabase) {}
+  constructor(private db: MongoDatabase) {}
 
   private signToken(userId: string) {
     return jwt.sign({ sub: userId }, env.jwtSecret, { expiresIn: "12h" });
@@ -22,7 +22,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(input.password, 10);
     const user: UserRecord = {
-      id: uuid(),
+      id: randomUUID(),
       name: input.name,
       email: input.email,
       passwordHash,

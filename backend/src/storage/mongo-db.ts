@@ -104,7 +104,7 @@ export class MongoDatabase {
       { $set: record },
       { returnDocument: "after" }
     );
-    return res.value;
+    return res;
   }
 
   async deleteAppliance(userId: string, applianceId: string) {

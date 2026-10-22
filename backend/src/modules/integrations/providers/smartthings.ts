@@ -34,16 +34,11 @@ export class SmartThingsIntegration implements DeviceIntegration {
     });
   }
 
-  setToken(token: string) {
-    this.token = token;
-    this.client = this.buildClient(token);
-  }
-
   private ensureConfigured() {
     if (!this.isConfigured()) {
       throw new ApiError(
         400,
-        "SmartThings n\u00e3o configurado. Defina SMARTTHINGS_TOKEN no .env."
+        "SmartThings n\u00e3o configurado. Salve seu token."
       );
     }
   }

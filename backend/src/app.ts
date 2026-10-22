@@ -13,9 +13,6 @@ import { createAuthRouter } from "./modules/auth/auth.routes";
 import { IntegrationManager } from "./modules/integrations/integration-manager";
 import { createIntegrationRouter } from "./modules/integrations/integration.routes";
 import { SmartThingsIntegration } from "./modules/integrations/providers/smartthings";
-import { LgThinQIntegration } from "./modules/integrations/providers/lg-thinq";
-import { PostgresDatabase } from "./storage/postgres-db";
-import { env } from "./config/env";
 import { createUserSettingsRouter } from "./modules/user-settings/user-settings.routes";
 import { createAnalyticsRouter } from "./modules/analytics/analytics.routes";
 import { MongoDatabase } from "./storage/mongo-db";
@@ -80,14 +77,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
 export const buildIntegrations = () => {
   const manager = new IntegrationManager();
 
-  manager.register(new SmartThingsIntegration(env.smartThingsToken));
-  manager.register(
-    new LgThinQIntegration(
-      env.lgClientId,
-      env.lgClientSecret,
-      env.lgRefreshToken
-    )
-  );
-
+  // User credentials are loaded from MongoDB for each request.
+  manager.register(new SmartThingsIntegration(""));
   return manager;
 };

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { ApiError } from "../../middleware/error-handler";
-import { PostgresDatabase } from "../../storage/postgres-db";
+import { MongoDatabase } from "../../storage/mongo-db";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -18,7 +18,7 @@ const updateSchema = z.object({
     .optional(),
 });
 
-export const createUserSettingsRouter = (db: PostgresDatabase) => {
+export const createUserSettingsRouter = (db: MongoDatabase) => {
   const router = Router();
 
   router.get("/", async (req: AuthenticatedRequest, res, next) => {

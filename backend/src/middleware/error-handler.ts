@@ -23,12 +23,12 @@ export const errorHandler = (
       : 500;
   const zodMessage =
     err instanceof ZodError ? err.issues[0]?.message : null;
-  const message =
-    zodMessage ||
-    (err instanceof Error ? err.message : "Unexpected error occurred");
+  const message = status >= 500
+    ? "Erro interno do servidor"
+    : zodMessage || (err instanceof Error ? err.message : "Unexpected error occurred");
 
   if (status >= 500) {
-    console.error(err);
+    console.error("Erro interno na API", { status, name: err instanceof Error ? err.name : "Unknown" });
   }
 
   res.status(status).json({ error: message });

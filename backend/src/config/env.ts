@@ -1,7 +1,11 @@
 import dotenv from "dotenv";
-import { STATE_TARIFFS } from "./tariffs";
 
 dotenv.config();
+
+if (process.env.NODE_ENV === "production" &&
+    (!process.env.JWT_SECRET || !process.env.SMARTTHINGS_TOKEN_SECRET)) {
+  throw new Error("JWT_SECRET e SMARTTHINGS_TOKEN_SECRET são obrigatórios em produção");
+}
 
 export const env = {
   port: process.env.PORT ? Number(process.env.PORT) : 4000,
@@ -14,7 +18,7 @@ export const env = {
     process.env.DATABASE_URL || "postgres://user:password@localhost:5432/wattstatus",
   smartThingsTokenSecret:
     process.env.SMARTTHINGS_TOKEN_SECRET || process.env.JWT_SECRET || "wattstatus-dev-secret",
-  tariffsApiUrl: process.env.TARIFFS_API_URL || STATE_TARIFFS,
+  tariffsApiUrl: process.env.TARIFFS_API_URL || "",
   mongoUrl: process.env.MONGO_URL || "mongodb://localhost:27017",
   mongoDbName: process.env.MONGO_DB_NAME || "wattstatus",
 };
