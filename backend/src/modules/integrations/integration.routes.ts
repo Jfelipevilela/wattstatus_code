@@ -4,6 +4,7 @@ import { AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { MongoDatabase } from "../../storage/mongo-db";
 import { IntegrationManager } from "./integration-manager";
 import { SmartThingsIntegration } from "./providers/smartthings";
+import { extractCumulativeKWh } from "../energy/energy-history";
 
 export const createIntegrationRouter = (
   manager: IntegrationManager,
@@ -86,6 +87,10 @@ export const createIntegrationRouter = (
       );
       await ensureOwnedDevice(integration, req.params.deviceId);
       const status = await integration.getDeviceStatus(req.params.deviceId);
+      const counterKWh = extractCumulativeKWh(status.raw);
+      if (counterKWh !== null) {
+        await db.saveEnergySample((req as AuthenticatedRequest).userId!, integration.id, req.params.deviceId, counterKWh);
+      }
       res.json({ provider: integration.id, status });
     } catch (err) {
       next(err);

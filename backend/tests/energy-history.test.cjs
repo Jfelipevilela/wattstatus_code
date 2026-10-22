@@ -1,0 +1,24 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { extractCumulativeKWh, toEnergyIntervals } = require('../dist/modules/energy/energy-history');
+
+const sample = (time, counterKWh, tariffValue = 1.2) => ({
+  userId: 'a', applianceId: 'appliance', provider: 'smartthings', deviceId: 'device',
+  capturedAt: new Date(time), counterKWh, tariffValue, source: 'iot',
+  readingType: 'cumulative', createdAt: new Date(time), sampleKey: time,
+});
+
+test('energyMeter units and missing measurements', () => {
+  assert.equal(extractCumulativeKWh({ components: { main: { energyMeter: { energy: { value: 2500, unit: 'Wh' } } } } }), 2.5);
+  assert.equal(extractCumulativeKWh({ components: { main: { energyMeter: { energy: { value: 2.5, unit: 'kWh' } } } } }), 2.5);
+  for (const value of [-1, NaN, Infinity]) assert.equal(extractCumulativeKWh({ components: { main: { energyMeter: { energy: { value, unit: 'Wh' } } } } }), null);
+  assert.equal(extractCumulativeKWh({ components: { main: { powerMeter: { power: { value: 100, unit: 'W' } } } } }), null);
+});
+
+test('counters require two readings; duplicates and resets never create excess energy', () => {
+  const t = (minute) => `2026-10-22T10:${String(minute).padStart(2, '0')}:00.000Z`;
+  assert.deepEqual(toEnergyIntervals([sample(t(0), 10)]), []);
+  const intervals = toEnergyIntervals([sample(t(0), 10), sample(t(1), 11), sample(t(2), 11), sample(t(3), 2), sample(t(4), 2.5)]);
+  assert.deepEqual(intervals.map(item => item.consumptionKWh), [1, 0, 0.5]);
+  assert.equal(intervals[0].cost, 1.2);
+});

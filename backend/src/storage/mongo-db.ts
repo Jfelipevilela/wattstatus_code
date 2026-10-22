@@ -7,6 +7,8 @@ import {
   UserSettingsRecord,
 } from "../types";
 import { env } from "../config/env";
+import { EnergySample, toEnergyIntervals } from "../modules/energy/energy-history";
+import { STATE_TARIFFS } from "../config/tariffs";
 
 type IntegrationTokenDoc = { userId: string; provider: string; token: string };
 type IntegrationUsageDoc = {
@@ -57,6 +59,13 @@ export class MongoDatabase {
       { unique: true }
     );
     await this.db.collection("user_settings").createIndex({ userId: 1 }, { unique: true });
+    await this.db.collection("energy_samples").createIndex({ sampleKey: 1 }, { unique: true });
+    await this.db.collection("energy_samples").createIndex({ userId: 1, capturedAt: 1, applianceId: 1 });
+    await this.db.collection("energy_samples").createIndex({ userId: 1, provider: 1, deviceId: 1, capturedAt: -1 });
+  }
+
+  async close() {
+    await this.client.close();
   }
 
   private users(): Collection<UserRecord> {
@@ -76,6 +85,39 @@ export class MongoDatabase {
   }
   private settings(): Collection<SettingsDoc> {
     return this.db.collection<SettingsDoc>("user_settings");
+  }
+  private energySamples(): Collection<EnergySample> {
+    return this.db.collection<EnergySample>("energy_samples");
+  }
+
+  async saveEnergySample(userId: string, provider: string, deviceId: string, counterKWh: number, capturedAt = new Date()) {
+    if (!Number.isFinite(counterKWh) || counterKWh < 0 || !Number.isFinite(capturedAt.getTime())) {
+      throw new Error("Invalid energy sample");
+    }
+    const appliance = await this.appliances().findOne({ userId, integrationProvider: provider, integrationDeviceId: deviceId });
+    const settings = await this.getUserSettings(userId);
+    const tariffValue = appliance?.tariffValue ?? (appliance?.tariff ? STATE_TARIFFS[appliance.tariff] : undefined) ?? settings.tariffValue ?? null;
+    const sampleKey = crypto.createHash("sha256")
+      .update(JSON.stringify([userId, provider, deviceId, Math.floor(capturedAt.getTime() / 60000), counterKWh]))
+      .digest("hex");
+    const sample: EnergySample = {
+      userId, applianceId: appliance?.id ?? null, provider, deviceId, capturedAt,
+      counterKWh, tariffValue, source: "iot", readingType: "cumulative",
+      createdAt: new Date(), sampleKey,
+    };
+    await this.energySamples().updateOne({ sampleKey }, { $setOnInsert: sample }, { upsert: true });
+  }
+
+  async getEnergyHistory(userId: string, start: Date, end: Date, applianceId?: string) {
+    const current = await this.energySamples().find({ userId, capturedAt: { $gte: start, $lt: end } })
+      .sort({ capturedAt: 1 }).toArray();
+    const keys = new Map<string, { provider: string; deviceId: string }>();
+    for (const sample of current) keys.set(`${sample.provider}\u0000${sample.deviceId}`, sample);
+    const preceding = await Promise.all([...keys.values()].map(({ provider, deviceId }) =>
+      this.energySamples().findOne({ userId, provider, deviceId, capturedAt: { $lt: start } }, { sort: { capturedAt: -1 } })
+    ));
+    const intervals = toEnergyIntervals([...preceding.flatMap((item) => item ? [item] : []), ...current]);
+    return intervals.filter((item) => new Date(item.endAt) >= start && new Date(item.endAt) < end && (!applianceId || item.applianceId === applianceId));
   }
 
   async getUserByEmail(email: string) {

@@ -16,6 +16,7 @@ import { SmartThingsIntegration } from "./modules/integrations/providers/smartth
 import { createUserSettingsRouter } from "./modules/user-settings/user-settings.routes";
 import { createAnalyticsRouter } from "./modules/analytics/analytics.routes";
 import { MongoDatabase } from "./storage/mongo-db";
+import { createEnergyRouter } from "./modules/energy/energy.routes";
 
 export interface AppDependencies {
   db: MongoDatabase;
@@ -68,6 +69,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
   );
   app.use("/api/user-settings", authenticate, createUserSettingsRouter(db));
   app.use("/api/analytics", authenticate, createAnalyticsRouter(db));
+  app.use("/api/energy", authenticate, createEnergyRouter(db));
 
   app.use(errorHandler);
 
