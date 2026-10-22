@@ -36,6 +36,7 @@ export class ApplianceService {
       monthlyCost: calc.cost,
       monthlyConsumption: calc.consumptionKWh,
       tariff: input.tariff,
+      tariffValue: input.tariffValue,
       createdAt: this.resolveCreatedAt(input.createdAt),
       measuredConsumptionKWh: input.measuredConsumptionKWh,
       integrationProvider: input.integrationProvider,
@@ -64,6 +65,7 @@ export class ApplianceService {
       usageHours: input.usageHours ?? existing.usageHours,
       days: input.days ?? existing.days,
       tariff: input.tariff || existing.tariff,
+      tariffValue: input.tariffValue ?? (input.tariff && input.tariff !== existing.tariff ? undefined : existing.tariffValue),
       measuredConsumptionKWh:
         input.measuredConsumptionKWh ?? existing.measuredConsumptionKWh ?? undefined,
       integrationProvider: input.integrationProvider ?? existing.integrationProvider ?? undefined,

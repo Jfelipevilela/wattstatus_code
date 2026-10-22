@@ -8,6 +8,11 @@ import {
 } from "../types";
 
 const BASE_URL = "https://api.smartthings.com/v1";
+type SmartThingsDevice = {
+  deviceId: string; label?: string; name: string; manufacturerName?: string;
+  modelName?: string; roomName?: string;
+  components?: Array<{ capabilities?: Array<{ id: string }> }>;
+};
 
 export class SmartThingsIntegration implements DeviceIntegration {
   id = "smartthings";
@@ -45,7 +50,7 @@ export class SmartThingsIntegration implements DeviceIntegration {
 
   async listDevices(): Promise<DeviceSummary[]> {
     this.ensureConfigured();
-    const { data } = await this.client.get<{ items: any[] }>("/devices");
+    const { data } = await this.client.get<{ items: SmartThingsDevice[] }>("/devices");
     return (data.items || []).map((item) => ({
       id: item.deviceId,
       name: item.label || item.name,
@@ -53,7 +58,7 @@ export class SmartThingsIntegration implements DeviceIntegration {
       model: item.modelName,
       room: item.roomName,
       capabilities: item.components?.flatMap(
-        (component: any) => component.capabilities?.map((c: any) => c.id) || []
+        (component) => component.capabilities?.map((c) => c.id) || []
       ),
     }));
   }

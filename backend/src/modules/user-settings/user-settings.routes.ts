@@ -3,10 +3,13 @@ import { AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { ApiError } from "../../middleware/error-handler";
 import { MongoDatabase } from "../../storage/mongo-db";
 import { z } from "zod";
+import { STATE_TARIFFS } from "../../config/tariffs";
 
 const updateSchema = z.object({
   theme: z.enum(["light", "dark", "system"]).optional(),
   apps: z.array(z.enum(["smartthings", "lg-thinq"])).optional(),
+  tariffState: z.string().refine((value) => Object.prototype.hasOwnProperty.call(STATE_TARIFFS, value), "Estado inválido").optional(),
+  tariffValue: z.number().finite().positive().optional(),
   historicalData: z
     .array(
       z.object({

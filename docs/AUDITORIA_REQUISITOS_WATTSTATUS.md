@@ -1,4 +1,4 @@
-﻿# Auditoria de requisitos WattStatus
+# Auditoria de requisitos WattStatus
 
 Base: `dev_V1` (`d53cb07`); especificação acadêmica consultada em 22/10/2026. Esta matriz descreve evidência observada no código e testes executados, não declara validação em produção.
 
@@ -7,8 +7,8 @@ Base: `dev_V1` (`d53cb07`); especificação acadêmica consultada em 22/10/2026.
 | RF-001 | Cadastrar aparelhos | Parcial | `backend/src/modules/appliances/` | Não há teste de API | Fluxo existe; falta teste de persistência MongoDB. |
 | RF-002 | Editar aparelhos | Parcial | `appliances.service.ts` | Não há teste de API | Atualiza cálculos; falta teste de isolamento. |
 | RF-003 | Calcular consumo | Implementado | `calculation.service.ts`, `src/lib/energy.ts` | `tests/energy.test.mjs` | Cálculo estimado em kWh validado para mês e ano bissexto. |
-| RF-004 | Calcular custo | Parcial | `calculation.service.ts` | `tests/energy.test.mjs` | Usa tarifa estadual de referência; tarifa pessoal ainda falta. |
-| RF-005 | Selecionar ou informar tarifa | Pendente | `backend/src/config/tariffs.ts` | Tarifas estaduais em `energy.test.mjs` | Não há entrada e persistência de valor manual por usuário. |
+| RF-004 | Calcular custo | Implementado | `calculation.service.ts` | `energy.test.mjs`, `tariff.test.cjs` | Valor manual validado; custo continua estimado. |
+| RF-005 | Selecionar ou informar tarifa | Parcial | `ApplianceCalculator.tsx`, `user-settings.routes.ts`, `mongo-db.ts` | `tariff.test.cjs` | Valor manual persistido por usuário; falta teste MongoDB real e migração de aparelhos antigos. |
 | RF-006 | Relatórios | Parcial | `src/components/tabs/ReportsTab.tsx` | Não há teste de relatório | Estimativas retrospectivas não são histórico medido. |
 | RF-007 | Dashboard | Parcial | `src/pages/Dashboard.tsx` | Não há teste de interface | Há gráficos de estimativas; métricas reais exigem histórico. |
 | RF-008 | Histórico de consumo | Pendente | `integration_usage_history` guarda tempo ligado | `energy.test.mjs` cobre só projeção | Não há coleção persistente de kWh medido. |
@@ -30,7 +30,7 @@ Base: `dev_V1` (`d53cb07`); especificação acadêmica consultada em 22/10/2026.
 ## Limites e próximos passos
 
 1. Persistir leituras energéticas em MongoDB com índice por usuário, aparelho, fonte e instante; tratar contador acumulativo, reset e duplicação. Não migrar projeções antigas como medições.
-2. Implementar tarifa manual por usuário e congelar tarifa aplicada em cada registro histórico.
+2. Validar tarifa pessoal com MongoDB real e congelar tarifa aplicada em cada novo registro histórico.
 3. Alimentar dashboard e relatórios com leituras persistidas; rotular projeções e ausência de dados. Testar PDF.
 4. Validar fluxos de autenticação, aparelhos e IoT com MongoDB isolado e dispositivos SmartThings de teste.
 5. Medir RNF-002 em ambiente representativo. Corrigir lint e ampliar testes de navegador.
@@ -38,7 +38,7 @@ Base: `dev_V1` (`d53cb07`); especificação acadêmica consultada em 22/10/2026.
 
 ## Ajustes recomendados ao documento acadêmico
 
-- Quadro 11: marcar RF-005 e RF-008 como pendentes; RF-006, RF-007, RF-009 e RF-010 como parciais ou não comprovados até validação correspondente.
+- Quadro 11: marcar RF-005 como parcial, RF-008 como pendente; RF-006, RF-007, RF-009 e RF-010 como parciais ou não comprovados até validação correspondente.
 - Seções 17.3, 18.1 e 18.2: retirar afirmações de coleta contínua, coleção `ConsumptionHistory` operacional e histórico medido até implementação e testes. Descrever `integration_usage_history` como duração ligada em milissegundos.
 - Seções 1.1 e 4: qualificar “tempo real” e “SmartThings validado de ponta a ponta” com evidência de dispositivo físico, caso exista. Sem evidência, usar “integração em desenvolvimento e validação”.
 - Quadro 12: RNF-002 continua não comprovado. RNF-003 depende de revisão completa de sessão, CORS e CSRF. RNF-004 requer testes reais de navegador.

@@ -19,6 +19,7 @@ export interface ApplianceRecord {
   monthlyCost: number;
   monthlyConsumption: number;
   tariff: string;
+  tariffValue?: number;
   createdAt: string;
   measuredConsumptionKWh?: number | null;
   integrationProvider?: string | null;
@@ -31,6 +32,7 @@ export interface CalculationInput {
   usageHours: number;
   days: number;
   tariff: string;
+  tariffValue?: number;
   measuredConsumptionKWh?: number;
   integrationProvider?: string;
   integrationDeviceId?: string;
@@ -48,6 +50,8 @@ export interface UserSettingsRecord {
   theme: "light" | "dark" | "system";
   apps: string[];
   historicalData: Array<{ month: string; consumption: number; cost: number }>;
+  tariffState?: string;
+  tariffValue?: number;
   createdAt: string;
   updatedAt: string;
 }

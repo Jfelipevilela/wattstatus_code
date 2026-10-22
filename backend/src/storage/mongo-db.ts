@@ -23,6 +23,8 @@ type SettingsDoc = {
   theme?: string;
   apps?: string[];
   historicalData?: Array<{ month: string; consumption: number; cost: number }>;
+  tariffState?: string;
+  tariffValue?: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -214,9 +216,11 @@ export class MongoDatabase {
     if (row) {
       return {
         userId,
-        theme: (row.theme as any) || "system",
+        theme: row.theme === "light" || row.theme === "dark" ? row.theme : "system",
         apps: Array.isArray(row.apps) ? row.apps : [],
         historicalData: row.historicalData || [],
+        tariffState: row.tariffState,
+        tariffValue: row.tariffValue,
         createdAt: row.createdAt?.toISOString?.() || new Date().toISOString(),
         updatedAt: row.updatedAt?.toISOString?.() || new Date().toISOString(),
       };
@@ -249,6 +253,8 @@ export class MongoDatabase {
       userId,
       apps: input.apps ?? existing.apps ?? [],
       historicalData: input.historicalData ?? existing.historicalData ?? [],
+      tariffState: input.tariffState ?? existing.tariffState,
+      tariffValue: input.tariffValue ?? existing.tariffValue,
       updatedAt: now.toISOString(),
     };
     await this.settings().updateOne(
@@ -258,6 +264,8 @@ export class MongoDatabase {
           theme: merged.theme,
           apps: merged.apps,
           historicalData: merged.historicalData,
+          tariffState: merged.tariffState,
+          tariffValue: merged.tariffValue,
           updatedAt: now,
         },
         $setOnInsert: { createdAt: now },

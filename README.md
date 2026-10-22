@@ -1,38 +1,38 @@
-# WattStatus
+﻿# WattStatus
 
-Plataforma web para monitoramento de consumo de energia, cálculo de custos, gestão de aparelhos e integração com dispositivos IoT (ex.: SmartThings), com foco em acompanhamento residencial e tomada de decisão.
+Plataforma web para monitoramento de consumo de energia, cÃ¡lculo de custos, gestÃ£o de aparelhos e integraÃ§Ã£o com dispositivos IoT (ex.: SmartThings), com foco em acompanhamento residencial e tomada de decisÃ£o.
 
-## Visão Geral
+## VisÃ£o Geral
 
 O WattStatus permite:
 
-- cadastrar e autenticar usuários;
-- adicionar, editar e excluir aparelhos elétricos;
+- cadastrar e autenticar usuÃ¡rios;
+- adicionar, editar e excluir aparelhos elÃ©tricos;
 - calcular consumo mensal e custo estimado por aparelho;
-- visualizar dashboard com indicadores e gráficos;
-- gerar relatórios e exportar em PDF;
-- integrar dispositivos SmartThings para leitura/status e importação;
-- receber notificações padronizadas de sucesso/erro no site.
+- visualizar dashboard com indicadores e grÃ¡ficos;
+- gerar relatÃ³rios e exportar em PDF;
+- integrar dispositivos SmartThings para leitura/status e importaÃ§Ã£o;
+- receber notificaÃ§Ãµes padronizadas de sucesso/erro no site.
 
 ## Funcionalidades do Site
 
-### Área pública
+### Ãrea pÃºblica
 
-- `Página inicial` (`/`)
+- `PÃ¡gina inicial` (`/`)
 - `Login` (`/login`)
 - `Cadastro` (`/signup`)
 - `Sobre` (`/sobre`)
 
-### Área autenticada (rotas protegidas)
+### Ãrea autenticada (rotas protegidas)
 
 - `Dashboard` (`/dashboard`)
-- `Relatórios` (`/relatorios`)
+- `RelatÃ³rios` (`/relatorios`)
 - `Calculadora` (`/calculadora`)
 - `Aparelhos` (`/aparelhos`)
 - `Anomalias` (`/anomalias`)
 - `Dicas` (`/dicas`)
 - `Apps` (`/apps`)
-- `Integração SmartThings` (`/integracoes/smartthings`)
+- `IntegraÃ§Ã£o SmartThings` (`/integracoes/smartthings`)
 
 ## Tecnologias Utilizadas
 
@@ -43,18 +43,18 @@ O WattStatus permite:
 - React Router
 - Tailwind CSS
 - shadcn/ui (Radix UI)
-- Recharts (gráficos)
-- jsPDF / html2canvas (relatórios)
-- React Hook Form + Zod (formulários e validação)
+- Recharts (grÃ¡ficos)
+- jsPDF / html2canvas (relatÃ³rios)
+- React Hook Form + Zod (formulÃ¡rios e validaÃ§Ã£o)
 
 ### Backend
 
 - Node.js + Express
 - TypeScript
-- MongoDB (persistência principal)
-- JWT (autenticação)
-- Zod (validação)
-- Integrações plugáveis (SmartThings / LG ThinQ)
+- MongoDB (persistÃªncia principal)
+- JWT (autenticaÃ§Ã£o)
+- Zod (validaÃ§Ã£o)
+- IntegraÃ§Ãµes plugÃ¡veis (SmartThings / LG ThinQ)
 - Deploy serverless via Netlify Functions
 
 ## Arquitetura (Resumo)
@@ -62,41 +62,41 @@ O WattStatus permite:
 - `Frontend` (raiz do projeto) consome a API via `/api/...`.
 - `Backend` fica em `backend/` e pode rodar:
   - localmente como servidor Express (`backend/src/server.ts`);
-  - em produção via Netlify Function (`backend/netlify/functions/api.ts`).
-- O frontend usa `VITE_API_BASE_URL` quando definido; caso contrário, usa `window.location.origin` (útil em Netlify com rewrite).
+  - em produÃ§Ã£o via Netlify Function (`backend/netlify/functions/api.ts`).
+- O frontend usa `VITE_API_BASE_URL` quando definido; caso contrÃ¡rio, usa `window.location.origin` (Ãºtil em Netlify com rewrite).
 
 ## Estrutura do Projeto
 
 ```text
 wattstatus_code/
-├─ src/                         # Frontend (React/Vite)
-│  ├─ pages/                    # Páginas do site
-│  ├─ components/               # Componentes visuais e de domínio
-│  ├─ hooks/                    # Hooks (auth, aparelhos, preferências etc.)
-│  ├─ lib/                      # API client, utils, tratamento de erro
-│  └─ types/                    # Tipos compartilhados do front
-├─ backend/                     # API Express/Netlify Function
-│  ├─ src/
-│  │  ├─ modules/               # Auth, appliances, calculations, integrations...
-│  │  ├─ middleware/            # Auth, error-handler
-│  │  ├─ storage/               # Mongo/local/postgres adapters
-│  │  └─ config/                # Variáveis e tarifas
-│  └─ netlify/functions/api.ts  # Wrapper serverless
-├─ netlify.toml                 # Build/rewrite para Netlify
-└─ README.md                    # Esta documentação
+â”œâ”€ src/                         # Frontend (React/Vite)
+â”‚  â”œâ”€ pages/                    # PÃ¡ginas do site
+â”‚  â”œâ”€ components/               # Componentes visuais e de domÃ­nio
+â”‚  â”œâ”€ hooks/                    # Hooks (auth, aparelhos, preferÃªncias etc.)
+â”‚  â”œâ”€ lib/                      # API client, utils, tratamento de erro
+â”‚  â””â”€ types/                    # Tipos compartilhados do front
+â”œâ”€ backend/                     # API Express/Netlify Function
+â”‚  â”œâ”€ src/
+â”‚  â”‚  â”œâ”€ modules/               # Auth, appliances, calculations, integrations...
+â”‚  â”‚  â”œâ”€ middleware/            # Auth, error-handler
+â”‚  â”‚  â”œâ”€ storage/               # Mongo/local/postgres adapters
+â”‚  â”‚  â””â”€ config/                # VariÃ¡veis e tarifas
+â”‚  â””â”€ netlify/functions/api.ts  # Wrapper serverless
+â”œâ”€ netlify.toml                 # Build/rewrite para Netlify
+â””â”€ README.md                    # Esta documentaÃ§Ã£o
 ```
 
 ## Requisitos
 
 - Node.js 18+ (recomendado)
 - npm
-- MongoDB (local ou remoto) para persistência completa
+- MongoDB (local ou remoto) para persistÃªncia completa
 
-## Configuração Local (Frontend + Backend)
+## ConfiguraÃ§Ã£o Local (Frontend + Backend)
 
-## 1. Instalar dependências
+## 1. Instalar dependÃªncias
 
-No diretório raiz:
+No diretÃ³rio raiz:
 
 ```bash
 npm install
@@ -109,7 +109,7 @@ cd backend
 npm install
 ```
 
-## 2. Configurar variáveis de ambiente
+## 2. Configurar variÃ¡veis de ambiente
 
 ### Frontend (`.env` na raiz)
 
@@ -119,13 +119,13 @@ Use o arquivo `.env.example` como base:
 VITE_API_BASE_URL=http://localhost:4000
 ```
 
-Observação:
+ObservaÃ§Ã£o:
 
-- em produção (Netlify), esse valor pode ser omitido se o frontend e a API estiverem no mesmo domínio com rewrite de `/api/*`.
+- em produÃ§Ã£o (Netlify), esse valor pode ser omitido se o frontend e a API estiverem no mesmo domÃ­nio com rewrite de `/api/*`.
 
 ### Backend (`backend/.env`)
 
-Crie manualmente um arquivo `backend/.env` com as variáveis abaixo (não existe `.env.example` no backend neste momento):
+Crie manualmente um arquivo `backend/.env` com as variÃ¡veis abaixo (nÃ£o existe `.env.example` no backend neste momento):
 
 ```env
 PORT=4000
@@ -134,7 +134,7 @@ JWT_SECRET=sua-chave-jwt
 MONGO_URL=mongodb://localhost:27017
 MONGO_DB_NAME=wattstatus
 
-# Opcionais (integrações)
+# Opcionais (integraÃ§Ãµes)
 SMARTTHINGS_TOKEN=
 SMARTTHINGS_TOKEN_SECRET=
 LG_CLIENT_ID=
@@ -148,9 +148,9 @@ TARIFFS_API_URL=
 
 Notas:
 
-- `MONGO_URL` e `MONGO_DB_NAME` são os principais para persistência.
-- `JWT_SECRET` é obrigatório para autenticação segura.
-- Credenciais de integração são opcionais (alguns fluxos funcionam em modo parcial/demo).
+- `MONGO_URL` e `MONGO_DB_NAME` sÃ£o os principais para persistÃªncia.
+- `JWT_SECRET` Ã© obrigatÃ³rio para autenticaÃ§Ã£o segura.
+- Credenciais de integraÃ§Ã£o sÃ£o opcionais (alguns fluxos funcionam em modo parcial/demo).
 
 ## 3. Executar o backend
 
@@ -161,7 +161,7 @@ cd backend
 npm run dev
 ```
 
-Backend padrão: `http://localhost:4000`
+Backend padrÃ£o: `http://localhost:4000`
 
 Health check:
 
@@ -176,14 +176,14 @@ Em outro terminal (raiz do projeto):
 npm run dev
 ```
 
-Frontend padrão (Vite): `http://localhost:5173`
+Frontend padrÃ£o (Vite): `http://localhost:5173`
 
 ## Scripts
 
 ### Raiz (frontend)
 
 - `npm run dev` - inicia frontend em desenvolvimento
-- `npm run build` - build de produção do frontend
+- `npm run build` - build de produÃ§Ã£o do frontend
 - `npm run build:dev` - build em modo development
 - `npm run preview` - preview local do build
 - `npm run lint` - lint do frontend
@@ -196,14 +196,14 @@ Frontend padrão (Vite): `http://localhost:5173`
 
 ## Rotas Frontend (Resumo)
 
-### Públicas
+### PÃºblicas
 
 - `/`
 - `/login`
 - `/signup`
 - `/sobre`
 
-### Protegidas (exigem autenticação)
+### Protegidas (exigem autenticaÃ§Ã£o)
 
 - `/dashboard`
 - `/relatorios`
@@ -216,19 +216,19 @@ Frontend padrão (Vite): `http://localhost:5173`
 
 ## Endpoints de API (Principais)
 
-### Saúde
+### SaÃºde
 
 - `GET /health`
 - `GET /api/health`
 
-### Autenticação
+### AutenticaÃ§Ã£o
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 - `POST /api/auth/logout`
 
-### Ações autenticadas
+### AÃ§Ãµes autenticadas
 
 - `GET/POST/PUT/DELETE /api/appliances`
 - `GET /api/calculations/tariffs`
@@ -240,61 +240,61 @@ Frontend padrão (Vite): `http://localhost:5173`
 - `GET/PUT /api/user-settings`
 - `GET /api/analytics/usage`
 
-## Fluxos do Usuário (Resumo)
+## Fluxos do UsuÃ¡rio (Resumo)
 
 ## Cadastro e login
 
 1. Acesse `/signup` para criar a conta.
-2. Faça login em `/login`.
-3. Após autenticar, o usuário é redirecionado para `/dashboard`.
+2. FaÃ§a login em `/login`.
+3. ApÃ³s autenticar, o usuÃ¡rio Ã© redirecionado para `/dashboard`.
 
 ## Adicionar aparelho
 
-Você pode adicionar aparelhos por:
+VocÃª pode adicionar aparelhos por:
 
-- `Calculadora` (`/calculadora`) com cálculo de consumo/custo;
-- `Aparelhos` (`/aparelhos`) via fluxo de cadastro/edição;
-- importação via SmartThings (quando houver leitura disponível).
+- `Calculadora` (`/calculadora`) com cÃ¡lculo de consumo/custo;
+- `Aparelhos` (`/aparelhos`) via fluxo de cadastro/ediÃ§Ã£o;
+- importaÃ§Ã£o via SmartThings (quando houver leitura disponÃ­vel).
 
 ## Editar e excluir aparelho
 
-- Edição: modal de edição com recálculo e persistência.
-- Exclusão: diálogo de confirmação antes de remover.
-- O site exibe notificações padronizadas de sucesso/erro nesses fluxos.
+- EdiÃ§Ã£o: modal de ediÃ§Ã£o com recÃ¡lculo e persistÃªncia.
+- ExclusÃ£o: diÃ¡logo de confirmaÃ§Ã£o antes de remover.
+- O site exibe notificaÃ§Ãµes padronizadas de sucesso/erro nesses fluxos.
 
-## Relatórios
+## RelatÃ³rios
 
-- Geração de relatório mensal por mês/ano;
+- GeraÃ§Ã£o de relatÃ³rio mensal por mÃªs/ano;
 - filtro por aparelho;
-- exportação em PDF.
+- exportaÃ§Ã£o em PDF.
 
-## Integração SmartThings
+## IntegraÃ§Ã£o SmartThings
 
-- Página dedicada em `/integracoes/smartthings`;
+- PÃ¡gina dedicada em `/integracoes/smartthings`;
 - cadastro do token;
 - listagem de dispositivos;
-- leitura de status/energia (quando disponível);
-- comando ligar/desligar (dispositivos compatíveis);
-- importação de dispositivo como aparelho do WattStatus.
+- leitura de status/energia (quando disponÃ­vel);
+- comando ligar/desligar (dispositivos compatÃ­veis);
+- importaÃ§Ã£o de dispositivo como aparelho do WattStatus.
 
-## Notificações do Site
+## NotificaÃ§Ãµes do Site
 
-O sistema possui notificações visuais padronizadas para:
+O sistema possui notificaÃ§Ãµes visuais padronizadas para:
 
 - erros de API/rede (tratamento global);
-- validações de formulário;
-- ações concluídas com sucesso (ex.: login, cadastro, relatórios, aparelhos).
+- validaÃ§Ãµes de formulÃ¡rio;
+- aÃ§Ãµes concluÃ­das com sucesso (ex.: login, cadastro, relatÃ³rios, aparelhos).
 
-As mensagens foram padronizadas em português e o design é consistente em todo o site.
+As mensagens foram padronizadas em portuguÃªs e o design Ã© consistente em todo o site.
 
 ## Deploy (Netlify)
 
-O projeto já possui `netlify.toml` configurado para:
+O projeto jÃ¡ possui `netlify.toml` configurado para:
 
 - build do frontend;
-- instalação prévia do backend;
-- publicação de `dist`;
-- função serverless em `backend/netlify/functions`;
+- instalaÃ§Ã£o prÃ©via do backend;
+- publicaÃ§Ã£o de `dist`;
+- funÃ§Ã£o serverless em `backend/netlify/functions`;
 - rewrite de `/api/*` para a function.
 
 Trecho importante:
@@ -305,7 +305,7 @@ Trecho importante:
 
 ## PowerShell bloqueando `npm.ps1`
 
-Em algumas máquinas Windows, `npm` pode falhar por política de execução.
+Em algumas mÃ¡quinas Windows, `npm` pode falhar por polÃ­tica de execuÃ§Ã£o.
 
 Use:
 
@@ -314,42 +314,45 @@ npm.cmd run dev
 npm.cmd run build
 ```
 
-## Frontend não conecta na API
+## Frontend nÃ£o conecta na API
 
 Verifique:
 
 - backend rodando em `http://localhost:4000`;
-- variável `VITE_API_BASE_URL` na raiz;
+- variÃ¡vel `VITE_API_BASE_URL` na raiz;
 - console do navegador para erros de CORS/rede.
 
 ## MongoDB
 
-Se a API subir mas falhar em rotas autenticadas/persistência:
+Se a API subir mas falhar em rotas autenticadas/persistÃªncia:
 
 - confirme `MONGO_URL`;
 - confirme `MONGO_DB_NAME`;
 - valide conectividade com o banco (local ou cloud).
 
-## Documentação complementar
+## DocumentaÃ§Ã£o complementar
 
 - Backend: `backend/README.md`
 
-## Observações
+## ObservaÃ§Ãµes
 
-- O projeto possui páginas e textos ainda em evolução (há trechos legados com problemas de encoding em partes antigas da interface).
-- O backend suporta integrações plugáveis e está preparado para expansão de provedores IoT.
+- O projeto possui pÃ¡ginas e textos ainda em evoluÃ§Ã£o (hÃ¡ trechos legados com problemas de encoding em partes antigas da interface).
+- O backend suporta integraÃ§Ãµes plugÃ¡veis e estÃ¡ preparado para expansÃ£o de provedores IoT.
 
 
 ## Auditoria de outubro de 2026
 
-A matriz de requisitos, achados e limites está em [docs/AUDITORIA_REQUISITOS_WATTSTATUS.md](docs/AUDITORIA_REQUISITOS_WATTSTATUS.md). A branch `fix/audit-wattstatus-2026` contém correção do isolamento SmartThings e ajustes de compilação. Histórico medido de kWh, tarifa pessoal e relatório baseado em medições ainda não estão prontos; não publique esta branch como solução completa desses requisitos.
+A matriz de requisitos, achados e limites estÃ¡ em [docs/AUDITORIA_REQUISITOS_WATTSTATUS.md](docs/AUDITORIA_REQUISITOS_WATTSTATUS.md). A branch `fix/audit-wattstatus-2026` contÃ©m correÃ§Ã£o do isolamento SmartThings e ajustes de compilaÃ§Ã£o. HistÃ³rico medido de kWh, tarifa pessoal e relatÃ³rio baseado em mediÃ§Ãµes ainda nÃ£o estÃ£o prontos; nÃ£o publique esta branch como soluÃ§Ã£o completa desses requisitos.
 
-### Ambiente e publicação
+### Ambiente e publicaÃ§Ã£o
 
-Use `backend/.env.example` como referência local. Configure `MONGO_URL`, `MONGO_DB_NAME`, `JWT_SECRET` e `SMARTTHINGS_TOKEN_SECRET` no ambiente Netlify. Em produção, os dois segredos são obrigatórios. `SMARTTHINGS_TOKEN` global não autentica contas individuais. Tokens SmartThings são salvos por usuário, cifrados no MongoDB; mantenha a chave de cifra estável para permitir leitura dos tokens existentes.
+Use `backend/.env.example` como referÃªncia local. Configure `MONGO_URL`, `MONGO_DB_NAME`, `JWT_SECRET` e `SMARTTHINGS_TOKEN_SECRET` no ambiente Netlify. Em produÃ§Ã£o, os dois segredos sÃ£o obrigatÃ³rios. `SMARTTHINGS_TOKEN` global nÃ£o autentica contas individuais. Tokens SmartThings sÃ£o salvos por usuÃ¡rio, cifrados no MongoDB; mantenha a chave de cifra estÃ¡vel para permitir leitura dos tokens existentes.
 
-`backend/.env` foi retirado do índice Git, mas continua no histórico. Rotacione os segredos expostos antes de publicar. A remoção do índice não apaga o histórico remoto. Não inclua `.env` em commits futuros.
+`backend/.env` foi retirado do Ã­ndice Git, mas continua no histÃ³rico. Rotacione os segredos expostos antes de publicar. A remoÃ§Ã£o do Ã­ndice nÃ£o apaga o histÃ³rico remoto. NÃ£o inclua `.env` em commits futuros.
 
-A configuração `netlify.toml` instala dependências, compila backend e frontend e publica `dist`. Antes de habilitar deploy da branch, execute `npm ci`, `npm test`, `npm run build` na raiz e `npm ci`, `npm test` em `backend`. Confira variáveis no ambiente de prévia, valide login e SmartThings com contas de teste distintas e só então promova a versão. Não faça merge ou deploy automático sem essa validação.
+A configuraÃ§Ã£o `netlify.toml` instala dependÃªncias, compila backend e frontend e publica `dist`. Antes de habilitar deploy da branch, execute `npm ci`, `npm test`, `npm run build` na raiz e `npm ci`, `npm test` em `backend`. Confira variÃ¡veis no ambiente de prÃ©via, valide login e SmartThings com contas de teste distintas e sÃ³ entÃ£o promova a versÃ£o. NÃ£o faÃ§a merge ou deploy automÃ¡tico sem essa validaÃ§Ã£o.
 
-O backend inicializa índices de usuários, aparelhos e integrações em `MongoDatabase.init()`. Esta branch não migra nem apaga documentos existentes. Não há nova coleção de consumo medido.
+O backend inicializa Ã­ndices de usuÃ¡rios, aparelhos e integraÃ§Ãµes em `MongoDatabase.init()`. Esta branch nÃ£o migra nem apaga documentos existentes. NÃ£o hÃ¡ nova coleÃ§Ã£o de consumo medido.
+
+
+Tarifa pessoal: ao cadastrar ou editar aparelho, selecione estado de referência e informe seu preço em R$/kWh. O valor passa a compor o aparelho e `user_settings` por usuário. Aparelhos antigos mantêm tarifa estadual até serem editados. A importação SmartThings exige potência fornecida pelo dispositivo e tarifa já salva; não cria potência fictícia. Nenhuma migração MongoDB destrutiva é necessária. Campos novos: `appliances.tariffValue`, `user_settings.tariffState` e `user_settings.tariffValue`.

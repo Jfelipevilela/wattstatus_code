@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 import type { Appliance, ApplianceInput } from "@/hooks/useAppliances";
 import { STATE_TARIFFS, formatNumber, formatCurrency } from "@/lib/energy";
 
@@ -42,6 +43,7 @@ const schema = z
         (value) => Boolean(STATE_TARIFFS[value]),
         "Selecione seu estado.",
       ),
+    tariffValue: z.number({ invalid_type_error: "Informe a tarifa em R$/kWh." }).finite().positive("A tarifa deve ser maior que zero."),
   })
   .refine(
     (value) =>
@@ -76,6 +78,7 @@ export default function ApplianceCalculator({
   onBusyChange,
 }: Props) {
   const { token } = useAuth();
+  const { preferences, updatePreferences } = useUserPreferences();
   const id = useId();
   const initialMinutes = Math.round((initialAppliance?.usageHours || 0) * 60);
   const form = useForm<Values>({
@@ -86,9 +89,18 @@ export default function ApplianceCalculator({
       hours: Math.floor(initialMinutes / 60),
       minutes: initialMinutes % 60,
       days: initialAppliance?.days || 30,
-      tariff: initialAppliance?.tariff || "",
+      tariff: initialAppliance?.tariff || preferences.tariffState || "",
+      tariffValue: initialAppliance
+        ? initialAppliance.tariffValue || STATE_TARIFFS[initialAppliance.tariff]
+        : preferences.tariffValue || undefined,
     },
   });
+  useEffect(() => {
+    if (!initialAppliance && preferences.tariffState && !form.getValues("tariff")) {
+      form.setValue("tariff", preferences.tariffState);
+      if (preferences.tariffValue) form.setValue("tariffValue", preferences.tariffValue);
+    }
+  }, [initialAppliance, preferences.tariffState, preferences.tariffValue, form]);
   const [result, setResult] = useState<{
     consumptionKWh: number;
     cost: number;
@@ -113,6 +125,7 @@ export default function ApplianceCalculator({
       usageHours: values.hours + values.minutes / 60,
       days: values.days,
       tariff: values.tariff,
+      tariffValue: values.tariffValue,
     };
     try {
       if (simulate) {
@@ -129,6 +142,7 @@ export default function ApplianceCalculator({
         });
       } else {
         await onAddAppliance(input);
+        await updatePreferences({ tariffState: values.tariff, tariffValue: values.tariffValue });
         toast({
           title: initialAppliance
             ? "Aparelho atualizado"
@@ -144,6 +158,7 @@ export default function ApplianceCalculator({
             minutes: 0,
             days: 30,
             tariff: values.tariff,
+            tariffValue: values.tariffValue,
           });
           setResult(null);
           form.setFocus("name");
@@ -207,6 +222,7 @@ export default function ApplianceCalculator({
                       form.reset({
                         ...model,
                         tariff: form.getValues("tariff"),
+                        tariffValue: form.getValues("tariffValue"),
                       });
                     setResult(null);
                     event.target.value = "";
@@ -299,7 +315,10 @@ export default function ApplianceCalculator({
             <div className="space-y-2">
               <Label htmlFor={`${id}-tariff`}>Estado</Label>
               <select
-                {...form.register("tariff")}
+                {...form.register("tariff", { onChange: (event) => {
+                  const rate = STATE_TARIFFS[event.target.value];
+                  if (rate) form.setValue("tariffValue", rate, { shouldValidate: true });
+                } })}
                 {...accessibility("tariff")}
                 className={selectClass}
               >
@@ -311,6 +330,17 @@ export default function ApplianceCalculator({
                 ))}
               </select>
               {fieldError("tariff")}
+              <Label htmlFor={`${id}-tariffValue`}>Sua tarifa (R$/kWh)</Label>
+              <Input
+                {...form.register("tariffValue", { valueAsNumber: true })}
+                {...accessibility("tariffValue")}
+                type="number"
+                inputMode="decimal"
+                min="0.0001"
+                step="any"
+                className="h-11"
+              />
+              {fieldError("tariffValue")}
               <p className="text-xs text-muted-foreground">
                 Tarifas de referência, sem atualização em tempo real. O custo
                 final depende da distribuidora, dos impostos e das bandeiras da

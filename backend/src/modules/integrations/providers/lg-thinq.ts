@@ -8,6 +8,7 @@ import {
 } from "../types";
 
 const BASE_URL = "https://api.lgthinq.com/v1";
+type LgDevice = { deviceId?: string; id?: string; alias?: string; name?: string; modelName?: string; features?: string[] };
 
 export class LgThinQIntegration implements DeviceIntegration {
   id = "lg-thinq";
@@ -63,7 +64,7 @@ export class LgThinQIntegration implements DeviceIntegration {
     }
 
     try {
-      const { data } = await this.getClient().get<{ items: any[] }>(
+      const { data } = await this.getClient().get<{ items: LgDevice[] }>(
         "/devices",
         {
           headers: {
@@ -73,8 +74,8 @@ export class LgThinQIntegration implements DeviceIntegration {
       );
 
       return (data.items || []).map((item) => ({
-        id: item.deviceId || item.id,
-        name: item.alias || item.name,
+        id: item.deviceId || item.id || "",
+        name: item.alias || item.name || "",
         brand: "LG",
         model: item.modelName,
         capabilities: item.features,
