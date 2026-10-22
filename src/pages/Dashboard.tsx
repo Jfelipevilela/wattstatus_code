@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { DataState } from "@/components/DataState";
 import ConsumptionTab from "@/components/tabs/ConsumptionTab";
 import IntegrationUsage from "@/components/IntegrationUsage";
+import { EnergyHistoryPanel } from "@/components/EnergyHistoryPanel";
 import { useAppliances } from "@/hooks/useAppliances";
 import {
   getMonthlyEstimate,
@@ -134,6 +135,7 @@ export default function Dashboard() {
             </Button>
           </div>
           <DataState loading={loading} error={error} onRetry={refetch} />
+          <EnergyHistoryPanel year={selectedYear} month={selectedMonth} appliances={appliances} />
           {!loading && !error && (
             <>
               {appliances.length === 0 ? (

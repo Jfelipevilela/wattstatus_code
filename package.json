@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "test": "node --test tests/energy.test.mjs",
+    "test": "node --test tests/energy.test.mjs tests/measured.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
