@@ -339,3 +339,17 @@ Se a API subir mas falhar em rotas autenticadas/persistência:
 - O projeto possui páginas e textos ainda em evolução (há trechos legados com problemas de encoding em partes antigas da interface).
 - O backend suporta integrações plugáveis e está preparado para expansão de provedores IoT.
 
+
+## Auditoria de outubro de 2026
+
+A matriz de requisitos, achados e limites está em [docs/AUDITORIA_REQUISITOS_WATTSTATUS.md](docs/AUDITORIA_REQUISITOS_WATTSTATUS.md). A branch `fix/audit-wattstatus-2026` contém correção do isolamento SmartThings e ajustes de compilação. Histórico medido de kWh, tarifa pessoal e relatório baseado em medições ainda não estão prontos; não publique esta branch como solução completa desses requisitos.
+
+### Ambiente e publicação
+
+Use `backend/.env.example` como referência local. Configure `MONGO_URL`, `MONGO_DB_NAME`, `JWT_SECRET` e `SMARTTHINGS_TOKEN_SECRET` no ambiente Netlify. Em produção, os dois segredos são obrigatórios. `SMARTTHINGS_TOKEN` global não autentica contas individuais. Tokens SmartThings são salvos por usuário, cifrados no MongoDB; mantenha a chave de cifra estável para permitir leitura dos tokens existentes.
+
+`backend/.env` foi retirado do índice Git, mas continua no histórico. Rotacione os segredos expostos antes de publicar. A remoção do índice não apaga o histórico remoto. Não inclua `.env` em commits futuros.
+
+A configuração `netlify.toml` instala dependências, compila backend e frontend e publica `dist`. Antes de habilitar deploy da branch, execute `npm ci`, `npm test`, `npm run build` na raiz e `npm ci`, `npm test` em `backend`. Confira variáveis no ambiente de prévia, valide login e SmartThings com contas de teste distintas e só então promova a versão. Não faça merge ou deploy automático sem essa validação.
+
+O backend inicializa índices de usuários, aparelhos e integrações em `MongoDatabase.init()`. Esta branch não migra nem apaga documentos existentes. Não há nova coleção de consumo medido.
