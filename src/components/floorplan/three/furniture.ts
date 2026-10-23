@@ -223,13 +223,13 @@ function bedroom(w: number, d: number, suite: boolean): Assembly[] {
     nightstand("bedroom-nightstand-left", x - 0.55),
     nightstand("bedroom-nightstand-right", x + bedW + 0.13),
     wardrobe,
-    // Wall split A/C at the model's wall height (walls are 1.05 m), on a
-    // wall panel so it never floats above a lower interior wall.
+    // Wall split A/C near the top of the wall, on a wall panel that rises
+    // above the 1.05 m wall so it never floats.
     overlay("bedroom-wall-ac", [
-      rect("wall-panel", w / 2 - 0.56, m, 1.12, 0.05, 1.05, "white"),
-      rect("unit", w / 2 - 0.46, m + 0.05, 0.92, 0.22, 0.26, "white", 0.72, "ac"),
-      rect("louver", w / 2 - 0.40, m + 0.265, 0.80, 0.02, 0.04, "dark", 0.74),
-      rect("display", w / 2 + 0.26, m + 0.265, 0.10, 0.012, 0.03, "accent", 0.88),
+      rect("wall-panel", w / 2 - 0.56, m, 1.12, 0.05, 1.36, "white"),
+      rect("unit", w / 2 - 0.46, m + 0.05, 0.92, 0.22, 0.26, "white", 1.02, "ac"),
+      rect("louver", w / 2 - 0.40, m + 0.265, 0.80, 0.02, 0.04, "dark", 1.04),
+      rect("display", w / 2 + 0.26, m + 0.265, 0.10, 0.012, 0.03, "accent", 1.18),
     ]),
     rug("bedroom-rug", w / 2 - 1.0, z + 1.25, 2.0, 1.35),
   ];

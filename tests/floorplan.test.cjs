@@ -248,21 +248,22 @@ test('decoration stands in for a matching appliance instead of a duplicate', () 
   assert.equal(tiny[0].badge, null, 'no room: badge only, nothing through the walls');
 });
 
-test('wall-mounted A/C sits within the wall height, on a wall panel, never floating', () => {
+test('wall-mounted models sit on a wall panel, never floating', () => {
   const { placeAppliances } = load('components/floorplan/three/applianceModels.ts');
   const { WALL_HEIGHTS } = load('components/floorplan/three/walls.ts');
   const top = (pieces) => Math.max(...pieces.map((p) => p.y + p.size[1] / 2));
   for (const name of ['Ar-condicionado', 'Chuveiro elétrico', 'Carregador carro']) {
     const [item] = placeAppliances([{ id: 'x', name }], [], 4, 4);
-    assert.ok(top(item.pieces) <= WALL_HEIGHTS.exterior + 1e-6, `${name} below the wall top`);
     const panel = item.pieces.find((p) => p.key.endsWith('/wall-panel'));
     assert.ok(panel && panel.y - panel.size[1] / 2 === 0, `${name} has a panel down to the floor`);
+    assert.ok(top([panel]) >= top(item.pieces) - 1e-6, `${name} backed by the panel up to its top`);
+    assert.ok(top([panel]) >= WALL_HEIGHTS.exterior - 1e-6);
   }
   // The decorative bedroom A/C follows the same rule.
   const decor = furnitureFor('bedroom', 4, 4).filter((p) => p.key.startsWith('bedroom-wall-ac/'));
   assert.ok(decor.length >= 3);
-  assert.ok(top(decor) <= WALL_HEIGHTS.exterior + 1e-6);
-  assert.ok(decor.some((p) => p.key.endsWith('/wall-panel')));
+  const decorPanel = decor.find((p) => p.key.endsWith('/wall-panel'));
+  assert.ok(decorPanel && top([decorPanel]) >= top(decor) - 1e-6);
 });
 
 test('the 3D model always matches the badge icon, whatever the spelling', () => {

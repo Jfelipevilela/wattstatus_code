@@ -88,9 +88,9 @@ const DECOR_ANCHOR: Partial<Record<ApplianceKind, string>> = {
   washer: "washer",
 };
 
-// Wall models sit below the model's wall height (1.05 m) and get a wall
-// panel behind them, so they read as fixed to the wall even where the wall
-// between two rooms is lower.
+// Wall models get a wall panel behind them, at least as tall as the model's
+// walls (1.05 m) and rising above them for units mounted higher, so they read
+// as fixed to the wall and never float.
 type Mount = "floor" | "wall";
 const PANEL_THICKNESS = 0.05;
 const PANEL_HEIGHT = 1.05;
@@ -121,11 +121,11 @@ const MODELS: Record<ApplianceKind, Model> = {
     mount: "wall",
     w: 0.92,
     d: 0.24,
-    top: 1.3,
+    top: 1.6,
     parts: [
-      { name: "unit", x: 0, z: 0, w: 0.92, d: 0.22, h: 0.26, y0: 0.72, finish: "white" },
-      { name: "louver", x: 0.06, z: 0.215, w: 0.8, d: 0.02, h: 0.04, y0: 0.74, finish: "dark" },
-      { name: "display", x: 0.72, z: 0.215, w: 0.1, d: 0.012, h: 0.03, y0: 0.88, finish: "accent" },
+      { name: "unit", x: 0, z: 0, w: 0.92, d: 0.22, h: 0.26, y0: 1.02, finish: "white" },
+      { name: "louver", x: 0.06, z: 0.215, w: 0.8, d: 0.02, h: 0.04, y0: 1.04, finish: "dark" },
+      { name: "display", x: 0.72, z: 0.215, w: 0.1, d: 0.012, h: 0.03, y0: 1.18, finish: "accent" },
     ],
   },
   charger: {
@@ -393,8 +393,9 @@ export const placeAppliances = (
     // the model but never past the side walls.
     const panelX0 = Math.max(WALL_THICKNESS / 2, spot.x - PANEL_MARGIN);
     const panelX1 = Math.min(width - WALL_THICKNESS / 2, spot.x + model.w + PANEL_MARGIN);
+    const panelHeight = Math.max(PANEL_HEIGHT, ...model.parts.map((part) => (part.y0 ?? 0) + part.h + 0.06));
     if (model.mount === "wall") {
-      taken.push({ x: panelX0, z: spot.z - PANEL_THICKNESS, w: panelX1 - panelX0, d: PANEL_THICKNESS, y0: 0, y1: PANEL_HEIGHT });
+      taken.push({ x: panelX0, z: spot.z - PANEL_THICKNESS, w: panelX1 - panelX0, d: PANEL_THICKNESS, y0: 0, y1: panelHeight });
     }
     const parts =
       model.mount === "wall"
@@ -406,7 +407,7 @@ export const placeAppliances = (
               z: -PANEL_THICKNESS,
               w: panelX1 - panelX0,
               d: PANEL_THICKNESS,
-              h: PANEL_HEIGHT,
+              h: panelHeight,
               finish: "white" as const,
             },
           ]
