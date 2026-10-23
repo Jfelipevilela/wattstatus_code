@@ -46,6 +46,19 @@ test('SmartThings credentials and devices stay within each user session', async 
     assert.equal((await call('/token', 'b', 'POST', { token: 'token-b' })).status, 200);
     const results = await Promise.all(Array.from({ length: 20 }, (_, i) => call('/devices', i % 2 ? 'b' : 'a')));
     results.forEach((result, i) => assert.equal(result.body.devices[0].id, i % 2 ? 'device-b' : 'device-a'));
+    const workingAdapter = axios.defaults.adapter;
+    axios.defaults.adapter = async (config) => {
+      if (config.headers.Authorization === 'Bearer token-a' && config.url === '/devices') {
+        throw new axios.AxiosError('remote unauthorized', 'ERR_BAD_RESPONSE', config, undefined,
+          { data: {}, status: 401, statusText: 'Unauthorized', headers: {}, config });
+      }
+      return workingAdapter(config);
+    };
+    const rejected = await call('/devices', 'a');
+    assert.equal(rejected.status, 424);
+    assert.match(rejected.body.error, /Token SmartThings/);
+    assert.equal((await call('/token', 'a')).status, 200);
+    axios.defaults.adapter = workingAdapter;
     assert.equal((await call('/devices/device-b/status', 'a')).status, 404);
     assert.equal((await call('/devices/device-a/commands', 'b', 'POST', { capability: 'switch', command: 'on' })).status, 404);
     assert.equal((await call('/token', 'a', 'POST', { token: '' })).status, 200);
@@ -62,7 +75,7 @@ test('SmartThings credentials and devices stay within each user session', async 
 test('SmartThings API errors expose safe statuses without credentials', async () => {
   const original = axios.defaults.adapter;
   try {
-    for (const [remote, expected] of [[401, 401], [429, 429], [503, 503]]) {
+    for (const [remote, expected] of [[401, 424], [403, 424], [429, 429], [503, 503]]) {
       axios.defaults.adapter = async (config) => {
         throw new axios.AxiosError('remote failure', 'ERR_BAD_RESPONSE', config, undefined,
           { data: { token: 'secret' }, status: remote, statusText: 'error', headers: {}, config });

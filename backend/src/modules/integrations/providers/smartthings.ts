@@ -53,7 +53,7 @@ export class SmartThingsIntegration implements DeviceIntegration {
     client.interceptors.response.use((response) => response, (error: unknown) => {
       if (!axios.isAxiosError(error)) throw new ApiError(503, "SmartThings indisponível");
       const status = error.response?.status;
-      if (status === 401 || status === 403) throw new ApiError(401, "Token SmartThings inválido ou sem permissão");
+      if (status === 401 || status === 403) throw new ApiError(424, "Token SmartThings inválido ou sem permissão");
       if (status === 404) throw new ApiError(404, "Dispositivo SmartThings não encontrado");
       if (status === 429) throw new ApiError(429, "Limite de chamadas SmartThings atingido");
       throw new ApiError(503, "SmartThings indisponível. Tente novamente.");
