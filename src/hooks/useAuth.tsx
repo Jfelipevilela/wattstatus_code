@@ -1,20 +1,10 @@
-﻿import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-import { ApiError, apiRequest } from "@/lib/api";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ApiError, apiRequest, invalidateCsrfToken } from "@/lib/api";
 import { notifyError } from "@/lib/error-toast";
 import { toast } from "@/components/ui/use-toast";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
-
+interface User { id: string; name: string; email: string; }
 interface AuthContextValue {
   user: User | null;
   token: string | null;
@@ -29,138 +19,125 @@ interface AuthContextValue {
   logout: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
 }
-
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const currentRequest = useRef<AbortController | null>(null);
+  const generation = useRef(0);
+  const activeActions = useRef(0);
+  const channel = useRef<BroadcastChannel | null>(null);
 
-  const loadProfile = useCallback(
-    async (activeToken?: string | null) => {
-      setLoading(true);
-      try {
-        const data = await apiRequest<{ user: User }>(
-          "/api/auth/me",
-          { method: "GET", skipErrorToast: true },
-          activeToken
-        );
-        setUser(data.user);
-        setToken(activeToken || null);
-      } catch (err) {
-        if (!(err instanceof ApiError && err.status === 401)) {
-          notifyError(err, {
-            title: "Erro ao validar sessão",
-            fallbackMessage: "Não foi possível validar sua sessão.",
-          });
-        }
-        setUser(null);
-        setToken(null);
-      } finally {
-        setLoading(false);
+  const beginRequest = () => {
+    currentRequest.current?.abort();
+    const controller = new AbortController();
+    currentRequest.current = controller;
+    generation.current++;
+    setLoading(true);
+    return { controller, version: generation.current };
+  };
+  const loadProfile = useCallback(async () => {
+    const { controller, version } = beginRequest();
+    try {
+      const data = await apiRequest<{ user: User }>("/api/auth/me", {
+        method: "GET", skipErrorToast: true, signal: controller.signal,
+      });
+      if (version === generation.current) {
+        queryClient.clear();
+        setUser((previous) => previous?.id === data.user.id && previous.name === data.user.name && previous.email === data.user.email
+          ? previous : data.user);
       }
-    },
-    []
-  );
+    } catch (error) {
+      if (controller.signal.aborted || version !== generation.current) return;
+      if (!(error instanceof ApiError && error.status === 401)) {
+        notifyError(error, { title: "Erro ao validar sessão", fallbackMessage: "Não foi possível validar sua sessão." });
+      }
+      setUser(null);
+    } finally {
+      if (version === generation.current) setLoading(false);
+    }
+  }, [queryClient]);
 
   useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
-
-  const login = async (email: string, password: string) => {
-    setLoading(true);
-    try {
-      const data = await apiRequest<{ token: string; user: User }>(
-        "/api/auth/login",
-        {
-          method: "POST",
-          body: JSON.stringify({ email, password }),
-        }
-      );
-      setUser(data.user);
-      setToken(data.token);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const register = async (
-    name: string,
-    email: string,
-    password: string,
-    confirmPassword: string
-  ) => {
-    setLoading(true);
-    try {
-      const data = await apiRequest<{ token: string; user: User }>(
-        "/api/auth/register",
-        {
-          method: "POST",
-          body: JSON.stringify({ name, email, password, confirmPassword }),
-        }
-      );
-      setUser(data.user);
-      setToken(data.token);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    const shouldNotifyLogout = Boolean(user || token);
-    setLoading(true);
-    let succeeded = false;
-    try {
-      await apiRequest(
-        "/api/auth/logout",
-        { method: "POST", skipErrorToast: true },
-        token || undefined
-      );
-      succeeded = true;
-    } catch (err) {
-      notifyError(err, { title: "Falha ao sair", fallbackMessage: "N\u00e3o foi poss\u00edvel encerrar a sess\u00e3o. Tente novamente." });
-    } finally {
-      if (succeeded) {
+    if (typeof BroadcastChannel !== "undefined") {
+      channel.current = new BroadcastChannel("wattstatus-session");
+      channel.current.onmessage = () => {
+        queryClient.clear();
+        invalidateCsrfToken();
         setUser(null);
-        setToken(null);
-        if (shouldNotifyLogout) {
-          toast({
-            title: "Logout realizado com sucesso!",
-            description: "Você saiu da sua conta.",
-          });
-        }
-      }
-      setLoading(false);
+        void loadProfile();
+      };
     }
-    return succeeded;
-  };
+    const refreshVisibleSession = () => {
+      if (document.visibilityState === "visible" && activeActions.current === 0) void loadProfile();
+    };
+    const endExpiredSession = () => {
+      currentRequest.current?.abort();
+      generation.current++;
+      setUser(null);
+      setLoading(false);
+      queryClient.clear();
+      invalidateCsrfToken();
+    };
+    window.addEventListener("wattstatus-session-expired", endExpiredSession);
+    document.addEventListener("visibilitychange", refreshVisibleSession);
+    void loadProfile();
+    return () => {
+      currentRequest.current?.abort();
+      channel.current?.close();
+      document.removeEventListener("visibilitychange", refreshVisibleSession);
+      window.removeEventListener("wattstatus-session-expired", endExpiredSession);
+    };
+  }, [loadProfile, queryClient]);
 
-  const refreshUser = async () => {
-    await loadProfile(token);
+  const signIn = async (path: string, body: Record<string, unknown>) => {
+    activeActions.current++;
+    const { controller, version } = beginRequest();
+    try {
+      const data = await apiRequest<{ user: User }>(path, {
+        method: "POST", body: JSON.stringify(body), signal: controller.signal,
+      });
+      if (version !== generation.current) return;
+      queryClient.clear();
+      setUser(data.user);
+      channel.current?.postMessage("session-changed");
+    } finally {
+      activeActions.current--;
+      if (version === generation.current) setLoading(false);
+    }
   };
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        token,
-        loading,
-        login,
-        register,
-        logout,
-        refreshUser,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const login = (email: string, password: string) => signIn("/api/auth/login", { email, password });
+  const register = (name: string, email: string, password: string, confirmPassword: string) =>
+    signIn("/api/auth/register", { name, email, password, confirmPassword, acceptTerms: true });
+  const logout = async () => {
+    activeActions.current++;
+    const { controller, version } = beginRequest();
+    try {
+      await apiRequest("/api/auth/logout", { method: "POST", body: "{}", signal: controller.signal });
+      if (version !== generation.current) return false;
+      setUser(null);
+      queryClient.clear();
+      channel.current?.postMessage("session-changed");
+      toast({ title: "Logout realizado com sucesso!", description: "Você saiu da sua conta." });
+      return true;
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        notifyError(error, { title: "Não foi possível encerrar a sessão", fallbackMessage: "Tente sair novamente." });
+      }
+      return false;
+    } finally {
+      activeActions.current--;
+      if (version === generation.current) setLoading(false);
+    }
+  };
+  return <AuthContext.Provider value={{ user, token: null, loading, login, register, logout, refreshUser: loadProfile }}>
+    {children}
+  </AuthContext.Provider>;
 };
-
 export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used inside AuthProvider");
-  }
-  return ctx;
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used inside AuthProvider");
+  return context;
 };

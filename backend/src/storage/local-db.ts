@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import { ApplianceRecord, UserRecord } from "../types";
+import { getErrorFields, logger } from "../logging/logger";
 
 interface DatabaseShape {
   users: UserRecord[];
@@ -37,7 +38,7 @@ export class LocalDatabase {
     try {
       this.db = { ...DEFAULT_DB, ...JSON.parse(content) };
     } catch (err) {
-      console.warn("Failed to parse database file, starting fresh.", err);
+      logger.warn("local_database.parse_failed", getErrorFields(err));
       this.db = { ...DEFAULT_DB };
       await this.persist();
     }

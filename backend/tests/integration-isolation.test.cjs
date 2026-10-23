@@ -13,7 +13,8 @@ const { env } = require('../dist/config/env');
 test('SmartThings credentials and devices stay within each user session', async () => {
   const saved = new Map();
   const db = {
-    hasSession: async (user, id) => id === `session-${user}`,
+    getSession: async (id) => id === 'session-a' || id === 'session-b' ? { id, userId: id.slice(-1) } : null,
+    getUserById: async (id) => id === 'a' || id === 'b' ? { id } : null,
     getIntegrationToken: async (user, provider) => saved.get(`${user}:${provider}`) || null,
     saveIntegrationToken: async (user, provider, token) => saved.set(`${user}:${provider}`, token),
     deleteIntegrationToken: async (user, provider) => saved.delete(`${user}:${provider}`),
@@ -35,7 +36,7 @@ test('SmartThings credentials and devices stay within each user session', async 
   const server = app.listen(0);
   await new Promise(resolve => server.once('listening', resolve));
   const url = `http://127.0.0.1:${server.address().port}/api/integrations/smartthings`;
-  const auth = (user) => ({ Authorization: `Bearer ${jwt.sign({ sub: user }, env.jwtSecret, { expiresIn: '1h', jwtid: `session-${user}` })}`, 'Content-Type': 'application/json' });
+  const auth = (user) => ({ Authorization: `Bearer ${jwt.sign({ sub: user, purpose: 'access' }, env.jwtSecret, { expiresIn: '1h', jwtid: `session-${user}`, issuer: 'wattstatus', audience: 'wattstatus-api', algorithm: 'HS256' })}`, 'Content-Type': 'application/json' });
   const call = async (path, user, method = 'GET', body) => {
     const response = await fetch(url + path, { method, headers: auth(user), body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: response.status, body: await response.json() };
@@ -50,7 +51,7 @@ test('SmartThings credentials and devices stay within each user session', async 
     assert.equal((await call('/token', 'a', 'POST', { token: '' })).status, 200);
     assert.equal((await call('/devices', 'a')).status, 400);
     assert.equal((await call('/devices', 'b')).status, 200);
-    const expired = jwt.sign({ sub: 'b' }, env.jwtSecret, { expiresIn: -1, jwtid: 'session-b' });
+    const expired = jwt.sign({ sub: 'b', purpose: 'access' }, env.jwtSecret, { expiresIn: -1, jwtid: 'session-b', issuer: 'wattstatus', audience: 'wattstatus-api', algorithm: 'HS256' });
     assert.equal((await fetch(url + '/devices', { headers: { Authorization: `Bearer ${expired}` } })).status, 401);
   } finally {
     axios.defaults.adapter = originalAdapter;

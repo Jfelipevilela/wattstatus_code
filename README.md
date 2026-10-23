@@ -346,13 +346,13 @@ Consulte [matriz de requisitos](docs/AUDITORIA_REQUISITOS_WATTSTATUS.md) e [corr
 
 ### Ambiente
 
-Use `backend/.env.example` como referência local. Configure `MONGO_URL`, `MONGO_DB_NAME`, `JWT_SECRET`, `SMARTTHINGS_TOKEN_SECRET` e `FRONTEND_ORIGIN` no Netlify. Os dois segredos são obrigatórios em produção. `FRONTEND_ORIGIN` permite CORS para o frontend configurado; requisições de mesma origem continuam aceitas. `SMARTTHINGS_TOKEN` global não autentica usuários. Mantenha `SMARTTHINGS_TOKEN_SECRET` estável para decifrar tokens existentes. Sessões anteriores a esta branch não possuem `jti` e exigem novo login.
+Use `backend/.env.example` como referência local. Configure `MONGO_URL`, `MONGO_DB_NAME`, `JWT_SECRET`, `SMARTTHINGS_TOKEN_SECRET` e `APP_ORIGINS` no Netlify. Os dois segredos são obrigatórios em produção. `APP_ORIGINS` permite CORS somente para as origens exatas configuradas. `TRUST_PROXY_HOPS` deve refletir o proxy real. `SMARTTHINGS_TOKEN` global não autentica usuários. Mantenha `SMARTTHINGS_TOKEN_SECRET` estável para decifrar tokens existentes. Sessões anteriores à integração exigem novo login.
 
 `backend/.env` saiu do índice Git, mas aparece no histórico. Identifique valores reais e rotacione segredos com procedimento coordenado, sem registrar seus valores. Não inclua `.env` em commits futuros.
 
 ### Banco de dados e coleta
 
-`MongoDatabase.init()` cria índices em `energy_samples`, `sessions` e `appliances.importKey`. Não apaga registros existentes. A amostra inclui usuário, aparelho vinculado quando houver, provedor, dispositivo, instante UTC, contador kWh e tarifa capturada. Diferenças entre amostras consecutivas formam intervalos. Reinicialização de contador não gera consumo negativo. A ausência de segunda leitura aparece como ausência de dado medido. Alterações no cadastro atual não reescrevem amostras históricas.
+`MongoDatabase.init()` cria índices em `energy_samples`, `sessions`, `auth_sessions`, `auth_limits`, `users.emailCanonical` e `appliances.importKey`. Não apaga registros existentes. A amostra inclui usuário, aparelho vinculado quando houver, provedor, dispositivo, instante UTC, contador kWh e tarifa capturada. Diferenças entre amostras consecutivas formam intervalos. Reinicialização de contador não gera consumo negativo. A ausência de segunda leitura aparece como ausência de dado medido. Alterações no cadastro atual não reescrevem amostras históricas.
 
 A tarifa pessoal é informada em R$/kWh no cadastro ou edição de aparelho e armazenada em `user_settings` e `appliances.tariffValue`. Aparelhos antigos usam referência estadual até edição. Importação SmartThings exige potência fornecida pelo dispositivo, tarifa salva e não aceita dispositivo duplicado.
 
@@ -371,9 +371,12 @@ Na raiz, execute `npm ci`, `npm test`, `npm run build`, `npm run lint` e `npx ts
 
 ### Dependências e desempenho
 
-As páginas agora usam carregamento sob demanda. No build local, o chunk principal caiu de cerca de 1,12 MB para 346 KB antes de gzip; isso não comprova RNF-002. jsPDF e React Router foram atualizados e passaram build/testes. `npm audit` backend mostrou 0 vulnerabilidades. No frontend, restaram 5 altas e 2 moderadas ligadas à cadeia Tailwind CSS 3; a correção automática exige migração major para Tailwind 4 e revisão visual, ainda pendente.
+As páginas agora usam carregamento sob demanda. Isso não comprova RNF-002 sem medição real. jsPDF e React Router foram atualizados e passaram build/testes. `npm audit` backend mostrou 0 vulnerabilidades. No frontend, restaram 5 altas e 3 moderadas em ferramentas de desenvolvimento, sobretudo na cadeia Tailwind CSS 3; a correção automática exige migração major para Tailwind 4 e revisão visual, ainda pendente.
 # Homologação de energia
 
 A coleta periódica SmartThings usa função agendada Netlify, desativada por padrão. Configure `ENERGY_COLLECTION_ENABLED=true` e habilite individualmente no painel SmartThings. Consulte `docs/HARDENING_PRODUCAO.md` para auditoria de dependências, medições, rotação de credenciais, testes físicos e decisão de produção.
 
 \n
+## Integração local com dev_V1
+
+A branch `fix/audit-wattstatus-2026-integracao-dev-v1` incorpora `origin/dev_V1` localmente. Veja [relatório dos conflitos](docs/RELATORIO_CONFLITOS_DEV_V1.md). Cadastro e login exigem token CSRF obtido em `GET /api/auth/csrf`; a API responde com cookie HTTP-only. `POST /api/auth/logout` revoga a sessão persistida. Configure `APP_ORIGINS` e `TRUST_PROXY_HOPS` conforme o ambiente. O coletor agendado continua desligado por padrão. Nenhum push, merge na branch-base ou deploy foi feito nesta integração.

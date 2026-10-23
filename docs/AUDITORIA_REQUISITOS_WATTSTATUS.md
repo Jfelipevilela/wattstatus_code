@@ -18,7 +18,7 @@ Base: `dev_V1` (`d53cb07`). Especificação acadêmica consultada em 22/10/2026.
 | RF-010 | Autenticação | Implementado | `auth.service.ts`, `auth.routes.ts`, `auth-middleware.ts` | Registro, revogação e acesso negado após logout no MongoDB isolado passaram | JWTs antigos sem `jti` exigem novo login. |
 | RNF-001 | Interface simples | Não comprovado | Componentes React | Build passou | Falta teste de usabilidade. |
 | RNF-002 | Telas em menos de 3 s | Não comprovado | Build Vite | Sem medição representativa | Rotas passaram a carregar sob demanda; tamanho do chunk principal caiu de cerca de 1,12 MB para 346 KB antes de gzip. Falta medição de tempo real. |
-| RNF-003 | Segurança e controle de acesso | Parcial | Sessões MongoDB, CSRF, CORS, rotas autenticadas e coletor interno Netlify | Testes com duas contas e MongoDB isolado passaram | Rate limit em memória não é distribuído entre instâncias Netlify. Auditoria npm do frontend ainda aponta 5 vulnerabilidades altas e 3 moderadas na cadeia Tailwind 3; migração para Tailwind 4 requer revisão visual. |
+| RNF-003 | Segurança e controle de acesso | Parcial | Sessões MongoDB, CSRF, CORS, rotas autenticadas e coletor interno Netlify | Testes com duas contas e MongoDB isolado passaram | Rate limit usa `auth_limits` no MongoDB. Auditoria npm completa do frontend aponta 5 vulnerabilidades altas e 3 moderadas em ferramentas de desenvolvimento, sobretudo Tailwind 3; migração para Tailwind 4 requer revisão visual. |
 | RNF-004 | Navegadores modernos | Não comprovado | Vite/React | Build passou | Falta matriz Chrome, Firefox, Edge e Safari. |
 | RNF-005 | Arquitetura para crescimento | Parcial | Módulos backend e índices MongoDB | Build backend e teste MongoDB passaram | Adaptadores PostgreSQL/locais legados permanecem. |
 
@@ -28,18 +28,18 @@ Base: `dev_V1` (`d53cb07`). Especificação acadêmica consultada em 22/10/2026.
 
 O agrupamento mensal e diário da interface usa fuso local do navegador. API armazena instantes UTC e recebe limites ISO com offset do navegador. Intervalos sem duas leituras não são preenchidos. Um intervalo que atravessa competências é atribuído ao mês de sua segunda leitura; isso não equivale a medição completa daquele mês. A função agendada Netlify faz coleta por lotes quando ativada globalmente e por usuário. Sua execução em produção e cobertura real ainda exigem homologação.
 
-Os índices novos são criados por `MongoDatabase.init()` sem apagar dados. `energy_samples`: `sampleKey` único, período por usuário/aparelho e série por usuário/provedor/dispositivo. `sessions`: `id` único e TTL por `expiresAt`. `appliances.importKey` único apenas quando presente, preservando registros legados.
+Os índices novos são criados por `MongoDatabase.init()` sem apagar dados. `energy_samples`: `sampleKey` único, período por usuário/aparelho e série por usuário/provedor/dispositivo. `sessions` e `auth_sessions`: `id` único e TTL por `expiresAt`. `auth_limits` tem chave única e TTL. `appliances.importKey` é único apenas quando presente, preservando registros legados.
 
 ## Segurança e segredos
 
 - SmartThings usa cliente novo por requisição e credencial do usuário autenticado. Status e comandos verificam dispositivo. Respostas de erro não expõem token. Importação duplicada é rejeitada.
 - Sessões têm identificador `jti` persistido. Logout revoga a sessão; token expirado ou revogado recebe 401. Cookies HTTP-only expiram em 12 horas.
-- Mutação autenticada por cookie exige `Origin` aceitável. Produção restringe CORS a `FRONTEND_ORIGIN`; acesso de mesma origem continua permitido. Login e cadastro têm limite adicional de tentativas.
+- Mutações exigem JSON e token CSRF vinculado ao cookie; CORS usa a lista exata `APP_ORIGINS`. Login e cadastro têm limites distribuídos via MongoDB. `TRUST_PROXY_HOPS` deve refletir o proxy real.
 - `backend/.env` foi retirado do índice, mas o commit `9e45baa` contém tipos de segredos `DATABASE_URL`, `JWT_SECRET`, `LG_CLIENT_ID`, `LG_CLIENT_SECRET`, `LG_REFRESH_TOKEN` e `MONGO_URL`. Nenhum valor foi impresso na auditoria. Confirmar se cada valor foi real antes de rotacionar. Criar credenciais substitutas, configurá-las em Netlify e serviços dependentes, validar, então revogar antigas. Trocar `JWT_SECRET` invalida sessões; trocar `SMARTTHINGS_TOKEN_SECRET` sem migração impede decifrar tokens armazenados. Não reescrever histórico sem procedimento coordenado.
 
 ## Validação executada
 
-- Backend: 8 testes passaram com MongoDB `mongo:7` isolado em Docker. `npm audit` backend: 0 vulnerabilidades após atualização de dependências. Incluem isolamento entre usuários, deduplicação, contador, reinício, tarifa, sessão e API SmartThings simulada.
+- Backend: 25 testes passaram com MongoDB `mongo:7` isolado em Docker. `npm audit` backend: 0 vulnerabilidades após atualização de dependências. Incluem isolamento entre usuários, deduplicação, contador, reinício, tarifa, sessão e API SmartThings simulada.
 - Frontend: 9 testes passaram. PDF longo gerou páginas com orientação consistente; amostra foi renderizada e inspecionada. jsPDF, React Router e Vite foram atualizados. Auditoria npm frontend: 0 críticas, 5 altas e 3 moderadas remanescentes na cadeia Tailwind 3.
 - Build frontend/backend, tipos frontend e lint passaram. Lint manteve 11 avisos de Fast Refresh em componentes compartilhados; não são falhas de produção.
 - Dispositivo físico, latência de produção, navegadores e deploy não foram validados.
@@ -47,3 +47,7 @@ Os índices novos são criados por `MongoDatabase.init()` sem apagar dados. `ene
 ## Referência acadêmica
 
 O Documento de Especificação de outubro de 2026 declara RF-001 a RF-010 como implementados, mas esta matriz usa evidência do código e testes. Referências a `RNF-006` devem ser corrigidas: a lista principal contém apenas RNF-001 a RNF-005. Veja `docs/ALTERACOES_DOCUMENTO_ACADEMICO.md`. O Google Doc não foi alterado.
+
+## Integração dev_V1
+
+A branch local de integração contém as três mudanças novas de `dev_V1`: logs estruturados com saneamento, dependências atualizadas e segurança de cadastro, login, CSRF, sessões e limites distribuídos. O relatório detalhado está em `docs/RELATORIO_CONFLITOS_DEV_V1.md`. JWTs legados precisam de novo login; `SMARTTHINGS_TOKEN_SECRET` continua no formato anterior.

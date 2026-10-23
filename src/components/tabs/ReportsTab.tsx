@@ -68,6 +68,13 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
 
   const { user, token } = useAuth();
 
+  const recordReportEvent = (event: "generation_started" | "generation_completed" | "generation_failed" |
+    "export_started" | "export_completed" | "export_failed", fields: { itemCount?: number; durationMs?: number } = {}) => {
+    void apiRequest("/api/reports/events", {
+      method: "POST", body: JSON.stringify({ event, ...fields }), skipErrorToast: true,
+    }, token || undefined).catch(() => undefined);
+  };
+
   // Initialize with current month/year
   useEffect(() => {
     const now = new Date();
@@ -100,6 +107,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
 
     const requestId = ++reportRequest.current;
     setIsGenerating(true);
+    const startedAt = Date.now();
+    recordReportEvent("generation_started");
 
 
 
@@ -150,6 +159,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
     setGenerationTime(new Date().toLocaleString("pt-BR"));
     setHasGeneratedReport(true);
     setIsGenerating(false);
+    recordReportEvent("generation_completed", { itemCount: data.length + measuredCount, durationMs: Date.now() - startedAt });
 
     if (data.length === 0) {
       setReportData([]);
@@ -171,6 +181,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
 
   const exportToPDF = async () => {
     if (measurementError || (reportData.length === 0 && measuredIntervals.length === 0)) return;
+    const startedAt = Date.now();
+    recordReportEvent("export_started", { itemCount: reportData.length + measuredIntervals.length });
     try {
       const { createReportPdf } = await import("@/lib/report-pdf");
       const pdf = createReportPdf({
@@ -185,7 +197,9 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
         })),
       });
       pdf.save(`wattstatus_${selectedMonth}_${selectedYear}.pdf`);
+      recordReportEvent("export_completed", { itemCount: reportData.length + measuredIntervals.length, durationMs: Date.now() - startedAt });
     } catch {
+      recordReportEvent("export_failed", { durationMs: Date.now() - startedAt });
       toast({ title: "Erro na exportação", description: "Não foi possível exportar o PDF.", variant: "destructive" });
     }
   };

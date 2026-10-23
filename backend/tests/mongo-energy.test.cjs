@@ -59,14 +59,20 @@ test('MongoDB persists isolated energy samples and historical tariffs', { skip: 
     await new Promise(resolve => server.once('listening', resolve));
     try {
       const base = `http://127.0.0.1:${server.address().port}`;
-      const registration = await fetch(base + '/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Teste', email: 'test@example.invalid', password: 'secret123', confirmPassword: 'secret123' }) });
+      const preCsrf = await fetch(base + '/api/auth/csrf');
+      const preCsrfToken = (await preCsrf.json()).csrfToken;
+      const preCsrfCookie = preCsrf.headers.get('set-cookie').split(';')[0];
+      const registration = await fetch(base + '/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: preCsrfCookie, 'x-csrf-token': preCsrfToken }, body: JSON.stringify({ name: 'Teste', email: 'test@example.invalid', password: 'Uma frase de teste segura!', confirmPassword: 'Uma frase de teste segura!', acceptTerms: true }) });
       assert.equal(registration.status, 201);
-      const { token } = await registration.json();
-      const headers = { Authorization: `Bearer ${token}` };
+      const sessionCookie = registration.headers.get('set-cookie').split(';')[0];
+      const headers = { Cookie: sessionCookie };
       assert.equal((await fetch(base + '/api/energy/history?start=2026-10-01T00%3A00%3A00.000Z&end=2026-11-01T00%3A00%3A00.000Z', { headers })).status, 200);
-      const csrf = await fetch(base + '/api/auth/logout', { method: 'POST', headers: { Cookie: `wattstatus_token=${token}`, Origin: 'https://evil.example' } });
+      const csrf = await fetch(base + '/api/auth/logout', { method: 'POST', headers: { ...headers, Origin: 'https://evil.example', 'Content-Type': 'application/json' }, body: '{}' });
       assert.equal(csrf.status, 403);
-      assert.equal((await fetch(base + '/api/auth/logout', { method: 'POST', headers })).status, 200);
+      const logoutCsrf = await fetch(base + '/api/auth/csrf', { headers });
+      const logoutCsrfToken = (await logoutCsrf.json()).csrfToken;
+      const logoutCsrfCookie = logoutCsrf.headers.get('set-cookie').split(';')[0];
+      assert.equal((await fetch(base + '/api/auth/logout', { method: 'POST', headers: { ...headers, Cookie: `${sessionCookie}; ${logoutCsrfCookie}`, 'Content-Type': 'application/json', 'x-csrf-token': logoutCsrfToken }, body: '{}' })).status, 200);
       assert.equal((await fetch(base + '/api/auth/me', { headers })).status, 401);
     } finally { await new Promise(resolve => server.close(resolve)); }
   } finally {

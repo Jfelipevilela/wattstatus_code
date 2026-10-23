@@ -47,8 +47,8 @@ const SignUp = () => {
     if (formData.password !== formData.confirmPassword) {
       return "As senhas não coincidem.";
     }
-    if (formData.password.length < 6) {
-      return "A senha deve ter pelo menos 6 caracteres.";
+    if (formData.password.length < 15) {
+      return "A senha deve ter pelo menos 15 caracteres.";
     }
     if (!formData.acceptTerms) {
       return "Você deve aceitar os termos de uso.";
@@ -128,6 +128,8 @@ const SignUp = () => {
                 </Label>
                 <Input
                   id="name"
+                  maxLength={100}
+                  autoComplete="name"
                   type="text"
                   placeholder="Seu nome completo"
                   value={formData.name}
@@ -146,6 +148,8 @@ const SignUp = () => {
                 </Label>
                 <Input
                   id="email"
+                  maxLength={254}
+                  autoComplete="username"
                   type="email"
                   placeholder="seu@email.com"
                   value={formData.email}
@@ -165,6 +169,9 @@ const SignUp = () => {
                 <div className="relative">
                   <Input
                     id="password"
+                    minLength={15}
+                    maxLength={128}
+                    autoComplete="new-password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={formData.password}
@@ -177,6 +184,7 @@ const SignUp = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-energy-500 dark:text-energy-400 hover:text-energy-700 dark:hover:text-energy-300"
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -194,6 +202,8 @@ const SignUp = () => {
                 <div className="relative">
                   <Input
                     id="confirmPassword"
+                    maxLength={128}
+                    autoComplete="new-password"
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={formData.confirmPassword}
@@ -206,6 +216,7 @@ const SignUp = () => {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? "Ocultar confirmação" : "Mostrar confirmação"}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-energy-500 dark:text-energy-400 hover:text-energy-700 dark:hover:text-energy-300"
                   >
                     {showConfirmPassword ? (

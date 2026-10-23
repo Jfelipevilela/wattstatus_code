@@ -6,6 +6,7 @@ import { IntegrationManager } from "./integration-manager";
 import { SmartThingsIntegration } from "./providers/smartthings";
 import { extractCumulativeKWh } from "../energy/energy-history";
 import { z } from "zod";
+import { logger } from "../../logging/logger";
 
 const commandSchema = z.object({
   capability: z.string().min(1).max(100),
@@ -19,7 +20,6 @@ const usageSchema = z.object({ usage: z.array(z.object({
   lastOn: z.string().datetime({ offset: true }).nullable().optional(),
   day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 })).max(200) });
-
 export const createIntegrationRouter = (
   manager: IntegrationManager,
   db: MongoDatabase
@@ -71,8 +71,10 @@ export const createIntegrationRouter = (
       if (typeof token !== "string" || token.length > 4096) throw new ApiError(400, "Token inv\u00e1lido");
       if (token) {
         await db.saveIntegrationToken(req.userId, integration.id, token);
+        logger.info("integration.token_saved", { provider: integration.id });
       } else {
         await db.deleteIntegrationToken(req.userId, integration.id);
+        logger.info("integration.token_removed", { provider: integration.id });
       }
       res.json({ provider: integration.id, configured: Boolean(token) });
     } catch (err) {

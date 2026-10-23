@@ -17,11 +17,27 @@ export class ApiError extends Error {
 }
 
 export type ApiRequestOptions = RequestInit & {
+  timeoutMs?: number;
   skipErrorToast?: boolean;
   errorToastTitle?: string;
   errorToastFallback?: string;
   errorToastCooldownMs?: number;
   errorToastDedupeKey?: string;
+};
+
+let csrfToken: string | null = null;
+let csrfRequest: Promise<string> | null = null;
+let csrfGeneration = 0;
+export const invalidateCsrfToken = () => { csrfGeneration++; csrfToken = null; csrfRequest = null; };
+const getCsrfToken = async () => {
+  if (csrfToken) return csrfToken;
+  if (!csrfRequest) {
+    const version = csrfGeneration;
+    csrfRequest = apiRequest<{ csrfToken: string }>("/api/auth/csrf", { skipErrorToast: true })
+      .then((data) => { if (version === csrfGeneration) csrfToken = data.csrfToken; return data.csrfToken; })
+      .finally(() => { if (version === csrfGeneration) csrfRequest = null; });
+  }
+  return csrfRequest;
 };
 
 const getDefaultErrorTitle = (status: number) => {
@@ -43,29 +59,50 @@ export const apiRequest = async <T>(
     errorToastFallback,
     errorToastCooldownMs,
     errorToastDedupeKey,
+    timeoutMs = 15000,
     ...fetchOptions
   } = options;
 
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...(fetchOptions.headers || {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  const headers = new Headers(fetchOptions.headers);
+  headers.set("Content-Type", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const mutation = !["GET", "HEAD", "OPTIONS"].includes((fetchOptions.method || "GET").toUpperCase());
+  if (mutation) headers.set("X-CSRF-Token", await getCsrfToken());
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (fetchOptions.signal?.aborted) controller.abort();
+  fetchOptions.signal?.addEventListener("abort", abort, { once: true });
+  const timeout = setTimeout(abort, timeoutMs);
 
   let response: Response;
+  let data: Record<string, unknown>;
   try {
     response = await fetch(`${API_BASE}${path}`, {
       ...fetchOptions,
       credentials: fetchOptions.credentials || "include",
       headers,
+      signal: controller.signal,
     });
+    if (mutation && response.status === 403) {
+      const rejected = await response.clone().json().catch(() => ({}));
+      if (rejected.code === "CSRF_INVALID") {
+        invalidateCsrfToken();
+        headers.set("X-CSRF-Token", await getCsrfToken());
+        response = await fetch(`${API_BASE}${path}`, {
+          ...fetchOptions, credentials: fetchOptions.credentials || "include", headers, signal: controller.signal,
+        });
+      }
+    }
+    data = response.status === 204 ? {} : await response.json();
   } catch (err) {
+    if (fetchOptions.signal?.aborted) throw err;
     const networkError =
       err instanceof ApiError
         ? err
         : new ApiError(
             0,
-            "Não foi possível conectar ao servidor. Verifique sua internet e tente novamente."
+            controller.signal.aborted ? "A solicitação demorou demais. Tente novamente."
+              : "Não foi possível conectar ao servidor. Verifique sua internet e tente novamente."
           );
 
     if (!skipErrorToast) {
@@ -80,13 +117,15 @@ export const apiRequest = async <T>(
     }
 
     throw networkError;
+  } finally {
+    clearTimeout(timeout);
+    fetchOptions.signal?.removeEventListener("abort", abort);
   }
 
-  const data = await response.json().catch(() => ({}));
-
+  if (fetchOptions.signal?.aborted) throw new DOMException("Solicitação cancelada", "AbortError");
   if (!response.ok) {
     const message =
-      (data && (data.error || data.message)) ||
+      (typeof data.error === "string" ? data.error : typeof data.message === "string" ? data.message : "") ||
       response.statusText ||
       "Erro inesperado";
     const apiError = new ApiError(response.status, message);
@@ -102,8 +141,12 @@ export const apiRequest = async <T>(
       });
     }
 
+    if (response.status === 401 && !["/api/auth/login", "/api/auth/register"].includes(path)) {
+      window.dispatchEvent(new Event("wattstatus-session-expired"));
+    }
     throw apiError;
   }
 
+  if (mutation && ["/api/auth/login", "/api/auth/register", "/api/auth/logout"].includes(path)) invalidateCsrfToken();
   return data as T;
 };

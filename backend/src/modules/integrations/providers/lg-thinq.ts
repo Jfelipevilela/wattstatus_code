@@ -6,6 +6,7 @@ import {
   DeviceStatus,
   DeviceSummary,
 } from "../types";
+import { getErrorFields, logger } from "../../../logging/logger";
 
 const BASE_URL = "https://api.lgthinq.com/v1";
 type LgDevice = { deviceId?: string; id?: string; alias?: string; name?: string; modelName?: string; features?: string[] };
@@ -81,10 +82,7 @@ export class LgThinQIntegration implements DeviceIntegration {
         capabilities: item.features,
       }));
     } catch (err) {
-      console.warn(
-        "LG ThinQ API respondeu com erro, voltando ao modo demo.",
-        err
-      );
+      logger.warn("lg_thinq.devices_query_failed_using_demo", getErrorFields(err));
       return this.mockDevices;
     }
   }

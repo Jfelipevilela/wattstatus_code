@@ -6,6 +6,14 @@ export interface UserRecord {
   email: string;
   passwordHash: string;
   createdAt: string;
+  emailCanonical?: string;
+  termsAcceptedAt?: string;
+}
+
+export interface AuthSession {
+  id: string;
+  userId: string;
+  expiresAt: Date;
 }
 
 export interface ApplianceRecord {
