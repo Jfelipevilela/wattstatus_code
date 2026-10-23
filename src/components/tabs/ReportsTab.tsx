@@ -1,47 +1,46 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Calculator,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileText,
+  Loader2,
+  Radio,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import {
-  FileText,
-  Download,
-  Calendar,
-  Loader2,
-  ArrowUpDown,
-  Filter,
-  User,
-  Clock,
-  Zap,
-  DollarSign,
-} from "lucide-react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
-import { Appliance } from "@/hooks/useAppliances";
+import type { Appliance } from "@/hooks/useAppliances";
 import { useAuth } from "@/hooks/useAuth";
+import { useEnergyHistory } from "@/hooks/useEnergyHistory";
 import { apiRequest } from "@/lib/api";
-import type { EnergyInterval } from "@/hooks/useEnergyHistory";
 import { measuredByDevice, summarizeMeasured } from "@/lib/measured";
-import { estimateAppliance, getMonthlyEstimate, formatNumber } from "@/lib/energy";
+import {
+  estimateAppliance,
+  formatCurrency,
+  formatDuration,
+  formatNumber,
+  getMonthlyEstimate,
+} from "@/lib/energy";
+import { applianceVisual } from "@/components/appliances/applianceVisual";
+import { cn } from "@/lib/utils";
 
 interface ReportsTabProps {
   appliances: Appliance[];
 }
 
-interface ReportData {
+interface ReportRow {
+  id: string;
   applianceName: string;
   power: number;
   usageHours: number;
@@ -52,471 +51,362 @@ interface ReportData {
   cost: number;
 }
 
-const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [selectedYear, setSelectedYear] = useState<string>("");
-  const [selectedAppliance, setSelectedAppliance] = useState<string>("all");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [reportData, setReportData] = useState<ReportData[]>([]);
-  const [sortColumn, setSortColumn] = useState<string>("");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const [generationTime, setGenerationTime] = useState<string>("");
-  const [hasGeneratedReport, setHasGeneratedReport] = useState(false);
-  const [measuredIntervals, setMeasuredIntervals] = useState<EnergyInterval[]>([]);
-  const [measurementError, setMeasurementError] = useState<string | null>(null);
-  const reportRequest = useRef(0);
+type SortKey = "applianceName" | "consumption" | "cost";
 
+const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }) => {
   const { user, token } = useAuth();
+  const now = new Date();
+  const [period, setPeriod] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
+  const [selectedAppliance, setSelectedAppliance] = useState("all");
+  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "cost", desc: true });
+  const [exporting, setExporting] = useState(false);
+  const generatedAt = useRef(new Date());
 
-  const recordReportEvent = (event: "generation_started" | "generation_completed" | "generation_failed" |
-    "export_started" | "export_completed" | "export_failed", fields: { itemCount?: number; durationMs?: number } = {}) => {
-    void apiRequest("/api/reports/events", {
-      method: "POST", body: JSON.stringify({ event, ...fields }), skipErrorToast: true,
-    }, token || undefined).catch(() => undefined);
+  const start = useMemo(() => new Date(period.year, period.month - 1, 1), [period]);
+  const end = useMemo(() => new Date(period.year, period.month, 1), [period]);
+  const measured = useEnergyHistory(start, end, selectedAppliance === "all" ? undefined : selectedAppliance);
+
+  const recordReportEvent = (
+    event: "generation_completed" | "export_started" | "export_completed" | "export_failed",
+    fields: { itemCount?: number; durationMs?: number } = {},
+  ) => {
+    void apiRequest(
+      "/api/reports/events",
+      { method: "POST", body: JSON.stringify({ event, ...fields }), skipErrorToast: true },
+      token || undefined,
+    ).catch(() => undefined);
   };
 
-  // Initialize with current month/year
-  useEffect(() => {
-    const now = new Date();
-    setSelectedMonth((now.getMonth() + 1).toString().padStart(2, "0"));
-    setSelectedYear(now.getFullYear().toString());
-  }, []);
-
-  // A result and its export must correspond to the currently selected filters.
-  useEffect(() => {
-    reportRequest.current++;
-    setReportData([]);
-    setMeasuredIntervals([]);
-    setHasGeneratedReport(false);
-    setIsGenerating(false);
-  }, [selectedMonth, selectedYear, selectedAppliance, appliances]);
-
-  const getDaysInMonth = (month: number, year: number): number => {
-    return new Date(year, month, 0).getDate();
-  };
-
-  const generateReport = async () => {
-    if (!selectedMonth || !selectedYear) {
-      toast({
-        title: "Erro ao gerar relatório",
-        description: "Selecione mês e ano para gerar o relatório.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const requestId = ++reportRequest.current;
-    setIsGenerating(true);
-    const startedAt = Date.now();
-    recordReportEvent("generation_started");
-
-
-
-    const month = parseInt(selectedMonth, 10);
-    const year = parseInt(selectedYear, 10);
-    const daysInMonth = getDaysInMonth(month, year);
-
-    const availableIds = new Set(getMonthlyEstimate(appliances, year, month).rows.map((row) => row.id));
-    const filteredAppliances = appliances.filter((app) => {
-      const matchesPeriod = availableIds.has(app.id);
-      const matchesAppliance =
-        selectedAppliance === "all" || app.id === selectedAppliance;
-      return matchesPeriod && matchesAppliance;
-    });
-
-    const data: ReportData[] = filteredAppliances.map((appliance) => {
+  const daysInMonth = new Date(period.year, period.month, 0).getDate();
+  const availableIds = new Set(getMonthlyEstimate(appliances, period.year, period.month).rows.map((row) => row.id));
+  const rows: ReportRow[] = appliances
+    .filter((appliance) => availableIds.has(appliance.id) && (selectedAppliance === "all" || appliance.id === selectedAppliance))
+    .map((appliance) => {
       const { consumption, cost } = estimateAppliance(appliance, daysInMonth);
-      const tariffValue = consumption > 0 ? cost / consumption : 0;
-
       return {
+        id: appliance.id,
         applianceName: appliance.name,
         power: appliance.power,
         usageHours: appliance.usageHours,
         daysInMonth: Math.min(appliance.days, daysInMonth),
         tariff: appliance.tariff,
-        tariffValue,
+        tariffValue: consumption > 0 ? cost / consumption : 0,
         consumption,
         cost,
       };
+    })
+    .sort((a, b) => {
+      const order =
+        sort.key === "applianceName"
+          ? a.applianceName.localeCompare(b.applianceName, "pt-BR")
+          : a[sort.key] - b[sort.key];
+      return sort.desc ? -order : order;
     });
 
-    let measuredCount = 0;
-    try {
-      const start = new Date(year, month - 1, 1).toISOString();
-      const end = new Date(year, month, 1).toISOString();
-      const params = new URLSearchParams({ start, end });
-      if (selectedAppliance !== "all") params.set("applianceId", selectedAppliance);
-      const measured = await apiRequest<{ intervals: EnergyInterval[] }>(`/api/energy/history?${params}`, { skipErrorToast: true }, token || undefined);
-      if (requestId !== reportRequest.current) return;
-      setMeasuredIntervals(measured.intervals);
-      measuredCount = measured.intervals.length;
-      setMeasurementError(null);
-    } catch (err) {
-      if (requestId !== reportRequest.current) return;
-      setMeasuredIntervals([]);
-      setMeasurementError(err instanceof Error ? err.message : "Falha ao consultar medições");
-    }
-    setGenerationTime(new Date().toLocaleString("pt-BR"));
-    setHasGeneratedReport(true);
-    setIsGenerating(false);
-    recordReportEvent("generation_completed", { itemCount: data.length + measuredCount, durationMs: Date.now() - startedAt });
+  const totalConsumption = rows.reduce((sum, item) => sum + item.consumption, 0);
+  const totalCost = rows.reduce((sum, item) => sum + item.cost, 0);
+  const measuredRows = measuredByDevice(measured.intervals);
+  const measuredTotals = summarizeMeasured(measured.intervals);
+  const hasMeasured = measuredRows.length > 0;
+  const nameOf = (applianceId: string | null, deviceId: string) =>
+    appliances.find((appliance) => appliance.id === applianceId)?.name || `Dispositivo ${deviceId}`;
 
-    if (data.length === 0) {
-      setReportData([]);
-      if (measuredCount === 0) toast({
-        title: "Nenhum aparelho encontrado no período",
-        description:
-          'Tente outro mês/ano ou selecione "Todos os aparelhos" para gerar o relatório.',
-      });
-      return;
-    }
+  useEffect(() => {
+    generatedAt.current = new Date();
+    if (!measured.loading) recordReportEvent("generation_completed", { itemCount: rows.length + measured.intervals.length });
+    // Record once per finished period/filter load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measured.loading, period, selectedAppliance]);
 
-    setReportData(data);
-
-    toast({
-      title: "Relatório gerado com sucesso!",
-      description: `Relatório de ${month}/${year} gerado com ${data.length} aparelho(s).`,
-    });
+  const periodLabel = start.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const isCurrent = period.year === now.getFullYear() && period.month === now.getMonth() + 1;
+  const shift = (delta: number) => {
+    const date = new Date(period.year, period.month - 1 + delta, 1);
+    setPeriod({ year: date.getFullYear(), month: date.getMonth() + 1 });
   };
+  const toggleSort = (key: SortKey) =>
+    setSort((current) => ({ key, desc: current.key === key ? !current.desc : key !== "applianceName" }));
 
   const exportToPDF = async () => {
-    if (measurementError || (reportData.length === 0 && measuredIntervals.length === 0)) return;
+    if (measured.error || (rows.length === 0 && !hasMeasured) || exporting) return;
+    setExporting(true);
     const startedAt = Date.now();
-    recordReportEvent("export_started", { itemCount: reportData.length + measuredIntervals.length });
+    const itemCount = rows.length + measured.intervals.length;
+    recordReportEvent("export_started", { itemCount });
     try {
       const { createReportPdf } = await import("@/lib/report-pdf");
+      const month = String(period.month).padStart(2, "0");
       const pdf = createReportPdf({
         userName: user?.name || "Usuário",
-        month: selectedMonth,
-        year: selectedYear,
-        issuedAt: generationTime,
-        estimated: reportData.map((item) => ({ applianceName: item.applianceName, source: "Estimativa", tariffValue: item.tariffValue, consumptionKWh: item.consumption, cost: item.cost })),
+        month,
+        year: String(period.year),
+        issuedAt: new Date().toLocaleString("pt-BR"),
+        estimated: rows.map((item) => ({
+          applianceName: item.applianceName,
+          source: "Estimativa",
+          tariffValue: item.tariffValue,
+          consumptionKWh: item.consumption,
+          cost: item.cost,
+        })),
         measured: measuredRows.map((item) => ({
-          applianceName: appliances.find((appliance) => appliance.id === item.applianceId)?.name || `Dispositivo ${item.deviceId}`,
-          source: "SmartThings", tariffValue: item.tariffValue, consumptionKWh: item.consumptionKWh, cost: item.cost,
+          applianceName: nameOf(item.applianceId, item.deviceId),
+          source: "SmartThings",
+          tariffValue: item.tariffValue,
+          consumptionKWh: item.consumptionKWh,
+          cost: item.cost,
         })),
       });
-      pdf.save(`wattstatus_${selectedMonth}_${selectedYear}.pdf`);
-      recordReportEvent("export_completed", { itemCount: reportData.length + measuredIntervals.length, durationMs: Date.now() - startedAt });
+      pdf.save(`wattstatus_${month}_${period.year}.pdf`);
+      recordReportEvent("export_completed", { itemCount, durationMs: Date.now() - startedAt });
+      toast({ title: "PDF gerado", description: `Relatório de ${periodLabel} baixado.` });
     } catch {
       recordReportEvent("export_failed", { durationMs: Date.now() - startedAt });
       toast({ title: "Erro na exportação", description: "Não foi possível exportar o PDF.", variant: "destructive" });
+    } finally {
+      setExporting(false);
     }
   };
-  const sortData = (column: string) => {
-    const direction =
-      sortColumn === column && sortDirection === "asc" ? "desc" : "asc";
-    setSortColumn(column);
-    setSortDirection(direction);
 
-    const sorted = [...reportData].sort((a, b) => {
-      let aValue: string | number = a[column as keyof ReportData];
-      let bValue: string | number = b[column as keyof ReportData];
+  const selectedName =
+    selectedAppliance === "all" ? "Todos os aparelhos" : appliances.find((item) => item.id === selectedAppliance)?.name ?? "Aparelho";
+  const canExport = !measured.loading && !measured.error && (rows.length > 0 || hasMeasured);
+  const measuredShare = totalConsumption > 0 && hasMeasured ? (measuredTotals.consumptionKWh / totalConsumption) * 100 : null;
 
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-
-      if (direction === "asc") {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-
-    setReportData(sorted);
-  };
-
-  const totalConsumption = reportData.reduce(
-    (sum, item) => sum + item.consumption,
-    0
+  const SortHeader = ({ label, column, align = "left" }: { label: string; column: SortKey; align?: "left" | "right" }) => (
+    <th scope="col" aria-sort={sort.key === column ? (sort.desc ? "descending" : "ascending") : "none"} className={cn("px-4 py-3 font-medium", align === "right" && "text-right")}>
+      <button type="button" onClick={() => toggleSort(column)} className="inline-flex items-center gap-1 hover:text-foreground">
+        {label}
+        {sort.key === column && (sort.desc ? <ArrowDown className="h-3 w-3" /> : <ArrowUp className="h-3 w-3" />)}
+      </button>
+    </th>
   );
-  const totalCost = reportData.reduce((sum, item) => sum + item.cost, 0);
-  const measuredRows = measuredByDevice(measuredIntervals);
-  const measuredTotals = summarizeMeasured(measuredIntervals);
 
   return (
     <div className="space-y-8">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-          Relatórios Mensais
-        </h2>
-        <p className="text-gray-600 dark:text-gray-300">
-          Gere relatórios de consumo e custo estimados por aparelho
-        </p>
-      </div>
-
-      <p className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-        Estimativas para um mês completo, com potência, tempo de uso e tarifa cadastrados atualmente.
-        Os dias de uso respeitam o limite do mês. Leituras importadas não entram neste relatório;
-        alterações no cadastro podem mudar projeções de meses anteriores.
-      </p>
-      {/* Controls */}
-      <Card className="p-6">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-3">
-            <Calendar className="h-5 w-5 text-energy-green-light" />
-            Configurações do Relatório
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div>
-              <label htmlFor="report-month" className="block text-sm font-medium mb-2">Mês</label>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger id="report-month">
-                  <SelectValue placeholder="Mês" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <SelectItem
-                      key={i + 1}
-                      value={(i + 1).toString().padStart(2, "0")}
-                    >
-                      {new Date(0, i).toLocaleString("pt-BR", {
-                        month: "long",
-                      })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label htmlFor="report-year" className="block text-sm font-medium mb-2">Ano</label>
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
-                <SelectTrigger id="report-year">
-                  <SelectValue placeholder="Ano" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 7 }, (_, i) => (
-                    <SelectItem key={i} value={(new Date().getFullYear() - 5 + i).toString()}>
-                      {new Date().getFullYear() - 5 + i}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label htmlFor="report-appliance" className="block text-sm font-medium mb-2">Aparelho</label>
-              <Select
-                value={selectedAppliance}
-                onValueChange={setSelectedAppliance}
-              >
-                <SelectTrigger id="report-appliance">
-                  <SelectValue placeholder="Todos os aparelhos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os aparelhos</SelectItem>
-                  {appliances.map((appliance) => (
-                    <SelectItem key={appliance.id} value={appliance.id}>
-                      {appliance.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-end">
-              <Button
-                onClick={generateReport}
-                disabled={isGenerating}
-                className="h-11 w-full"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Gerando...
-                  </>
-                ) : (
-                  <>
-                    <FileText className="h-4 w-4 mr-2" />
-                    Gerar Relatório
-                  </>
-                )}
-              </Button>
-            </div>
+      <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-energy-green-light/10 px-3 py-1 text-xs font-medium text-energy-700 dark:text-energy-400">
+            <FileText className="h-3.5 w-3.5" aria-hidden="true" /> Relatório mensal
+          </p>
+          <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Relatórios</h1>
+          <p className="mt-2 text-muted-foreground">Estimado e medido lado a lado, pronto para exportar.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div role="group" aria-label="Período" className="flex items-center rounded-full border bg-card p-1 shadow-sm">
+            <button type="button" aria-label="Mês anterior" onClick={() => shift(-1)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="min-w-[9.5rem] text-center text-sm font-semibold capitalize" aria-live="polite">
+              {periodLabel}
+            </span>
+            <button type="button" aria-label="Próximo mês" onClick={() => shift(1)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted">
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
-        </CardContent>
-      </Card>
+          {!isCurrent && (
+            <Button variant="ghost" className="h-11 rounded-full" onClick={() => setPeriod({ year: now.getFullYear(), month: now.getMonth() + 1 })}>
+              Mês atual
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex h-11 max-w-[14rem] items-center gap-2 rounded-full border bg-card px-4 text-sm font-medium shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <span className="truncate">{selectedName}</span>
+              <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
+              <DropdownMenuItem onSelect={() => setSelectedAppliance("all")}>Todos os aparelhos</DropdownMenuItem>
+              {appliances.map((appliance) => (
+                <DropdownMenuItem key={appliance.id} onSelect={() => setSelectedAppliance(appliance.id)}>
+                  {appliance.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={exportToPDF} disabled={!canExport || exporting} className="h-11 rounded-full px-5">
+            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            Exportar PDF
+          </Button>
+        </div>
+      </header>
 
-      {hasGeneratedReport && measurementError && <Card className="p-6" role="alert">
-        <p>Não foi possível consultar medições: {measurementError}. Tente gerar o relatório novamente.</p>
-      </Card>}
-      {hasGeneratedReport && !measurementError && <Card className="p-6">
-        <CardHeader><CardTitle>Consumo medido no período</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {measuredRows.length === 0 ? <p>Sem medições suficientes nesta competência. Nenhum valor medido foi substituído por estimativa.</p> : <>
-            <div className="overflow-x-auto"><Table><TableHeader><TableRow>
-              <TableHead>Aparelho</TableHead><TableHead>Origem</TableHead><TableHead>Tarifa R$/kWh</TableHead><TableHead>Consumo kWh</TableHead><TableHead>Custo R$</TableHead>
-            </TableRow></TableHeader><TableBody>{measuredRows.map((item) => <TableRow key={`${item.deviceId}-${item.tariffValue}`}>
-              <TableCell>{appliances.find((appliance) => appliance.id === item.applianceId)?.name || `Dispositivo ${item.deviceId}`}</TableCell>
-              <TableCell>SmartThings</TableCell>
-              <TableCell>{item.tariffValue === null ? "Indisponível" : formatNumber(item.tariffValue, 4)}</TableCell>
-              <TableCell>{formatNumber(item.consumptionKWh)}</TableCell>
-              <TableCell>{item.cost === null ? "Indisponível" : `R$ ${formatNumber(item.cost)}`}</TableCell>
-            </TableRow>)}</TableBody></Table></div>
-            <p>Total medido: {formatNumber(measuredTotals.consumptionKWh)} kWh. Custo: {measuredTotals.costComplete ? `R$ ${formatNumber(measuredTotals.knownCost)}` : "tarifa indisponível"}.</p>
-          </>}
-          <p className="text-sm text-muted-foreground">A coleta acontece quando o status do aparelho é consultado. Intervalos sem coleta não representam zero kWh.</p>
-          {(measuredRows.length > 0 || reportData.length > 0) && <Button variant="outline" onClick={exportToPDF}>Exportar PDF</Button>}
-        </CardContent>
-      </Card>}
-      {/* Report Display */}
-      {reportData.length > 0 && (
-        <Card className="p-6">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-              <CardTitle className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-energy-green-dark" />
-                Relatório de {selectedMonth}/{selectedYear}
-              </CardTitle>
-              <Button onClick={exportToPDF} variant="outline" disabled={Boolean(measurementError)}>
-                <Download className="h-4 w-4 mr-2" />
-                Exportar PDF
+      <article className="overflow-hidden rounded-[32px] border bg-card shadow-sm">
+        <div className="relative overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-900 to-emerald-950 p-6 text-white sm:p-8">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-energy-green-light/20 blur-3xl" />
+          <div className="relative flex flex-wrap items-start justify-between gap-4 text-sm text-white/60">
+            <div>
+              <p className="font-semibold text-white">WattStatus · Relatório de energia</p>
+              <p className="mt-1">
+                {user?.name || "Usuário"} · <span className="capitalize">{periodLabel}</span> · {selectedName}
+              </p>
+            </div>
+            <p className="text-xs">Emitido em {generatedAt.current.toLocaleString("pt-BR")}</p>
+          </div>
+          <dl className="relative mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <dt className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-white/50">
+                <Calculator className="h-3.5 w-3.5" aria-hidden="true" /> Estimado
+              </dt>
+              <dd className="mt-2 text-4xl font-bold tabular-nums">{formatCurrency(totalCost)}</dd>
+              <dd className="text-sm text-white/60">{formatNumber(totalConsumption, 1)} kWh</dd>
+            </div>
+            <div>
+              <dt className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-white/50">
+                <Radio className="h-3.5 w-3.5" aria-hidden="true" /> Medido
+              </dt>
+              {measured.loading ? (
+                <dd className="mt-2 flex items-center gap-2 text-white/60">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Consultando…
+                </dd>
+              ) : hasMeasured ? (
+                <>
+                  <dd className="mt-2 text-4xl font-bold tabular-nums">
+                    {measuredTotals.costComplete ? formatCurrency(measuredTotals.knownCost) : "—"}
+                  </dd>
+                  <dd className="text-sm text-white/60">{formatNumber(measuredTotals.consumptionKWh, 1)} kWh</dd>
+                </>
+              ) : (
+                <>
+                  <dd className="mt-2 text-2xl font-semibold text-white/80">Sem medição</dd>
+                  <dd className="text-sm text-white/50">Nada substituído por estimativa</dd>
+                </>
+              )}
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-widest text-white/50">Aparelhos</dt>
+              <dd className="mt-2 text-4xl font-bold tabular-nums">{rows.length}</dd>
+              <dd className="text-sm text-white/60">{measuredRows.length} com medição</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-widest text-white/50">Média diária</dt>
+              <dd className="mt-2 text-4xl font-bold tabular-nums">{formatCurrency(totalCost / daysInMonth)}</dd>
+              <dd className="text-sm text-white/60">{formatNumber(totalConsumption / daysInMonth, 1)} kWh/dia</dd>
+            </div>
+          </dl>
+          {measuredShare !== null && (
+            <div className="relative mt-8">
+              <div className="flex justify-between text-xs text-white/60">
+                <span>Medido vs. estimado</span>
+                <span className="font-semibold text-white">{formatNumber(measuredShare, 0)}%</span>
+              </div>
+              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/10" role="presentation">
+                <div className="h-full rounded-full bg-gradient-to-r from-energy-blue-light to-energy-teal" style={{ width: `${Math.min(measuredShare, 100)}%` }} />
+              </div>
+              <p className="mt-1.5 text-[11px] text-white/50">A medição pode cobrir só parte do mês e só os aparelhos conectados.</p>
+            </div>
+          )}
+        </div>
+
+        <section aria-labelledby="estimated-title" className="p-4 sm:p-6">
+          <h2 id="estimated-title" className="flex items-center gap-2 px-2 text-lg font-semibold">
+            <Calculator className="h-4 w-4 text-energy-green-light" aria-hidden="true" /> Consumo estimado
+          </h2>
+          {rows.length === 0 ? (
+            <p className="mt-4 rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+              Nenhum aparelho cadastrado até o fim de {periodLabel}. Escolha outro mês ou aparelho.
+            </p>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead className="text-left text-xs text-muted-foreground">
+                  <tr className="border-b">
+                    <SortHeader label="Aparelho" column="applianceName" />
+                    <th scope="col" className="px-4 py-3 font-medium">Uso</th>
+                    <th scope="col" className="px-4 py-3 font-medium">Tarifa</th>
+                    <SortHeader label="kWh" column="consumption" align="right" />
+                    <SortHeader label="Custo" column="cost" align="right" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {rows.map((item) => {
+                    const { icon: Icon, tone, bar } = applianceVisual(item.applianceName);
+                    const share = totalCost > 0 ? (item.cost / totalCost) * 100 : 0;
+                    return (
+                      <tr key={item.id} className="transition-colors hover:bg-muted/40">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone)}>
+                              <Icon className="h-4 w-4" aria-hidden="true" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{item.applianceName}</p>
+                              <div className="mt-1 h-1 w-28 overflow-hidden rounded-full bg-muted" role="presentation">
+                                <div className={cn("h-full rounded-full", bar)} style={{ width: `${share}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatNumber(item.power, 0)} W · {formatDuration(item.usageHours)}/dia · {item.daysInMonth} dias
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {item.tariff} · {formatCurrency(item.tariffValue)}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">{formatNumber(item.consumption, 1)}</td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatCurrency(item.cost)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 font-semibold">
+                    <td className="px-4 py-3" colSpan={3}>Total</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{formatNumber(totalConsumption, 1)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{formatCurrency(totalCost)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section aria-labelledby="measured-title" className="border-t p-4 sm:p-6">
+          <div className="flex items-center justify-between gap-3 px-2">
+            <h2 id="measured-title" className="flex items-center gap-2 text-lg font-semibold">
+              <Radio className="h-4 w-4 text-energy-blue-light" aria-hidden="true" /> Consumo medido
+            </h2>
+            {measured.error && (
+              <Button variant="outline" size="sm" className="rounded-full" onClick={measured.refresh}>
+                <RefreshCw className="mr-2 h-3.5 w-3.5" /> Tentar de novo
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {/* Client Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-gray-500" />
-                <span className="text-sm">
-                  <strong>Cliente:</strong> {user?.name || "Usuário"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-gray-500" />
-                <span className="text-sm">
-                  <strong>Gerado em:</strong> {generationTime}
-                </span>
-              </div>
-            </div>
+            )}
+          </div>
+          {measured.error ? (
+            <p role="alert" className="mt-4 rounded-2xl border border-destructive/40 p-4 text-sm">
+              Não foi possível consultar as medições: {measured.error}. A exportação fica bloqueada até carregar.
+            </p>
+          ) : measured.loading ? (
+            <p className="mt-4 flex items-center gap-2 px-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Consultando medições…
+            </p>
+          ) : !hasMeasured ? (
+            <p className="mt-4 rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+              Sem medições suficientes em {periodLabel}. Nenhum valor medido foi substituído por estimativa.
+            </p>
+          ) : (
+            <ul className="mt-4 divide-y rounded-2xl border">
+              {measuredRows.map((item) => (
+                <li key={`${item.deviceId}-${item.tariffValue}`} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{nameOf(item.applianceId, item.deviceId)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      SmartThings · {item.tariffValue === null ? "tarifa indisponível" : `${formatCurrency(item.tariffValue)}/kWh`}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block font-semibold tabular-nums">{item.cost === null ? "—" : formatCurrency(item.cost)}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{formatNumber(item.consumptionKWh, 2)} kWh</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead
-                      className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => sortData("applianceName")}
-                    >
-                      <div className="flex items-center gap-2">
-                        Aparelho
-                        <ArrowUpDown className="h-4 w-4" />
-                      </div>
-                    </TableHead>
-                    <TableHead
-                      className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => sortData("power")}
-                    >
-                      <div className="flex items-center gap-2">
-                        Potência (W)
-                        <ArrowUpDown className="h-4 w-4" />
-                      </div>
-                    </TableHead>
-                    <TableHead>Horas/Dia</TableHead>
-                    <TableHead>Dias no Mês</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Tarifa R$/kWh</TableHead>
-                    <TableHead>Origem</TableHead>
-                    <TableHead
-                      className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => sortData("consumption")}
-                    >
-                      <div className="flex items-center gap-2">
-                        Consumo (kWh)
-                        <ArrowUpDown className="h-4 w-4" />
-                      </div>
-                    </TableHead>
-                    <TableHead
-                      className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-                      onClick={() => sortData("cost")}
-                    >
-                      <div className="flex items-center gap-2">
-                        Custo (R$)
-                        <ArrowUpDown className="h-4 w-4" />
-                      </div>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reportData.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">
-                        {item.applianceName}
-                      </TableCell>
-                      <TableCell>{item.power}</TableCell>
-                      <TableCell>{formatNumber(item.usageHours)}</TableCell>
-                      <TableCell>{item.daysInMonth}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{item.tariff}</Badge>
-                      </TableCell>
-                      <TableCell>{formatNumber(item.tariffValue, 4)}</TableCell>
-                      <TableCell>Estimativa</TableCell>
-                      <TableCell>{formatNumber(item.consumption)}</TableCell>
-                      <TableCell className="font-medium dark:text-green-400 text-green-600">
-                        R$ {formatNumber(item.cost)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Totals */}
-            <div className="mt-6 p-4 bg-energy-green-light/10 dark:bg-energy-green-light/5 rounded-lg border border-energy-green-light/30">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <Zap className="h-5 w-5 dark:text-yellow-300 text-yellow-400" />
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Consumo Total
-                    </p>
-                    <p className="text-2xl font-bold dark:text-yellow-300 text-yellow-400">
-                      {formatNumber(totalConsumption)} kWh
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <DollarSign className="h-5 w-5 dark:text-green-400 text-green-600" />
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Custo Total
-                    </p>
-                    <p className="text-2xl font-bold dark:text-green-400 text-green-600" >
-                      R$ {formatNumber(totalCost)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {hasGeneratedReport && reportData.length === 0 && measuredRows.length === 0 && (
-        <Card className="p-6 border border-border/60 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4 rounded-lg border border-dashed border-border/80 bg-muted/20 p-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background shadow-sm">
-                <Filter className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-semibold">Nenhum dado para este filtro</p>
-                <p className="text-sm text-muted-foreground">
-                  Não há aparelhos disponíveis até o fim do período selecionado. Ajuste o
-                  mês/ano ou escolha outro aparelho para gerar o relatório.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <footer className="border-t bg-muted/30 px-6 py-4 text-xs text-muted-foreground">
+          Estimativas usam potência, uso e tarifa cadastrados hoje; mudar o cadastro altera meses anteriores. Medições vêm
+          dos intervalos salvos da SmartThings: períodos sem coleta não significam consumo zero.
+        </footer>
+      </article>
     </div>
   );
 };

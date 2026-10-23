@@ -1,6 +1,7 @@
 import { MongoDatabase } from "../../storage/mongo-db";
 import { SmartThingsIntegration } from "../integrations/providers/smartthings";
-import { extractCumulativeKWh } from "./energy-history";
+import { ENERGY_CAPABILITIES, saveDeviceReading } from "./energy-history";
+import { resolveAccessToken } from "../integrations/smartthings-oauth";
 
 export type CollectionResult = { claimed: number; saved: number; failed: number; skipped: number };
 
@@ -23,17 +24,16 @@ export async function collectEnergy(db: MongoDatabase, options: {
     let success = false;
     try {
       const { appliance } = claim;
-      const token = await db.getIntegrationToken(appliance.userId, "smartthings");
+      const token = await resolveAccessToken(db, appliance.userId);
       if (!token) { result.skipped++; success = true; continue; }
       const client = integration(token);
       const devices = await client.listDevices();
-      if (!devices.some((device) => device.id === appliance.integrationDeviceId && device.capabilities?.includes("energyMeter"))) {
+      if (!devices.some((device) => device.id === appliance.integrationDeviceId && device.capabilities?.some((capability) => ENERGY_CAPABILITIES.includes(capability)))) {
         result.skipped++; success = true; continue;
       }
       const status = await client.getDeviceStatus(appliance.integrationDeviceId!);
-      const counterKWh = extractCumulativeKWh(status.raw);
-      if (counterKWh === null) { result.skipped++; success = true; continue; }
-      await db.saveEnergySample(appliance.userId, "smartthings", appliance.integrationDeviceId!, counterKWh, now());
+      const saved = await saveDeviceReading(db, appliance.userId, "smartthings", appliance.integrationDeviceId!, status.raw, now());
+      if (!saved) { result.skipped++; success = true; continue; }
       result.saved++;
       success = true;
     } catch {

@@ -7,6 +7,7 @@ import {
   DeviceSummary,
 } from "../types";
 import { getErrorFields, logger } from "../../../logging/logger";
+import { normalizeDeviceState } from "../device-state";
 
 const BASE_URL = "https://api.smartthings.com/v1";
 const safeDeviceId = (deviceId: string) =>
@@ -21,6 +22,8 @@ interface SmartThingsDevice {
   manufacturerName?: string;
   modelName?: string;
   roomName?: string;
+  roomId?: string;
+  locationId?: string;
   components?: Array<{
     capabilities?: Array<{ id: string }>;
   }>;
@@ -76,12 +79,13 @@ export class SmartThingsIntegration implements DeviceIntegration {
     logger.info("smartthings.devices_query_started");
     try {
       const { data } = await this.client.get<{ items: SmartThingsDevice[] }>("/devices");
+      const rooms = await this.loadRoomNames(data.items || []);
       const devices = (data.items || []).map((item) => ({
         id: item.deviceId,
         name: item.label || item.name,
         brand: item.manufacturerName || "Samsung",
         model: item.modelName,
-        room: item.roomName,
+        room: item.roomName || (item.roomId ? rooms.get(item.roomId) : undefined),
         capabilities: item.components?.flatMap(
           (component) => component.capabilities?.map((capability) => capability.id) || []
         ),
@@ -100,21 +104,52 @@ export class SmartThingsIntegration implements DeviceIntegration {
     }
   }
 
+  // Devices only carry a roomId; names come from the locations API. Needs the
+  // r:locations:* scope, so a failure just leaves the room blank.
+  private async loadRoomNames(items: SmartThingsDevice[]) {
+    const rooms = new Map<string, string>();
+    const locations = [...new Set(items.filter((item) => item.roomId && item.locationId).map((item) => item.locationId!))];
+    await Promise.all(
+      locations.map(async (locationId) => {
+        try {
+          const { data } = await this.client.get<{ items?: Array<{ roomId?: string; name?: string }> }>(
+            `/locations/${encodeURIComponent(locationId)}/rooms`
+          );
+          for (const room of data?.items || []) {
+            if (room.roomId && room.name) rooms.set(room.roomId, room.name);
+          }
+        } catch {
+          // Room names are optional.
+        }
+      })
+    );
+    return rooms;
+  }
+
   async getDeviceStatus(deviceId: string): Promise<DeviceStatus> {
     this.ensureConfigured();
     const startedAt = Date.now();
     const logDeviceId = safeDeviceId(deviceId);
     logger.info("smartthings.device_status_query_started", { deviceId: logDeviceId });
     try {
-      const { data } = await this.client.get(`/devices/${deviceId}/status`);
+      const [{ data }, health] = await Promise.all([
+        this.client.get(`/devices/${deviceId}/status`),
+        // Health is best effort: a failure here must not hide the readings.
+        this.client
+          .get<{ state?: string }>(`/devices/${deviceId}/health`)
+          .then((response) => response?.data?.state)
+          .catch(() => undefined),
+      ]);
       logger.info("smartthings.device_status_query_succeeded", {
         deviceId: logDeviceId,
         durationMs: Date.now() - startedAt,
       });
       return {
         id: deviceId,
-        online: true,
+        // The status call succeeded, so treat an unknown health state as online.
+        online: health !== "OFFLINE",
         raw: data,
+        state: normalizeDeviceState(data),
       };
     } catch (error) {
       const errorFields = getErrorFields(error);

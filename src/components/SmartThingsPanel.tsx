@@ -1,914 +1,422 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Activity, Loader2, LogOut, Plug, Power, RefreshCw, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/use-toast";
 import { apiRequest } from "@/lib/api";
+import { formatNumber } from "@/lib/energy";
+import { notifyError } from "@/lib/error-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppliances } from "@/hooks/useAppliances";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
-import { toast } from "@/components/ui/use-toast";
-import { Loader2, PlugZap, Zap, Download, LogOut } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { SiSmartthings } from "react-icons/si";
-import { deviceIconForCapabilities } from "@/assets/device-icons";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-import { useSmartThingsToken } from "@/hooks/useSmartThingsToken";
-import { LuPower, LuPowerOff } from "react-icons/lu";
-import { notifyError } from "@/lib/error-toast";
-interface DeviceSummary {
-  id: string;
-  name: string;
-  brand: string;
-  model?: string;
-  room?: string;
-  capabilities?: string[];
+import { useSmartThingsDevices, type DeviceCommand } from "@/hooks/useSmartThingsDevices";
+import { DeviceControlCard } from "@/components/smartthings/DeviceControlCard";
+import { DeviceDetailsDialog } from "@/components/smartthings/DeviceDetailsDialog";
+import { ImportDeviceDialog, type ImportValues } from "@/components/smartthings/ImportDeviceDialog";
+import { ConnectSmartThings } from "@/components/smartthings/ConnectSmartThings";
+import { formatElapsed, isInertDevice, type DeviceState, type OverviewItem } from "@/components/smartthings/types";
+
+const LONG_ON_ALERT_MS = 2 * 3600000;
+const USAGE_PERSIST_DEBOUNCE_MS = 1500;
+
+type UsageEntry = { accumulatedMs: number; lastOn?: number; alerted: boolean; day: string; isOn: boolean };
+
+// Local calendar day, so the daily counter resets at local midnight (not UTC).
+const localDay = (date = new Date()) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+interface Props {
+  saveToken: (token: string) => Promise<void>;
+  saving: boolean;
+  revokeToken: () => Promise<void>;
+  revoking: boolean;
+  oauthAvailable: boolean;
+  onOAuth: () => void;
+  redirecting: boolean;
 }
 
-interface DeviceStatus {
-  id: string;
-  online: boolean;
-  raw: SmartStatus;
-}
-
-type SmartStatus = { components?: { main?: {
-  switch?: { switch?: { value?: string } };
-  powerMeter?: { power?: { value?: number; unit?: string } };
-  energyMeter?: { energy?: { value?: number; unit?: string } };
-  powerConsumptionReport?: { powerConsumption?: { value?: { energy?: number; power?: number } } };
-} } };
-
-const extractEnergyInfo = (status: SmartStatus) => {
-  const main = status?.components?.main;
-  const power = main?.powerMeter?.power?.value;
-  const energy = main?.energyMeter?.energy?.value;
-  const unitPower = main?.powerMeter?.power?.unit || "W";
-  const unitEnergy = main?.energyMeter?.energy?.unit || "kWh";
-
-  // Fallback em powerConsumptionReport (geralmente Wh)
-  const pcr = main?.powerConsumptionReport?.powerConsumption?.value;
-  const energyWh = typeof pcr?.energy === "number" ? pcr.energy : undefined;
-  const powerFromReport =
-    typeof pcr?.power === "number" ? pcr.power : undefined;
-  const energyKWhFromReport =
-    typeof energyWh === "number" && Number.isFinite(energyWh) ? energyWh / 1000 : undefined;
-
-  return {
-    power:
-      typeof power === "number" && Number.isFinite(power)
-        ? (unitPower === "kW" ? power * 1000 : power)
-        : typeof powerFromReport === "number"
-        ? powerFromReport
-        : null,
-    energy:
-      typeof energy === "number" && Number.isFinite(energy)
-        ? (unitEnergy === "Wh" ? energy / 1000 : energy)
-        : typeof energyKWhFromReport === "number"
-        ? energyKWhFromReport
-        : null,
-    unitPower,
-    unitEnergy: energy ? unitEnergy : "kWh",
-  };
-};
-
-const SmartThingsPanel: React.FC = () => {
+export default function SmartThingsPanel({
+  saveToken,
+  saving,
+  revokeToken,
+  revoking,
+  oauthAvailable,
+  onOAuth,
+  redirecting,
+}: Props) {
   const { token, user } = useAuth();
-  const { revoking, revokeToken, hasToken } = useSmartThingsToken();
   const { addAppliance, appliances, updateAppliance } = useAppliances();
-  const { preferences } = useUserPreferences();
-  const [devices, setDevices] = useState<DeviceSummary[]>([]);
-  const [statuses, setStatuses] = useState<Record<string, DeviceStatus>>({});
-  const [loading, setLoading] = useState(false);
-  const fetchingDevices = React.useRef(false);
-  const [error, setError] = useState<string | null>(null);
+  const { preferences, updatePreferences } = useUserPreferences();
+  const { items, fetchedAt, loading, error, pending, refresh, refreshDevice, sendCommand } =
+    useSmartThingsDevices(true);
+  const [details, setDetails] = useState<OverviewItem | null>(null);
+  const [importing, setImporting] = useState<string | null>(null);
+  const [importTarget, setImportTarget] = useState<OverviewItem | null>(null);
   const [collectionEnabled, setCollectionEnabled] = useState(false);
   const [savingCollection, setSavingCollection] = useState(false);
+  const [usage, setUsage] = useState<Record<string, UsageEntry>>({});
+  const [, setTick] = useState(0);
+  const usageLoaded = useRef(false);
+  const syncedEnergy = useRef<Record<string, number>>({});
+
+  const tokenRejected = Boolean(error && /token smartthings/i.test(error));
+
   useEffect(() => {
     if (!user) return;
-    apiRequest<{ settings: { energyCollectionEnabled?: boolean } }>("/api/user-settings", { skipErrorToast: true }, token || undefined)
+    apiRequest<{ settings: { energyCollectionEnabled?: boolean } }>(
+      "/api/user-settings",
+      { skipErrorToast: true },
+      token || undefined,
+    )
       .then(({ settings }) => setCollectionEnabled(settings.energyCollectionEnabled === true))
       .catch(() => setCollectionEnabled(false));
   }, [user, token]);
-  const toggleCollection = async () => {
+
+  const toggleCollection = async (next: boolean) => {
     setSavingCollection(true);
     try {
-      const next = !collectionEnabled;
-      await apiRequest("/api/user-settings", { method: "PUT", body: JSON.stringify({ energyCollectionEnabled: next }) }, token || undefined);
+      await apiRequest(
+        "/api/user-settings",
+        { method: "PUT", body: JSON.stringify({ energyCollectionEnabled: next }) },
+        token || undefined,
+      );
       setCollectionEnabled(next);
-    } catch (err) { notifyError(err, { title: "Falha ao alterar coleta" }); }
-    finally { setSavingCollection(false); }
+    } catch (err) {
+      notifyError(err, { title: "Falha ao alterar coleta" });
+    } finally {
+      setSavingCollection(false);
+    }
   };
-  const [onTimes, setOnTimes] = useState<
-    Record<
-      string,
-      {
-        accumulatedMs: number;
-        lastOn?: number;
-        alerted: boolean;
-        day: string;
-        isOn: boolean;
-      }
-    >
-  >({});
-  const lastSynced = React.useRef<
-    Record<string, { energy?: number; power?: number }>
-  >({});
-  // const [tick, setTick] = useState(0); // força re-render do cronômetro
-  const [detailsDevice, setDetailsDevice] = useState<{
-    device: DeviceSummary;
-    status?: DeviceStatus;
-  } | null>(null);
-  const [toggling, setToggling] = useState<Record<string, boolean>>({});
-  const [importing, setImporting] = useState<string | null>(null);
-  const persistTimer = React.useRef<NodeJS.Timeout | null>(null);
-  const [tick, setTick] = useState(0); // força re-render do cronometro
 
-  // carrega estado persistido do cronometro do backend
+  // Daily on-time counter, persisted so the usage charts survive reloads.
   useEffect(() => {
     if (!user) return;
-    const load = async () => {
-      try {
-        const resp = await apiRequest<{
-          usage: Array<{
-            deviceId: string;
-            accumulatedMs: number;
-            lastOn?: string | null;
-            day?: string;
-          }>;
-        }>(
-          "/api/integrations/smartthings/usage",
-          { method: "GET", skipErrorToast: true },
-          token
-        );
-        const today = new Date().toISOString().slice(0, 10);
-        const map: Record<
-          string,
-          {
-            accumulatedMs: number;
-            lastOn?: number;
-            alerted: boolean;
-            day: string;
-            isOn: boolean;
-          }
-        > = {};
-        resp.usage.forEach((u) => {
-          const day = u.day || today;
-          map[u.deviceId] = {
-            accumulatedMs: day === today ? u.accumulatedMs || 0 : 0,
-            lastOn: u.lastOn ? new Date(u.lastOn).getTime() : undefined,
+    apiRequest<{ usage: Array<{ deviceId: string; accumulatedMs: number; lastOn?: string | null; day?: string }> }>(
+      "/api/integrations/smartthings/usage",
+      { method: "GET", skipErrorToast: true },
+      token || undefined,
+    )
+      .then((response) => {
+        const today = localDay();
+        const map: Record<string, UsageEntry> = {};
+        for (const row of response.usage) {
+          const sameDay = (row.day || today) === today;
+          map[row.deviceId] = {
+            accumulatedMs: sameDay ? row.accumulatedMs || 0 : 0,
+            lastOn: sameDay && row.lastOn ? new Date(row.lastOn).getTime() : undefined,
             alerted: false,
-            day,
-            isOn: Boolean(u.lastOn),
+            day: today,
+            isOn: sameDay && Boolean(row.lastOn),
           };
-        });
-        setOnTimes(map);
-      } catch (err) {
-        console.error("Erro ao carregar uso do backend", err);
-      }
-    };
-    load();
-  }, [token, user]);
-
-  const fetchDevices = useCallback(async () => {
-    if (!user || fetchingDevices.current) return;
-    fetchingDevices.current = true;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiRequest<{ devices: DeviceSummary[] }>(
-        "/api/integrations/smartthings/devices",
-        { method: "GET", skipErrorToast: true },
-        token || undefined
-      );
-      setDevices(data.devices);
-      const statusList: Array<{ status: DeviceStatus } | null> = [];
-      for (let index = 0; index < data.devices.length; index += 3) {
-        const batch = await Promise.all(data.devices.slice(index, index + 3).map((d) =>
-          apiRequest<{ status: DeviceStatus }>(
-            `/api/integrations/smartthings/devices/${d.id}/status`,
-            { method: "GET", skipErrorToast: true },
-            token || undefined
-          ).catch(() => null)
-        ));
-        statusList.push(...batch);
-      }
-      const map: Record<string, DeviceStatus> = {};
-      statusList.forEach((item, idx) => {
-        if (item?.status) {
-          map[data.devices[idx].id] = item.status;
         }
+        setUsage((current) => ({ ...map, ...current }));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        usageLoaded.current = true;
       });
-      setStatuses(map);
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Erro ao carregar dispositivos SmartThings";
-      setError(message);
-    } finally {
-      setLoading(false);
-      fetchingDevices.current = false;
-    }
   }, [token, user]);
 
   useEffect(() => {
-    fetchDevices();
-  }, [fetchDevices]);
+    if (items.length === 0) return;
+    const now = Date.now();
+    const today = localDay();
+    setUsage((prev) => {
+      const next = { ...prev };
+      for (const { device, status } of items) {
+        const state = status?.state.switch;
+        if (!state) continue;
+        const entry = { ...(next[device.id] ?? { accumulatedMs: 0, alerted: false, day: today, isOn: false }) };
+        if (entry.day !== today) {
+          Object.assign(entry, { accumulatedMs: 0, day: today, lastOn: entry.isOn ? now : undefined, alerted: false });
+        }
+        const isOn = state === "on";
+        if (isOn && !entry.isOn) Object.assign(entry, { isOn: true, lastOn: now });
+        if (!isOn && entry.isOn) {
+          entry.accumulatedMs += entry.lastOn ? now - entry.lastOn : 0;
+          Object.assign(entry, { isOn: false, lastOn: undefined, alerted: false });
+        }
+        next[device.id] = entry;
+      }
+      return next;
+    });
+  }, [items]);
 
+  useEffect(() => {
+    if (!user || !usageLoaded.current || Object.keys(usage).length === 0) return;
+    const timer = setTimeout(() => {
+      const payload = Object.entries(usage).map(([deviceId, entry]) => ({
+        deviceId,
+        accumulatedMs: entry.accumulatedMs,
+        lastOn: entry.isOn && entry.lastOn ? new Date(entry.lastOn).toISOString() : null,
+        day: entry.day,
+      }));
+      apiRequest(
+        "/api/integrations/smartthings/usage",
+        { method: "POST", body: JSON.stringify({ usage: payload }), skipErrorToast: true },
+        token || undefined,
+      ).catch(() => undefined);
+    }, USAGE_PERSIST_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [usage, token, user]);
+
+  // Re-render every 30 s for the running counters and the long-on alert.
   useEffect(() => {
     const id = setInterval(() => {
-      fetchDevices();
-    }, 300000);
+      setTick((tick) => tick + 1);
+      setUsage((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const { device } of items) {
+          const entry = next[device.id];
+          if (!entry?.isOn || entry.alerted || !entry.lastOn) continue;
+          const total = entry.accumulatedMs + Date.now() - entry.lastOn;
+          if (total >= LONG_ON_ALERT_MS) {
+            toast({ title: "Ligado há muito tempo", description: `${device.name} está ligado há ${formatElapsed(total)} hoje.` });
+            next[device.id] = { ...entry, alerted: true };
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 30000);
     return () => clearInterval(id);
-  }, [fetchDevices]);
+  }, [items]);
 
-  // persiste cronometro no backend (leve debounce)
+  const usageFor = (deviceId: string) => {
+    const entry = usage[deviceId];
+    if (!entry) return null;
+    return entry.accumulatedMs + (entry.isOn && entry.lastOn ? Date.now() - entry.lastOn : 0);
+  };
+
+  // Keep the imported appliance's meter reading current. Only the cumulative
+  // counter is synced: instantaneous power would distort the monthly estimate.
   useEffect(() => {
-    if (!user) return;
-    if (persistTimer.current) clearTimeout(persistTimer.current);
-    persistTimer.current = setTimeout(async () => {
-      try {
-        const payload = Object.entries(onTimes).map(([deviceId, entry]) => ({
-          deviceId,
-          accumulatedMs: entry.accumulatedMs || 0,
-          lastOn:
-            entry.isOn && entry.lastOn
-              ? new Date(entry.lastOn).toISOString()
-              : null,
-          day: entry.day,
-        }));
-        await apiRequest(
-          "/api/integrations/smartthings/usage",
-          {
-            method: "POST",
-            body: JSON.stringify({ usage: payload }),
-            skipErrorToast: true,
-          },
-          token || undefined
-        );
-      } catch (err) {
-        console.error("Erro ao salvar uso no backend", err);
-      }
-    }, 1500);
-    return () => {
-      if (persistTimer.current) clearTimeout(persistTimer.current);
-    };
-  }, [onTimes, token, user]);
+    for (const { device, status } of items) {
+      const energy = status?.state.energyKWh;
+      const target = appliances.find(
+        (appliance) => appliance.integrationProvider === "smartthings" && appliance.integrationDeviceId === device.id,
+      );
+      // A zero counter means "no reading yet"; the API only stores positive values.
+      if (!target || energy === null || energy === undefined || energy <= 0) continue;
+      const last = syncedEnergy.current[target.id] ?? target.measuredConsumptionKWh ?? null;
+      if (last !== null && Math.abs(last - energy) <= 0.01) continue;
+      syncedEnergy.current[target.id] = energy;
+      updateAppliance(target.id, { measuredConsumptionKWh: energy }).catch(() => {
+        delete syncedEnergy.current[target.id];
+      });
+    }
+  }, [items, appliances, updateAppliance]);
 
-  // Re-render a cada segundo para mostrar cronômetro em tempo real
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const cards = useMemo(
+  const importedIds = useMemo(
     () =>
-      devices.map((device) => {
-        const status = statuses[device.id];
-        const energyInfo = status ? extractEnergyInfo(status.raw) : null;
-        return { device, status, energyInfo };
-      }),
-    [devices, statuses]
+      new Set(
+        appliances
+          .filter((appliance) => appliance.integrationProvider === "smartthings")
+          .map((appliance) => appliance.integrationDeviceId),
+      ),
+    [appliances],
   );
 
-  const importDevice = async (
-    device: DeviceSummary,
-    energyKWh?: number | null,
-    powerW?: number | null
-  ) => {
-    if (!user) return;
-    if (!energyKWh || !Number.isFinite(energyKWh) || energyKWh <= 0) {
-      notifyError(
-        "O dispositivo não retornou consumo. Ligue-o e tente novamente.",
-        {
-          title: "Dados insuficientes",
-        }
-      );
-      return;
-    }
-    if (!powerW || !Number.isFinite(powerW) || powerW <= 0) {
-      notifyError("Informe a potência do aparelho no cadastro manual antes de importar. O dispositivo não retornou potência válida.", { title: "Potência indisponível" });
-      return;
-    }
-    if (!preferences.tariffState || !preferences.tariffValue) {
-      notifyError("Configure sua tarifa ao cadastrar um aparelho antes de importar dispositivos.", { title: "Tarifa necessária" });
-      return;
-    }
-    if (appliances.some((item) => item.integrationProvider === "smartthings" && item.integrationDeviceId === device.id)) {
-      notifyError("Este dispositivo já foi importado.", { title: "Dispositivo existente" });
-      return;
-    }
+  const importDevice = async (values: ImportValues) => {
+    if (!importTarget) return;
+    const { device } = importTarget;
+    if (importedIds.has(device.id)) return;
     setImporting(device.id);
     try {
       await addAppliance({
-        name: device.name || device.id,
-        power: powerW,
-        usageHours: 1,
-        days: 30,
-        tariff: preferences.tariffState,
-        tariffValue: preferences.tariffValue,
+        name: values.name,
+        power: values.power,
+        usageHours: values.usageHours,
+        days: values.days,
+        tariff: values.tariffState,
+        tariffValue: values.tariffValue,
         createdAt: new Date().toISOString(),
-        measuredConsumptionKWh: energyKWh,
+        measuredConsumptionKWh: values.measuredConsumptionKWh,
         integrationProvider: "smartthings",
         integrationDeviceId: device.id,
       });
-      toast({
-        title: "Importado",
-        description: `${device.name} importado do SmartThings.`,
-      });
+      if (!preferences.tariffState || !preferences.tariffValue) {
+        updatePreferences({ tariffState: values.tariffState, tariffValue: values.tariffValue }).catch(() => undefined);
+      }
+      setImportTarget(null);
+      toast({ title: "Aparelho importado", description: `${values.name} agora entra nas suas estimativas.` });
     } catch (err) {
-      notifyError(err, {
-        title: "Erro ao importar dispositivo",
-        fallbackMessage: "Erro ao importar dispositivo.",
-      });
+      notifyError(err, { title: "Erro ao importar dispositivo", fallbackMessage: "Erro ao importar dispositivo." });
     } finally {
       setImporting(null);
     }
   };
 
-  const toggleDevice = async (device: DeviceSummary, status?: DeviceStatus) => {
-    if (!user) return;
-    const current =
-      status?.raw?.components?.main?.switch?.switch?.value === "on";
-    const nextCommand = current ? "off" : "on";
-    setToggling((prev) => ({ ...prev, [device.id]: true }));
-    try {
-      await apiRequest(
-        `/api/integrations/smartthings/devices/${device.id}/commands`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            capability: "switch",
-            command: nextCommand,
-            component: "main",
-          }),
-        },
-        token || undefined
-      );
-      toast({
-        title: "Comando enviado",
-        description: `${device.name}: aguardando confirmação do estado pelo dispositivo.`,
-      });
-      // Aguarda SmartThings aplicar e refaz fetch
-      await new Promise((r) => setTimeout(r, 800));
-      await fetchDevices();
-    } catch (err) {
-      notifyError(err, {
-        title: "Erro ao enviar comando",
-        fallbackMessage: "Erro ao enviar comando.",
-      });
-    } finally {
-      setToggling((prev) => ({ ...prev, [device.id]: false }));
-    }
-  };
-  // Atualiza consumo medido para aparelhos ja importados sem gerar spam na API
-  useEffect(() => {
-    const sync = async () => {
-      for (const card of cards) {
-        const target = appliances.find(
-          (a) => a.integrationDeviceId === card.device.id
-        );
-        const energy = card.energyInfo?.energy;
-        const power =
-          card.energyInfo?.power && card.energyInfo.power > 0
-            ? card.energyInfo.power
-            : undefined;
-        if (target && typeof energy === "number") {
-          const last = lastSynced.current[target.id] || {};
-          const energyChanged =
-            !last.energy || Math.abs(last.energy - energy) > 0.01;
-          const powerChanged =
-            typeof power === "number" &&
-            (!last.power || Math.abs((last.power || 0) - power) > 1);
-          if (energyChanged || powerChanged) {
-            await updateAppliance(target.id, {
-              measuredConsumptionKWh: energy,
-              power: power ?? target.power,
-            });
-            lastSynced.current[target.id] = {
-              energy,
-              power: power ?? last.power,
-            };
-          }
-        }
-      }
-    };
-    if (cards.length > 0 && appliances.length > 0) {
-      sync();
-    }
-  }, [cards, appliances, updateAppliance]);
-
-  // Track tempo ligado e alertar quando passar do limite
-  // Atualiza cronometro de ligado/desligado (diario), evitando saltos
-  useEffect(() => {
-    if (Object.keys(statuses).length === 0) return;
-    const now = Date.now();
-    const today = new Date().toISOString().slice(0, 10);
-    setOnTimes((prev) => {
-      const next = { ...prev };
-      devices.forEach((device) => {
-        const status = statuses[device.id];
-        if (!status) {
-          return;
-        }
-        const isOn =
-          status?.raw?.components?.main?.switch?.switch?.value === "on";
-        const entry = next[device.id] || {
-          accumulatedMs: 0,
-          alerted: false,
-          day: today,
-          isOn: false,
-        };
-        if (entry.day !== today) {
-          entry.accumulatedMs = 0;
-          entry.day = today;
-          entry.lastOn = undefined;
-          entry.alerted = false;
-          entry.isOn = false;
-        }
-        if (isOn === entry.isOn) {
-          next[device.id] = entry;
-          return;
-        }
-        if (isOn && !entry.isOn) {
-          entry.lastOn = entry.lastOn ?? now;
-          entry.isOn = true;
-        } else if (!isOn && entry.isOn) {
-          if (entry.lastOn) {
-            entry.accumulatedMs += now - entry.lastOn;
-          }
-          entry.lastOn = undefined;
-          entry.isOn = false;
-          entry.alerted = false;
-        }
-        next[device.id] = entry;
-      });
-      return next;
-    });
-  }, [devices, statuses]);
-
-  useEffect(() => {
-    const THRESHOLD_MINUTES = 120; // 2 horas ligado gera alerta
-    const interval = setInterval(() => {
-      setOnTimes((prev) => {
-        const now = Date.now();
-        const next = { ...prev };
-        devices.forEach((device) => {
-          const entry = next[device.id];
-          const isOn =
-            statuses[device.id]?.raw?.components?.main?.switch?.switch
-              ?.value === "on";
-          if (!entry || !isOn) return;
-          const total =
-            entry.accumulatedMs + (entry.lastOn ? now - entry.lastOn : 0);
-          if (!entry.alerted && total >= THRESHOLD_MINUTES * 60 * 1000) {
-            toast({
-              title: "Ligado h\u00e1 muito tempo",
-              description: `${
-                device.name
-              } est\u00e1 ligado h\u00e1 ${Math.floor(
-                total / 3600000
-              )}h ${Math.floor((total / 60000) % 60)}m.`,
-            });
-            entry.alerted = true;
-          }
-        });
-        return next;
-      });
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [devices, statuses]);
-
-  const formatDuration = (ms: number) => {
-    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    const hh = hours.toString().padStart(2, "0");
-    const mm = minutes.toString().padStart(2, "0");
-    const ss = seconds.toString().padStart(2, "0");
-    return `${hh}:${mm}:${ss}`;
-  };
-
-  const sendAcCommand = async (
-    deviceId: string,
-    payload: { capability: string; command: string; arguments?: unknown[] }
-  ) => {
-    if (!token) return;
-    await apiRequest(
-      `/api/integrations/smartthings/devices/${deviceId}/commands`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          component: "main",
-          ...payload,
-        }),
-      },
-      token || undefined
+  const runCommand = (deviceId: string, command: DeviceCommand, optimistic: Partial<DeviceState>) =>
+    sendCommand(deviceId, command, optimistic)
+      .then((confirmed) => {
+        if (!confirmed)
+          toast({
+            title: "Comando enviado, sem confirmação",
+            description: "O dispositivo ainda não informou o novo estado. Atualize em alguns segundos.",
+          });
+      })
+      .catch((err) =>
+      notifyError(err, { title: "Comando não aplicado", fallbackMessage: "O dispositivo não respondeu ao comando." }),
     );
-  };
+
+  // Controllable devices first; inert ones (collapsed) at the end.
+  const sortedItems = [...items].sort(
+    (a, b) => Number(isInertDevice(a.device.capabilities)) - Number(isInertDevice(b.device.capabilities)),
+  );
+  const online = items.filter((item) => item.status?.online).length;
+  const turnedOn = items.filter((item) => item.status?.state.switch === "on").length;
+  const powerReadings = items
+    .map((item) => item.status?.state.powerW)
+    .filter((value): value is number => typeof value === "number");
+  const totalPower = powerReadings.reduce((sum, value) => sum + value, 0);
+
+  const stats = [
+    { icon: Plug, label: "Dispositivos", value: String(items.length), hint: `${online} online` },
+    { icon: Power, label: "Ligados agora", value: String(turnedOn), hint: turnedOn === 1 ? "aparelho" : "aparelhos" },
+    {
+      icon: Zap,
+      label: "Potência agora",
+      value: powerReadings.length > 0 ? `${formatNumber(totalPower, 0)} W` : "—",
+      hint: powerReadings.length > 0 ? `de ${powerReadings.length} com medidor` : "nenhum medidor de potência",
+    },
+  ];
 
   return (
-    <Card className="shadow-xl border border-border/60">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-md bg-gradient-to-br from-energy-green-light/50 to-blue-600/20">
-            <SiSmartthings className="h-5 w-5 text-energy-green-light" />
+    <div className="space-y-8">
+      <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">Samsung SmartThings</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Sua casa conectada</h1>
+          <p className="mt-2 text-muted-foreground">
+            {fetchedAt
+              ? `Atualizado às ${fetchedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · atualiza a cada minuto`
+              : "Carregando dispositivos…"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="h-11" onClick={refresh} disabled={loading}>
+            <RefreshCw className={loading ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
+            Atualizar
+          </Button>
+          <Button variant="ghost" className="h-11" onClick={revokeToken} disabled={revoking}>
+            <LogOut className="mr-2 h-4 w-4" />
+            {revoking ? "Desconectando…" : "Desconectar"}
+          </Button>
+        </div>
+      </section>
+
+      {tokenRejected && (
+        <ConnectSmartThings
+          compact
+          oauthAvailable={oauthAvailable}
+          onOAuth={onOAuth}
+          redirecting={redirecting}
+          saving={saving}
+          onSave={async (value) => {
+            await saveToken(value);
+            await refresh();
+          }}
+          reason={error ?? undefined}
+        />
+      )}
+
+      {!tokenRejected && error && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/40 p-4 text-sm">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={refresh}>
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
+      <dl className="grid gap-3 sm:grid-cols-3">
+        {stats.map(({ icon: Icon, label, value, hint }) => (
+          <div key={label} className="flex items-center gap-4 rounded-2xl border bg-card p-4 shadow-sm">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary dark:text-energy-400">
+              <Icon className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <dt className="text-xs text-muted-foreground">{label}</dt>
+              <dd className="text-2xl font-semibold tabular-nums">{value}</dd>
+              <dd className="truncate text-xs text-muted-foreground">{hint}</dd>
+            </div>
           </div>
+        ))}
+      </dl>
+
+      {loading && items.length === 0 ? (
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Carregando dispositivos">
+          {[0, 1, 2].map((index) => (
+            <Skeleton key={index} className="h-[440px] rounded-[28px]" />
+          ))}
+        </div>
+      ) : items.length === 0 && !error ? (
+        <section className="rounded-3xl border border-dashed p-10 text-center">
+          <h2 className="text-xl font-semibold">Nenhum dispositivo encontrado</h2>
+          <p className="mx-auto mt-2 max-w-md text-muted-foreground">
+            Adicione aparelhos no app SmartThings e confira se o token tem permissão para ver dispositivos.
+          </p>
+        </section>
+      ) : (
+        <section aria-label="Dispositivos" className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {sortedItems.map((item) => (
+            <DeviceControlCard
+              key={item.device.id}
+              item={item}
+              pending={Boolean(pending[item.device.id])}
+              usageMs={usageFor(item.device.id)}
+              imported={importedIds.has(item.device.id)}
+              importing={importing === item.device.id}
+              onCommand={(command, optimistic) => runCommand(item.device.id, command, optimistic)}
+              onRefresh={() => refreshDevice(item.device.id)}
+              onImport={() => setImportTarget(item)}
+              onDetails={() => setDetails(item)}
+            />
+          ))}
+        </section>
+      )}
+
+      <section className="flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-energy-blue-light/10 text-energy-blue-light">
+            <Activity className="h-5 w-5" aria-hidden="true" />
+          </span>
           <div>
-            <CardTitle className="text-lg">Samsung SmartThings</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Dispositivos conectados e consumo reportado
+            <h2 className="font-semibold">Coleta automática de consumo</h2>
+            <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+              O servidor lê periodicamente os medidores dos aparelhos importados, mesmo com esta página fechada. A
+              diferença entre leituras vira consumo medido; lacunas não são preenchidas.
             </p>
           </div>
         </div>
+        <label className="flex shrink-0 items-center gap-3 text-sm font-medium">
+          {savingCollection && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+          {collectionEnabled ? "Ativada" : "Desativada"}
+          <Switch
+            checked={collectionEnabled}
+            disabled={savingCollection}
+            onCheckedChange={toggleCollection}
+            aria-label="Coleta automática de consumo"
+          />
+        </label>
+      </section>
 
-        <div className="flex items-center justify-between gap-4">
-          <span className="inline-flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-energy-green-light opacity-75 animate-ping" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-energy-green-light" />
-            </span>
+      <ImportDeviceDialog
+        item={importTarget}
+        defaultState={preferences.tariffState}
+        defaultTariff={preferences.tariffValue}
+        importing={Boolean(importing)}
+        onCancel={() => setImportTarget(null)}
+        onConfirm={importDevice}
+      />
 
-            <span className="text-sm text-muted-foreground">
-              Atualização automática
-            </span>
-          </span>
-
-          <Button
-            variant="secondary"
-            onClick={revokeToken}
-            disabled={revoking || loading}
-            className="gap-1"
-          >
-            <LogOut className="h-4 w-4" />
-            {revoking ? "Desconectando..." : "Desconectar"}
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-md border p-3 text-sm">
-          <p>Coleta periÃ³dica dos aparelhos importados com medidor compatÃ­vel. Leituras acumuladas geram intervalos; lacunas nÃ£o sÃ£o preenchidas.</p>
-          <Button className="mt-2" variant="outline" disabled={savingCollection} onClick={toggleCollection}>
-            {collectionEnabled ? "Desativar coleta periÃ³dica" : "Ativar coleta periÃ³dica"}
-          </Button>
-        </div>
-        {error && (
-          <div className="mb-4 text-sm text-red-600 dark:text-red-400">
-            {error}
-          </div>
-        )}
-        {loading && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Carregando dispositivos...
-          </div>
-        )}
-        {!loading && cards.length === 0 && (
-          <div className="text-sm text-muted-foreground">
-            Nenhum dispositivo SmartThings encontrado ou token n\u00e3o
-            configurado.
-          </div>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {cards.map(({ device, status, energyInfo }) => {
-            return (
-              <Card
-                key={device.id}
-                className="border border-border hover:shadow-xl transition bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 rounded-xl"
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-3">
-                      {(() => {
-                        const Icon = deviceIconForCapabilities(
-                          device.capabilities
-                        );
-                        return (
-                          <div className="h-10 w-10 rounded-lg bg-energy-green-light/10 flex items-center justify-center text-energy-green-light">
-                            <Icon className="h-5 w-5" />
-                          </div>
-                        );
-                      })()}
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-lg">
-                          {device.name}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {device.brand}{" "}
-                          {device.model ? `- ${device.model}` : ""}{" "}
-                          {device.room ? `- ${device.room}` : ""}
-                        </span>
-                      </div>
-                    </CardTitle>
-                    <Badge
-                      variant={status?.online ? "default" : "secondary"}
-                      className={
-                        status?.online ? "bg-green-500 text-white" : ""
-                      }
-                    >
-                      {status?.online ? "Online" : "Offline"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-3 gap-3 text-sm">
-                    <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/60">
-                      <div className="text-xs text-muted-foreground">
-                        Potencia
-                      </div>
-                      <div className="font-semibold">
-                        {energyInfo?.power !== null
-                          ? `${energyInfo?.power?.toFixed(2)} ${
-                              energyInfo?.unitPower || "W"
-                            }`
-                          : "n/d"}
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/60">
-                      <div className="text-xs text-muted-foreground">
-                        Energia
-                      </div>
-                      <div className="font-semibold">
-                        {energyInfo?.energy !== null
-                          ? `${energyInfo?.energy?.toFixed(2)} ${
-                              energyInfo?.unitEnergy || "kWh"
-                            }`
-                          : "n/d"}
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/60">
-                      <div className="text-xs text-muted-foreground">
-                        Tempo de uso
-                      </div>
-                      <div className="font-semibold">
-                        {(() => {
-                          const entry = onTimes[device.id];
-                          if (!entry) return "n/d";
-                          const now = Date.now(); // tick força re-render
-                          const total =
-                            (entry.accumulatedMs || 0) +
-                            (entry.lastOn ? now - entry.lastOn : 0);
-                          return total > 0 ? formatDuration(total) : "00:00:00";
-                        })()}
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800/60 col-span-3 flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-xs text-muted-foreground">
-                          Switch
-                        </div>
-                        <div className="font-semibold">
-                          {status?.raw?.components?.main?.switch?.switch
-                            ?.value || "desconhecido"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="flex-1"
-                      onClick={() => setDetailsDevice({ device, status })}
-                    >
-                      Detalhes
-                    </Button>
-                    <Button
-                      size="sm"
-                      className={`flex-1 justify-center text-white
-                                ${
-                                  (status?.raw?.components?.main?.switch?.switch
-                                    ?.value || "off") === "on"
-                                    ? "bg-red-500 hover:bg-red-600"
-                                    : "bg-energy-green-light hover:bg-energy-green-dark"
-                                }
-                              `}
-                      disabled={toggling[device.id]}
-                      onClick={() => toggleDevice(device, status)}
-                    >
-                      {toggling[device.id] ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (status?.raw?.components?.main?.switch?.switch
-                          ?.value || "off") === "on" ? (
-                        <div className="flex items-center gap-2 ">
-                          <LuPowerOff className="h-4 w-4" />
-                          <span>Desligar</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 ">
-                          <LuPower className="h-4 w-4" />
-                          <span>Ligar</span>
-                        </div>
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="flex-1"
-                      disabled={importing === device.id}
-                      onClick={() =>
-                        importDevice(
-                          device,
-                          energyInfo?.energy ?? null,
-                          energyInfo?.power ?? null
-                        )
-                      }
-                    >
-                      <Download className="h-4 w-4" />
-                      {importing === device.id ? "Importando..." : "Importar"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        <Dialog
-          open={Boolean(detailsDevice)}
-          onOpenChange={() => setDetailsDevice(null)}
-        >
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader className="space-y-1">
-              <div className="flex items-center gap-2">
-                <SiSmartthings className="h-5 w-5 text-energy-green-light" />
-                <DialogTitle>
-                  {detailsDevice?.device.name || "Detalhes do dispositivo"}
-                </DialogTitle>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Leituras resumidas e o que cada dado significa para voce.
-              </p>
-            </DialogHeader>
-            {(() => {
-              const info = detailsDevice?.status
-                ? extractEnergyInfo(detailsDevice.status.raw)
-                : null;
-              const switchState =
-                detailsDevice?.status?.raw?.components?.main?.switch?.switch
-                  ?.value;
-              const online = detailsDevice?.status?.online;
-              const capabilities = detailsDevice?.device.capabilities || [];
-              return (
-                <div className="space-y-4 text-sm">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="rounded-lg border border-border/60 p-4 bg-slate-50 dark:bg-slate-900/50">
-                      <div className="text-xs text-muted-foreground">
-                        Marca / Modelo
-                      </div>
-                      <div className="font-semibold">
-                        {detailsDevice?.device.brand}{" "}
-                        {detailsDevice?.device.model || ""}
-                      </div>
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        Ambiente
-                      </div>
-                      <div className="font-semibold">
-                        {detailsDevice?.device.room || "Não informado"}
-                      </div>
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        ID do dispositivo
-                      </div>
-                      <div className="font-mono text-xs break-all">
-                        {detailsDevice?.device.id}
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border/60 p-4 bg-slate-50 dark:bg-slate-900/50 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
-                          Disponibilidade
-                        </span>
-                        <Badge
-                          variant={online ? "default" : "secondary"}
-                          className={online ? "bg-green-500 text-white" : ""}
-                        >
-                          {online ? "Online" : "Offline"}
-                        </Badge>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">
-                          Estado do switch
-                        </div>
-                        <div className="font-semibold">
-                          {switchState ? switchState.toUpperCase() : "N/A"}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Representa se o dispositivo esta ligado ou desligado
-                          no SmartThings.
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <div className="text-xs text-muted-foreground">
-                            Potencia instantanea
-                          </div>
-                          <div className="font-semibold">
-                            {info?.power
-                              ? `${info.power.toFixed(2)} ${
-                                  info.unitPower || "W"
-                                }`
-                              : "Não disponível"}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Uso em tempo real (ex.: ligar o ar aumenta este
-                            valor na hora).
-                          </p>
-                        </div>
-                        <div>
-                          <div className="text-xs text-muted-foreground">
-                            Energia acumulada
-                          </div>
-                          <div className="font-semibold">
-                            {info?.energy
-                              ? `${info.energy.toFixed(2)} ${
-                                  info.unitEnergy || "kWh"
-                                }`
-                              : "Não disponível"}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Soma de consumo medida pelo dispositivo desde o
-                            ultimo reset.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-border/60 p-4 bg-slate-50 dark:bg-slate-900/50">
-                    <div className="text-xs text-muted-foreground mb-2">
-                      Principais capacidades
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {capabilities.length > 0
-                        ? capabilities.map((cap) => (
-                            <Badge
-                              key={cap}
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              {cap}
-                            </Badge>
-                          ))
-                        : "Nenhuma capacidade listada"}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Cada capacidade indica um conjunto de comandos ou leituras
-                      suportadas (ex.: switch, powerMeter, airConditionerMode).
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-border/60 p-4 bg-gradient-to-br from-slate-100 to-white dark:from-slate-800 dark:to-slate-900/80">
-                    <h4 className="font-semibold mb-2 text-sm">
-                      Como ler estes números
-                    </h4>
-                    <ul className="space-y-2 text-xs text-muted-foreground">
-                      <li>
-                        <span className="font-semibold text-foreground">
-                          Potencia instantanea:
-                        </span>{" "}
-                        consumo no momento; otimo para ver o impacto de
-                        ligar/desligar o aparelho.
-                      </li>
-                      <li>
-                        <span className="font-semibold text-foreground">
-                          Energia acumulada:
-                        </span>{" "}
-                        total consumido em kWh, ideal para acompanhar a fatura
-                        mensal.
-                      </li>
-                      <li>
-                        <span className="font-semibold text-foreground">
-                          Switch:
-                        </span>{" "}
-                        estado logico do dispositivo no SmartThings
-                        (liga/desliga).
-                      </li>
-                      <li>
-                        <span className="font-semibold text-foreground">
-                          Capacidades:
-                        </span>{" "}
-                        recursos que podem ser usados em automacoes ou comandos
-                        (modo, ventilação, etc.).
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              );
-            })()}
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
+      <DeviceDetailsDialog
+        item={details ? items.find((item) => item.device.id === details.device.id) ?? details : null}
+        onClose={() => setDetails(null)}
+      />
+    </div>
   );
-};
-
-export default SmartThingsPanel;
+}

@@ -164,13 +164,32 @@ export class MongoDatabase {
     await this.energySamples().updateOne({ sampleKey }, { $setOnInsert: sample }, { upsert: true });
   }
 
+  async saveEnergyDelta(userId: string, provider: string, deviceId: string, deltaKWh: number, startAt: Date, endAt: Date) {
+    if (!Number.isFinite(deltaKWh) || deltaKWh < 0 || !(endAt.getTime() > startAt.getTime())) {
+      throw new Error("Invalid energy delta");
+    }
+    const appliance = await this.appliances().findOne({ userId, integrationProvider: provider, integrationDeviceId: deviceId });
+    const settings = await this.getUserSettings(userId);
+    const tariffValue = appliance?.tariffValue ?? (appliance?.tariff ? STATE_TARIFFS[appliance.tariff] : undefined) ?? settings.tariffValue ?? null;
+    // One document per report window, so re-reading the same report is a no-op.
+    const sampleKey = crypto.createHash("sha256")
+      .update(JSON.stringify([userId, provider, deviceId, "delta", startAt.getTime(), endAt.getTime()]))
+      .digest("hex");
+    const sample: EnergySample = {
+      userId, applianceId: appliance?.id ?? null, provider, deviceId, capturedAt: endAt, startAt,
+      counterKWh: deltaKWh, tariffValue, source: "iot", readingType: "delta",
+      createdAt: new Date(), sampleKey,
+    };
+    await this.energySamples().updateOne({ sampleKey }, { $setOnInsert: sample }, { upsert: true });
+  }
+
   async getEnergyHistory(userId: string, start: Date, end: Date, applianceId?: string) {
     const current = await this.energySamples().find({ userId, capturedAt: { $gte: start, $lt: end } })
       .sort({ capturedAt: 1 }).toArray();
     const keys = new Map<string, { provider: string; deviceId: string }>();
     for (const sample of current) keys.set(`${sample.provider}\u0000${sample.deviceId}`, sample);
     const preceding = await Promise.all([...keys.values()].map(({ provider, deviceId }) =>
-      this.energySamples().findOne({ userId, provider, deviceId, capturedAt: { $lt: start } }, { sort: { capturedAt: -1 } })
+      this.energySamples().findOne({ userId, provider, deviceId, readingType: { $ne: "delta" }, capturedAt: { $lt: start } }, { sort: { capturedAt: -1 } })
     ));
     const intervals = toEnergyIntervals([...preceding.flatMap((item) => item ? [item] : []), ...current]);
     return intervals.filter((item) => new Date(item.endAt) >= start && new Date(item.endAt) < end && (!applianceId || item.applianceId === applianceId));

@@ -1,3 +1,5 @@
+import type { DeviceState } from "./device-state";
+
 export interface DeviceSummary {
   id: string;
   name: string;
@@ -11,6 +13,7 @@ export interface DeviceStatus {
   id: string;
   online: boolean;
   raw: unknown;
+  state?: DeviceState;
 }
 
 export interface DeviceCommand {
