@@ -13,6 +13,10 @@ export interface EnergyInterval {
   tariffValue: number | null;
   source: "iot";
   readingType: "interval";
+  // Location at capture time; null on readings taken before it was recorded.
+  propertyId?: string | null;
+  roomId?: string | null;
+  locationChanged?: boolean;
 }
 
 export const useEnergyHistory = (start: Date, end: Date, applianceId?: string) => {

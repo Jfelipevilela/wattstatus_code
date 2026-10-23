@@ -32,6 +32,7 @@ import {
   Lightbulb,
   Zap,
   Home,
+  Building,
   LogOut,
   ChevronsUpDown,
   Sun,
@@ -57,6 +58,7 @@ interface NavItem {
 
 const menuItems: NavItem[] = [
   { title: "Visão geral", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Meus imóveis", url: "/imoveis", icon: Building },
   { title: "Relatórios", url: "/relatorios", icon: FileBarChart },
   { title: "Calculadora", url: "/calculadora", icon: Calculator },
   { title: "Aparelhos", url: "/aparelhos", icon: Plug },

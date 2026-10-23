@@ -23,6 +23,9 @@ const Anomalies = lazy(() => import("./pages/Anomalies"));
 const Tips = lazy(() => import("./pages/Tips"));
 const SmartThings = lazy(() => import("./pages/SmartThings"));
 const SmartThingsCallback = lazy(() => import("./pages/SmartThingsCallback"));
+const Properties = lazy(() => import("./pages/Properties"));
+const PropertyDetail = lazy(() => import("./pages/PropertyDetail"));
+const RoomDetails = lazy(() => import("./pages/RoomDetails"));
 const Apps = lazy(() => import("./pages/Apps"));
 
 // Protected Route component
@@ -113,6 +116,9 @@ const App = () => (
                       </ProtectedRoute>
                     }
                   />
+                  <Route path="/imoveis" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
+                  <Route path="/imoveis/:id" element={<ProtectedRoute><PropertyDetail /></ProtectedRoute>} />
+                  <Route path="/imoveis/:id/ambientes/:roomId" element={<ProtectedRoute><RoomDetails /></ProtectedRoute>} />
                   <Route
                     path="/apps"
                     element={

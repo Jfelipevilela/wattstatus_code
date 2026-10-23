@@ -17,6 +17,8 @@ export interface Appliance {
   measuredConsumptionKWh?: number | null;
   integrationProvider?: string | null;
   integrationDeviceId?: string | null;
+  propertyId?: string | null;
+  roomId?: string | null;
 }
 
 export interface ApplianceInput {
@@ -30,6 +32,8 @@ export interface ApplianceInput {
   integrationProvider?: string;
   integrationDeviceId?: string;
   createdAt?: string;
+  propertyId?: string | null;
+  roomId?: string | null;
 }
 
 export const useAppliances = () => {
