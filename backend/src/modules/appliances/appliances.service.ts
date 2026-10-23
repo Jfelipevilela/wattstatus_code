@@ -1,11 +1,22 @@
-import { v4 as uuid } from "uuid";
+import { randomUUID } from "crypto";
 import { ApiError } from "../../middleware/error-handler";
-import { PostgresDatabase } from "../../storage/postgres-db";
+import { MongoDatabase } from "../../storage/mongo-db";
 import { ApplianceRecord, CalculationInput } from "../../types";
 import { calculateAppliance } from "../calculations/calculation.service";
 
 export class ApplianceService {
-  constructor(private db: PostgresDatabase) {}
+  constructor(private db: MongoDatabase) {}
+
+  private resolveCreatedAt(timestamp?: string) {
+    if (!timestamp) return new Date().toISOString();
+
+    const parsed = new Date(timestamp);
+    if (Number.isNaN(parsed.getTime())) {
+      return new Date().toISOString();
+    }
+
+    return parsed.toISOString();
+  }
 
   list(userId: string) {
     return this.db.listAppliances(userId);
@@ -15,7 +26,7 @@ export class ApplianceService {
     const calc = calculateAppliance(input);
 
     const record: ApplianceRecord = {
-      id: uuid(),
+      id: randomUUID(),
       userId,
       name: input.name || "Aparelho",
       power: input.power,
@@ -25,13 +36,22 @@ export class ApplianceService {
       monthlyCost: calc.cost,
       monthlyConsumption: calc.consumptionKWh,
       tariff: input.tariff,
-      createdAt: new Date().toISOString(),
+      tariffValue: input.tariffValue,
+      createdAt: this.resolveCreatedAt(input.createdAt),
       measuredConsumptionKWh: input.measuredConsumptionKWh,
       integrationProvider: input.integrationProvider,
       integrationDeviceId: input.integrationDeviceId,
+      ...(input.integrationProvider && input.integrationDeviceId ? { importKey: `${userId}:${input.integrationProvider}:${input.integrationDeviceId}` } : {}),
     };
 
-    await this.db.addAppliance(record);
+    try {
+      await this.db.addAppliance(record);
+    } catch (err) {
+      if (err instanceof Error && (err.message === "DEVICE_ALREADY_IMPORTED" || err.message.includes("E11000"))) {
+        throw new ApiError(409, "Dispositivo já importado");
+      }
+      throw err;
+    }
     return record;
   }
 
@@ -53,6 +73,7 @@ export class ApplianceService {
       usageHours: input.usageHours ?? existing.usageHours,
       days: input.days ?? existing.days,
       tariff: input.tariff || existing.tariff,
+      tariffValue: input.tariffValue ?? (input.tariff && input.tariff !== existing.tariff ? undefined : existing.tariffValue),
       measuredConsumptionKWh:
         input.measuredConsumptionKWh ?? existing.measuredConsumptionKWh ?? undefined,
       integrationProvider: input.integrationProvider ?? existing.integrationProvider ?? undefined,
@@ -66,6 +87,7 @@ export class ApplianceService {
       status: calc.status,
       monthlyCost: calc.cost,
       monthlyConsumption: calc.consumptionKWh,
+      ...(payload.integrationProvider && payload.integrationDeviceId ? { importKey: `${userId}:${payload.integrationProvider}:${payload.integrationDeviceId}` } : {}),
     };
 
     const saved = await this.db.updateAppliance(userId, updated);

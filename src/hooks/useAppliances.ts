@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "./useAuth";
 
@@ -12,6 +12,7 @@ export interface Appliance {
   monthlyCost: number;
   monthlyConsumption: number;
   tariff: string;
+  tariffValue?: number;
   createdAt: string;
   measuredConsumptionKWh?: number | null;
   integrationProvider?: string | null;
@@ -24,20 +25,26 @@ export interface ApplianceInput {
   usageHours: number;
   days: number;
   tariff: string;
+  tariffValue?: number;
   measuredConsumptionKWh?: number;
   integrationProvider?: string;
   integrationDeviceId?: string;
+  createdAt?: string;
 }
 
 export const useAppliances = () => {
   const [appliances, setAppliances] = useState<Appliance[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { token, user } = useAuth();
+  const requestVersion = useRef(0);
 
-  const fetchAppliances = useCallback(async () => {
+  const fetchAppliances = useCallback(async (signal?: AbortSignal) => {
+    const version = ++requestVersion.current;
     if (!user) {
       setAppliances([]);
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -45,27 +52,37 @@ export const useAppliances = () => {
     try {
       const data = await apiRequest<{ appliances: Appliance[] }>(
         "/api/appliances",
-        { method: "GET" },
+        { method: "GET", signal },
         token || undefined
       );
+      if (signal?.aborted || version !== requestVersion.current) return;
       setAppliances(data.appliances);
+      setLastUpdated(new Date());
     } catch (err) {
+      if (signal?.aborted || version !== requestVersion.current) return;
       const message = err instanceof Error ? err.message : "Erro ao carregar aparelhos";
       setError(message);
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [token, user]);
 
   useEffect(() => {
-    fetchAppliances();
+    const requests = requestVersion;
+    const controller = new AbortController();
+    void fetchAppliances(controller.signal);
+    return () => { requests.current++; controller.abort(); };
   }, [fetchAppliances]);
 
   const addAppliance = async (input: ApplianceInput) => {
     if (!user) throw new Error("N\u00e3o autenticado");
+    const payload: ApplianceInput = {
+      ...input,
+      createdAt: input.createdAt || new Date().toISOString(),
+    };
     const data = await apiRequest<{ appliance: Appliance }>(
       "/api/appliances",
-      { method: "POST", body: JSON.stringify(input) },
+      { method: "POST", body: JSON.stringify(payload) },
       token || undefined
     );
     setAppliances((prev) => [data.appliance, ...prev]);
@@ -97,7 +114,8 @@ export const useAppliances = () => {
     appliances,
     loading,
     error,
-    refetch: fetchAppliances,
+    refetch: () => fetchAppliances(),
+    lastUpdated,
     addAppliance,
     updateAppliance,
     deleteAppliance,

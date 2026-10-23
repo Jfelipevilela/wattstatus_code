@@ -26,7 +26,7 @@ const Apps = () => {
           : "Integre aparelhos LG ThinQ e visualize status em tempo real.",
       icon: app.id === "smartthings" ? SiSmartthings : SiLg,
       to: app.id === "smartthings" ? "/integracoes/smartthings" : null,
-      status: app.id === "lg-thinq" ? "Em breve" : "Disponivel",
+      status: app.id === "lg-thinq" ? "Em breve" : "Disponível",
       id: app.id,
     })),
   ];
@@ -39,9 +39,9 @@ const Apps = () => {
           <SidebarTrigger className="-ml-1" />
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-energy-green-light rounded flex items-center justify-center">
-              <PlugZap className="w-5 h-5 text-energy-green-light absolute " />
+              <PlugZap className="w-5 h-5 text-white " />
             </div>
-            <span className="font-semibold">Apps & Integracoes</span>
+            <span className="font-semibold">Integrações</span>
           </div>
         </header>
         <div className="flex flex-col min-h-screen bg-background">
@@ -63,7 +63,7 @@ const Apps = () => {
                   </CardContent>
                   <CardFooter>
                     {app.to ? (
-                      isActive(app.id as any) ? (
+                      isActive(app.id) ? (
                         <div className="flex gap-2">
                           <Button asChild size="sm" className="gap-2">
                             <Link to={app.to}>
@@ -74,13 +74,13 @@ const Apps = () => {
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => removeApp(app.id as any)}
+                            onClick={() => removeApp(app.id)}
                           >
                             Remover
                           </Button>
                         </div>
                       ) : (
-                        <Button size="sm" onClick={() => addApp(app.id as any)}>
+                        <Button size="sm" onClick={() => addApp(app.id)}>
                           Adicionar ao menu
                         </Button>
                       )

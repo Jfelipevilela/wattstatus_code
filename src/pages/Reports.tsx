@@ -8,9 +8,10 @@ import { SidebarInset } from "@/components/ui/sidebar";
 import ReportsTab from "@/components/tabs/ReportsTab";
 import { FileText } from "lucide-react";
 import { useAppliances } from "@/hooks/useAppliances";
+import { DataState } from "@/components/DataState";
 
 const Reports = () => {
-  const { appliances } = useAppliances();
+  const { appliances, loading, error, refetch } = useAppliances();
 
   return (
     <SidebarProvider>
@@ -27,7 +28,7 @@ const Reports = () => {
         </header>
         <div className="flex flex-col min-h-screen bg-background dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
           <main className="flex-grow container mx-auto px-4 pt-6 pb-10 ">
-            <ReportsTab appliances={appliances} />
+            {loading || error ? <DataState loading={loading} error={error} onRetry={refetch} /> : <ReportsTab appliances={appliances} />}
           </main>
         </div>
       </SidebarInset>

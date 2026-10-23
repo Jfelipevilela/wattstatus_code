@@ -1,7 +1,14 @@
 import { createApp, buildIntegrations } from "./app";
 import { env } from "./config/env";
 import { MongoDatabase } from "./storage/mongo-db";
-import { PostgresDatabase } from "./storage/postgres-db";
+import { getErrorFields, logger } from "./logging/logger";
+
+process.on("uncaughtExceptionMonitor", (error, origin) => {
+  logger.error("process.uncaught_exception", {
+    origin,
+    ...getErrorFields(error),
+  });
+});
 
 const start = async () => {
   const db = new MongoDatabase ();
@@ -11,11 +18,11 @@ const start = async () => {
   const app = createApp({ db, integrationManager });
 
   app.listen(env.port, () => {
-    console.log(`WattStatus API ouvindo na porta ${env.port}`);
+    logger.info("server.started", { port: env.port });
   });
 };
 
 start().catch((err) => {
-  console.error("Falha ao iniciar servidor", err);
+  logger.error("server.start_failed", getErrorFields(err));
   process.exit(1);
 });

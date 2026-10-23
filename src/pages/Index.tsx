@@ -47,13 +47,14 @@ const Index = () => {
       { threshold: 0.5 }
     );
 
-    if (statsRef.current) {
-      observer.observe(statsRef.current);
+    const statsElement = statsRef.current;
+    if (statsElement) {
+      observer.observe(statsElement);
     }
 
     return () => {
-      if (statsRef.current) {
-        observer.unobserve(statsRef.current);
+      if (statsElement) {
+        observer.unobserve(statsElement);
       }
     };
   }, [hasAnimated]);

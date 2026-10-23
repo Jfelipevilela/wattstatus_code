@@ -10,11 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Leaf, Zap, Battery } from "lucide-react";
 import Icon from "@/components/logo_wattstatus_icon.png";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/components/ui/use-toast";
+import { notifyError } from "@/lib/error-toast";
 
 const SignUp = () => {
   const [formData, setFormData] = useState({
@@ -26,7 +27,6 @@ const SignUp = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { register } = useAuth();
@@ -47,8 +47,8 @@ const SignUp = () => {
     if (formData.password !== formData.confirmPassword) {
       return "As senhas não coincidem.";
     }
-    if (formData.password.length < 6) {
-      return "A senha deve ter pelo menos 6 caracteres.";
+    if (formData.password.length < 15) {
+      return "A senha deve ter pelo menos 15 caracteres.";
     }
     if (!formData.acceptTerms) {
       return "Você deve aceitar os termos de uso.";
@@ -58,11 +58,10 @@ const SignUp = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
     const validationError = validateForm();
     if (validationError) {
-      setError(validationError);
+      notifyError(validationError, { title: "Revise os dados" });
       return;
     }
 
@@ -75,11 +74,16 @@ const SignUp = () => {
         formData.password,
         formData.confirmPassword
       );
+      toast({
+        title: "Conta criada com sucesso!",
+        description: "Redirecionando para o dashboard...",
+      });
       navigate("/dashboard");
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao criar conta.";
-      setError(message);
+      notifyError(err, {
+        title: "Erro ao criar conta",
+        fallbackMessage: "Erro ao criar conta.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -115,12 +119,6 @@ const SignUp = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
               <div className="space-y-2">
                 <Label
                   htmlFor="name"
@@ -130,6 +128,8 @@ const SignUp = () => {
                 </Label>
                 <Input
                   id="name"
+                  maxLength={100}
+                  autoComplete="name"
                   type="text"
                   placeholder="Seu nome completo"
                   value={formData.name}
@@ -148,6 +148,8 @@ const SignUp = () => {
                 </Label>
                 <Input
                   id="email"
+                  maxLength={254}
+                  autoComplete="username"
                   type="email"
                   placeholder="seu@email.com"
                   value={formData.email}
@@ -167,6 +169,9 @@ const SignUp = () => {
                 <div className="relative">
                   <Input
                     id="password"
+                    minLength={15}
+                    maxLength={128}
+                    autoComplete="new-password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={formData.password}
@@ -179,6 +184,7 @@ const SignUp = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-energy-500 dark:text-energy-400 hover:text-energy-700 dark:hover:text-energy-300"
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -196,6 +202,8 @@ const SignUp = () => {
                 <div className="relative">
                   <Input
                     id="confirmPassword"
+                    maxLength={128}
+                    autoComplete="new-password"
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={formData.confirmPassword}
@@ -208,6 +216,7 @@ const SignUp = () => {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? "Ocultar confirmação" : "Mostrar confirmação"}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-energy-500 dark:text-energy-400 hover:text-energy-700 dark:hover:text-energy-300"
                   >
                     {showConfirmPassword ? (

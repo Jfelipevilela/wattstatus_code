@@ -1,12 +1,16 @@
 import { Router } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { ApiError } from "../../middleware/error-handler";
-import { PostgresDatabase } from "../../storage/postgres-db";
+import { MongoDatabase } from "../../storage/mongo-db";
 import { z } from "zod";
+import { STATE_TARIFFS } from "../../config/tariffs";
 
 const updateSchema = z.object({
   theme: z.enum(["light", "dark", "system"]).optional(),
   apps: z.array(z.enum(["smartthings", "lg-thinq"])).optional(),
+  tariffState: z.string().refine((value) => Object.prototype.hasOwnProperty.call(STATE_TARIFFS, value), "Estado inválido").optional(),
+  tariffValue: z.number().finite().positive().optional(),
+  energyCollectionEnabled: z.boolean().optional(),
   historicalData: z
     .array(
       z.object({
@@ -18,7 +22,7 @@ const updateSchema = z.object({
     .optional(),
 });
 
-export const createUserSettingsRouter = (db: PostgresDatabase) => {
+export const createUserSettingsRouter = (db: MongoDatabase) => {
   const router = Router();
 
   router.get("/", async (req: AuthenticatedRequest, res, next) => {

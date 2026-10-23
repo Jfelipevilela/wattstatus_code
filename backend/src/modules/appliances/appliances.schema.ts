@@ -6,9 +6,11 @@ export const applianceInputSchema = z.object({
   usageHours: z.number().positive(),
   days: z.number().int().min(1).max(31),
   tariff: z.string().min(2),
+  tariffValue: z.number().finite().positive().optional(),
   measuredConsumptionKWh: z.number().positive().optional(),
   integrationProvider: z.string().optional(),
   integrationDeviceId: z.string().optional(),
+  createdAt: z.string().optional(),
 });
 
 export const applianceUpdateSchema = applianceInputSchema.partial();

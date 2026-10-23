@@ -11,6 +11,15 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+**/.env
+tmp/
+audit-before.json
+.env.*
+!.env.example
+/PROXIMA_ETAPA.md
+/SEGURANCA_AUTH.md
+/TODO.md
 
 # Editor directories and files
 .vscode/*
