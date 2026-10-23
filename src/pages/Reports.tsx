@@ -16,18 +16,14 @@ const Reports = () => {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <div className="flex items-center gap-2 ">
-            <div className="w-6 h-6 bg-energy-green-light rounded flex items-center justify-center">
-              <FileText className="w-5 h-5 text-energy-green-light absolute" />
-            </div>
-            <span className="font-semibold">Relatórios</span>
-          </div>
+      <SidebarInset className="min-w-0">
+        <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4">
+          <SidebarTrigger />
+          <FileText className="h-5 w-5 text-energy-green-light" aria-hidden="true" />
+          <span className="font-semibold">Relatórios</span>
         </header>
-        <div className="flex flex-col min-h-screen bg-background dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-          <main className="flex-grow container mx-auto px-4 pt-6 pb-10 ">
+        <div className="flex min-h-screen flex-col bg-background">
+          <main className="container mx-auto min-w-0 max-w-7xl flex-grow px-4 py-6 sm:py-8">
             {loading || error ? <DataState loading={loading} error={error} onRetry={refetch} /> : <ReportsTab appliances={appliances} />}
           </main>
         </div>

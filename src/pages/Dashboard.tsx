@@ -1,6 +1,15 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Plus, Zap } from "lucide-react";
+import { useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import {
+  AlertTriangle,
+  CalendarX,
+  ChevronDown,
+  Info,
+  PlugZap,
+  TrendingDown,
+  TrendingUp,
+  Zap,
+} from "lucide-react";
 import {
   AppSidebar,
   SidebarProvider,
@@ -8,32 +17,94 @@ import {
 } from "@/components/Sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { DataState } from "@/components/DataState";
-import ConsumptionTab from "@/components/tabs/ConsumptionTab";
+import { SummarySkeleton } from "@/components/dashboard/SummarySkeleton";
 import IntegrationUsage from "@/components/IntegrationUsage";
-import { EnergyHistoryPanel } from "@/components/EnergyHistoryPanel";
+import { SummaryHeader } from "@/components/dashboard/SummaryHeader";
+import { EnergyHero } from "@/components/dashboard/EnergyHero";
+import { EnergyInsights, type Insight } from "@/components/dashboard/EnergyInsights";
+import {
+  ConsumptionTrendChart,
+  type TrendPoint,
+} from "@/components/dashboard/ConsumptionTrendChart";
+import { ConsumptionDistribution } from "@/components/dashboard/ConsumptionDistribution";
+import { ApplianceRanking } from "@/components/dashboard/ApplianceRanking";
+import { MeasuredDetails } from "@/components/dashboard/MeasuredDetails";
+import { SummaryEmptyState } from "@/components/dashboard/SummaryEmptyState";
+import {
+  monthKey,
+  percentChange,
+  summarizeMonth,
+  type DataStatus,
+} from "@/components/dashboard/summary";
 import { useAppliances } from "@/hooks/useAppliances";
+import { useEnergyHistory } from "@/hooks/useEnergyHistory";
+import { measuredByMonth } from "@/lib/measured";
 import {
   getMonthlyEstimate,
   getEstimateHistory,
+  formatCurrency,
   formatNumber,
 } from "@/lib/energy";
+
+const monthName = (year: number, month: number, format: "long" | "short" = "long") =>
+  new Date(year, month - 1, 1).toLocaleDateString("pt-BR", {
+    month: format,
+    ...(format === "long" ? { year: "numeric" } : {}),
+  });
 
 export default function Dashboard() {
   const { appliances, loading, error, refetch, lastUpdated } = useAppliances();
   const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const periodMatch = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(
+    searchParams.get("periodo") ?? "",
+  );
+  const selectedYear = periodMatch ? Number(periodMatch[1]) : now.getFullYear();
+  const selectedMonth = periodMatch ? Number(periodMatch[2]) : now.getMonth() + 1;
+  const setPeriod = (year: number, month: number) =>
+    setSearchParams(
+      (params) => {
+        const next = new URLSearchParams(params);
+        if (year === now.getFullYear() && month === now.getMonth() + 1)
+          next.delete("periodo");
+        else next.set("periodo", monthKey(year, month));
+        return next;
+      },
+      { replace: true },
+    );
+  const historyStart = useMemo(
+    () => new Date(selectedYear, selectedMonth - 6, 1),
+    [selectedYear, selectedMonth],
+  );
+  const historyEnd = useMemo(
+    () => new Date(selectedYear, selectedMonth, 1),
+    [selectedYear, selectedMonth],
+  );
+  const energy = useEnergyHistory(historyStart, historyEnd);
+
   const estimate = getMonthlyEstimate(appliances, selectedYear, selectedMonth);
   const history = getEstimateHistory(appliances, selectedYear, selectedMonth);
+  const measured = summarizeMonth(
+    energy.intervals,
+    appliances,
+    selectedYear,
+    selectedMonth,
+  );
+  const measuredMonths = new Map(
+    measuredByMonth(energy.intervals).map((row) => [row.month, row.consumptionKWh]),
+  );
+  const trend: TrendPoint[] = history.map((point, index) => {
+    const date = new Date(selectedYear, selectedMonth - 6 + index, 1);
+    return {
+      label: point.month,
+      estimated: point.consumption,
+      measured:
+        measuredMonths.get(monthKey(date.getFullYear(), date.getMonth() + 1)) ??
+        null,
+    };
+  });
+
   const years = Array.from(
     new Set([
       now.getFullYear(),
@@ -45,19 +116,135 @@ export default function Dashboard() {
   );
   const firstYear = Math.min(now.getFullYear() - 5, ...years);
   const lastYear = Math.max(now.getFullYear() + 1, ...years);
-  const periodLabel = new Date(
-    selectedYear,
-    selectedMonth - 1,
-    1,
-  ).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-  const measured = appliances.filter(
-    (appliance) => appliance.measuredConsumptionKWh > 0,
+  const yearOptions = Array.from(
+    { length: lastYear - firstYear + 1 },
+    (_, index) => lastYear - index,
   );
+  const periodLabel = monthName(selectedYear, selectedMonth);
+  const previousDate = new Date(selectedYear, selectedMonth - 2, 1);
+  const previousLabel = monthName(
+    previousDate.getFullYear(),
+    previousDate.getMonth() + 1,
+    "short",
+  ).replace(".", "");
+  const previousEstimate = history[history.length - 2]?.consumption ?? 0;
+  const change = percentChange(estimate.consumption, previousEstimate);
+  const topConsumer = [...estimate.rows].sort((a, b) => b.consumo - a.consumo)[0];
+  const imported = appliances.filter(
+    (appliance) => (appliance.measuredConsumptionKWh ?? 0) > 0,
+  );
+  const integrated = appliances.filter((appliance) => appliance.integrationDeviceId);
   const missingDates = appliances.filter(
     (appliance) => !Number.isFinite(new Date(appliance.createdAt).getTime()),
   ).length;
-  const selectClass =
-    "h-11 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  const monthsWithoutReading =
+    measuredMonths.size > 0
+      ? trend.filter((point) => point.measured === null).length
+      : 0;
+  const status: DataStatus = !measured
+    ? "estimated"
+    : measured.longGaps > 0 || !measured.costComplete || monthsWithoutReading > 0
+      ? "incomplete"
+      : "measured";
+  const isCurrentMonth =
+    selectedMonth === now.getMonth() + 1 && selectedYear === now.getFullYear();
+
+  const resetPeriod = () => {
+    setPeriod(now.getFullYear(), now.getMonth() + 1);
+  };
+
+  const insights: Insight[] = [];
+  if (topConsumer && estimate.consumption > 0) {
+    const appliance = appliances.find((item) => item.id === topConsumer.id);
+    const share = (topConsumer.consumo / estimate.consumption) * 100;
+    const rate = topConsumer.consumo > 0 ? topConsumer.custo / topConsumer.consumo : 0;
+    const hourSaving =
+      appliance && appliance.usageHours >= 1
+        ? ((appliance.power * Math.min(appliance.days, estimate.days)) / 1000) * rate
+        : 0;
+    insights.push({
+      id: "top",
+      icon: Zap,
+      tone: "neutral",
+      title: `${topConsumer.name} responde por ${formatNumber(share, 0)}% do consumo`,
+      body:
+        hourSaving > 0
+          ? `Usar 1 h a menos por dia economizaria cerca de ${formatCurrency(hourSaving)} no mês (estimativa).`
+          : "É o primeiro lugar para buscar economia.",
+    });
+  }
+  if (change !== null && Math.abs(change) >= 0.5) {
+    insights.push({
+      id: "change",
+      icon: change > 0 ? TrendingUp : TrendingDown,
+      tone: change > 0 ? "warning" : "positive",
+      title: `Projeção ${change > 0 ? "subiu" : "caiu"} ${formatNumber(Math.abs(change), 1)}% vs. ${previousLabel}`,
+      body: "Reflete aparelhos cadastrados e dias do mês, não leituras reais.",
+    });
+  }
+  if (measured) {
+    const measuredNames = new Set(measured.byAppliance.keys());
+    const comparable = estimate.rows
+      .filter((row) => measuredNames.has(row.name))
+      .reduce((sum, row) => sum + row.consumo, 0);
+    const measuredComparable = [...measured.byAppliance]
+      .filter(([name]) => estimate.rows.some((row) => row.name === name))
+      .reduce((sum, [, value]) => sum + value, 0);
+    const diff = percentChange(measuredComparable, comparable);
+    if (diff !== null)
+      insights.push({
+        id: "accuracy",
+        icon: Info,
+        tone: "neutral",
+        title: `Medido está ${formatNumber(Math.abs(diff), 0)}% ${diff >= 0 ? "acima" : "abaixo"} do estimado`,
+        body: "Comparação só entre aparelhos com medição neste mês. Ajuste o tempo de uso para aproximar a estimativa.",
+        action: { label: "Revisar aparelhos", to: "/aparelhos" },
+      });
+  } else if (integrated.length > 0) {
+    insights.push({
+      id: "no-reading",
+      icon: AlertTriangle,
+      tone: "warning",
+      title: "Sem leituras neste mês",
+      body: `${integrated.length} aparelho(s) integrado(s), mas nenhuma medição foi registrada no período.`,
+      action: { label: "Ver integrações", to: "/apps" },
+    });
+  } else if (appliances.length > 0) {
+    insights.push({
+      id: "connect",
+      icon: PlugZap,
+      tone: "neutral",
+      title: "Tudo aqui é estimativa",
+      body: "Conecte um medidor SmartThings para ver o consumo real ao lado da projeção.",
+      action: { label: "Conectar", to: "/apps" },
+    });
+  }
+  if ((measured?.longGaps ?? 0) > 0 || monthsWithoutReading > 0) {
+    insights.push({
+      id: "gaps",
+      icon: CalendarX,
+      tone: "warning",
+      title: "Há lacunas no histórico medido",
+      body: [
+        monthsWithoutReading > 0 && `${monthsWithoutReading} de 6 meses sem leitura.`,
+        (measured?.longGaps ?? 0) > 0 &&
+          `${measured!.longGaps} intervalo(s) acima de 2 h neste mês.`,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    });
+  }
+  if (missingDates > 0) {
+    insights.push({
+      id: "dates",
+      icon: AlertTriangle,
+      tone: "warning",
+      title: `${missingDates} aparelho(s) fora do cálculo`,
+      body: "Sem data de cadastro válida, não entram na estimativa por período.",
+      action: { label: "Corrigir", to: "/aparelhos" },
+    });
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -67,208 +254,124 @@ export default function Dashboard() {
           <Zap className="h-5 w-5 text-energy-green-light" />
           <span className="font-semibold">Visão geral</span>
         </header>
-        <main className="container mx-auto min-w-0 space-y-6 px-4 py-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Sua energia em resumo</h1>
-              <p className="mt-2 text-muted-foreground">
-                Acompanhe estimativas de gastos e os dados disponíveis dos seus
-                dispositivos.
-              </p>
-            </div>
-            <Button asChild className="h-11 shrink-0">
-              <Link to="/aparelhos?adicionar=1">
-                <Plus className="mr-2 h-4 w-4" />
-                Adicionar aparelho
-              </Link>
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="dashboard-month">Mês da estimativa</Label>
-              <select
-                id="dashboard-month"
-                className={selectClass}
-                value={selectedMonth}
-                onChange={(event) =>
-                  setSelectedMonth(Number(event.target.value))
-                }
-              >
-                {Array.from({ length: 12 }, (_, index) => (
-                  <option key={index} value={index + 1}>
-                    {new Date(2000, index, 1).toLocaleDateString("pt-BR", {
-                      month: "long",
-                    })}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="dashboard-year">Ano</Label>
-              <select
-                id="dashboard-year"
-                className={selectClass}
-                value={selectedYear}
-                onChange={(event) =>
-                  setSelectedYear(Number(event.target.value))
-                }
-              >
-                {Array.from(
-                  { length: lastYear - firstYear + 1 },
-                  (_, index) => lastYear - index,
-                ).map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button
-              variant="outline"
-              className="h-11"
-              onClick={() => {
-                setSelectedMonth(now.getMonth() + 1);
-                setSelectedYear(now.getFullYear());
-              }}
-            >
-              Mês atual
-            </Button>
-          </div>
-          <DataState loading={loading} error={error} onRetry={refetch} />
-          <EnergyHistoryPanel year={selectedYear} month={selectedMonth} appliances={appliances} />
-          {!loading && !error && (
+        <main className="container mx-auto min-w-0 max-w-7xl space-y-8 px-4 py-6 sm:py-8">
+          <SummaryHeader
+            month={selectedMonth}
+            year={selectedYear}
+            years={yearOptions}
+            periodLabel={periodLabel}
+            isCurrentMonth={isCurrentMonth}
+            refreshing={loading || energy.loading}
+            onChange={setPeriod}
+            onReset={resetPeriod}
+            onRefresh={() => {
+              refetch();
+              energy.refresh();
+            }}
+          />
+          {loading && appliances.length === 0 ? (
+            <SummarySkeleton />
+          ) : (
+            <DataState loading={false} error={error} onRetry={refetch} />
+          )}
+          {!error && !(loading && appliances.length === 0) && (
             <>
               {appliances.length === 0 ? (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Vamos começar?</CardTitle>
-                    <CardDescription>
-                      Cadastre seu primeiro aparelho para estimar o consumo ou
-                      conecte uma integração para importar dispositivos.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-3 sm:flex-row">
-                    <Button asChild className="h-11">
-                      <Link to="/aparelhos?adicionar=1">
-                        Cadastrar primeiro aparelho
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="h-11">
-                      <Link to="/apps">Conectar integração</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
+                <SummaryEmptyState />
+              ) : estimate.rows.length === 0 ? (
+                <section className="rounded-3xl border border-dashed bg-card p-8 text-center sm:p-12">
+                  <h2 className="text-xl font-semibold">
+                    Nenhum aparelho em <span className="capitalize">{periodLabel}</span>
+                  </h2>
+                  <p className="mx-auto mt-2 max-w-md text-muted-foreground">
+                    Seus aparelhos foram cadastrados depois deste mês. Escolha
+                    outro período ou adicione um aparelho com data anterior.
+                  </p>
+                  <Button variant="outline" className="mt-6 h-11" onClick={resetPeriod}>
+                    Voltar ao mês atual
+                  </Button>
+                </section>
               ) : (
                 <>
-                  <div className="space-y-2 rounded-lg border bg-muted/30 p-4 text-sm">
-                    <p className="font-medium">
-                      Estimativa mensal · {periodLabel}
+                  <EnergyHero
+                    periodLabel={periodLabel}
+                    days={estimate.days}
+                    consumption={estimate.consumption}
+                    cost={estimate.cost}
+                    change={change}
+                    previousLabel={previousLabel}
+                    topConsumer={topConsumer}
+                    applianceCount={estimate.rows.length}
+                    measured={measured}
+                    measuredLoading={energy.loading}
+                    measuredError={energy.error}
+                    status={status}
+                  />
+                  <EnergyInsights insights={insights.slice(0, 4)} />
+                  <div className="grid min-w-0 gap-6 lg:grid-cols-[1.6fr_1fr]">
+                    <ConsumptionTrendChart data={trend} />
+                    <ConsumptionDistribution
+                      rows={estimate.rows}
+                      total={estimate.consumption}
+                    />
+                  </div>
+                  <ApplianceRanking
+                    rows={estimate.rows}
+                    appliances={appliances}
+                    measuredByName={measured?.byAppliance ?? new Map()}
+                    total={estimate.consumption}
+                  />
+                </>
+              )}
+              {appliances.length > 0 && (
+                <MeasuredDetails measured={measured} imported={imported} />
+              )}
+              {appliances.length > 0 && (
+                <details className="group rounded-2xl border bg-muted/30 p-5 text-sm">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-medium">
+                    Como calculamos estes números
+                    <ChevronDown
+                      className="h-4 w-4 transition-transform group-open:rotate-180"
+                      aria-hidden="true"
+                    />
+                  </summary>
+                  <div className="mt-3 space-y-2 text-muted-foreground">
+                    <p>
+                      <strong className="text-foreground">Estimado:</strong>{" "}
+                      potência × horas de uso × dias de uso (limitados aos{" "}
+                      {estimate.days} dias do mês), com a tarifa cadastrada.
+                      Aparelhos cadastrados até o fim do período entram nos
+                      meses seguintes.
                     </p>
-                    <p className="text-muted-foreground">
-                      Usa a potência, o tempo de uso e a tarifa cadastrados
-                      atualmente, para um mês completo. Os dias de uso são
-                      limitados aos {estimate.days} dias deste mês. Aparelhos
-                      cadastrados até o fim do período continuam nos meses
-                      seguintes.
+                    <p>
+                      <strong className="text-foreground">Medido:</strong>{" "}
+                      diferença entre leituras acumuladas do medidor
+                      SmartThings, registradas quando o dispositivo é
+                      consultado. Leituras importadas não entram na estimativa.
                     </p>
-                    <p className="text-muted-foreground">
-                      Alterações ou exclusões de aparelhos podem mudar projeções
-                      de meses anteriores. Leituras importadas não entram nestas
-                      estimativas.
+                    <p>
+                      Alterar ou excluir aparelhos muda as projeções de meses
+                      anteriores.
                     </p>
                     {lastUpdated && (
-                      <p className="text-xs text-muted-foreground">
-                        Cadastro consultado em{" "}
-                        {lastUpdated.toLocaleString("pt-BR")}. Este horário não
-                        é o da medição dos dispositivos.
-                      </p>
-                    )}
-                    {missingDates > 0 && (
-                      <p>
-                        {missingDates} aparelho(s) sem data válida não puderam
-                        ser incluídos na estimativa por período.
+                      <p className="text-xs">
+                        Cadastro consultado em {lastUpdated.toLocaleString("pt-BR")}.
+                        Este horário não é o da medição dos dispositivos.
                       </p>
                     )}
                   </div>
-                  {estimate.rows.length > 0 ? (
-                    <ConsumptionTab
-                      totalConsumption={estimate.consumption}
-                      totalCost={estimate.cost}
-                      consumptionData={estimate.rows}
-                      selectedMonth={selectedMonth}
-                      selectedYear={selectedYear}
-                      historicalData={history}
-                    />
-                  ) : (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>
-                          Nenhum aparelho disponível neste período
-                        </CardTitle>
-                        <CardDescription>
-                          Não há aparelhos com cadastro válido até o fim de{" "}
-                          {periodLabel}. Selecione outro mês ou adicione um
-                          aparelho.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedMonth(now.getMonth() + 1);
-                            setSelectedYear(now.getFullYear());
-                          }}
-                        >
-                          Voltar ao mês atual
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  )}
-                  {measured.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-lg">
-                          Leituras importadas dos dispositivos
-                        </CardTitle>
-                        <CardDescription>
-                          Valores medidos pelo dispositivo e salvos na
-                          importação. O período e o horário de medição não foram
-                          informados; estas leituras não seguem o filtro mensal
-                          acima.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="divide-y">
-                          {measured.map((appliance) => (
-                            <li
-                              key={appliance.id}
-                              className="flex flex-wrap justify-between gap-2 py-3"
-                            >
-                              <span>
-                                {appliance.name}{" "}
-                                <span className="text-xs text-muted-foreground">
-                                  (
-                                  {appliance.integrationProvider ||
-                                    "Dispositivo"}
-                                  )
-                                </span>
-                              </span>
-                              <strong>
-                                {formatNumber(
-                                  appliance.measuredConsumptionKWh!,
-                                )}{" "}
-                                kWh
-                              </strong>
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
-                  )}
-                </>
+                </details>
               )}
               <IntegrationUsage appliances={appliances} />
             </>
+          )}
+          {!error && appliances.length > 0 && integrated.length === 0 && (
+            <p className="text-center text-xs text-muted-foreground">
+              Quer números reais?{" "}
+              <Link to="/apps" className="font-medium text-primary underline-offset-4 hover:underline dark:text-energy-400">
+                Conecte o SmartThings
+              </Link>
+            </p>
           )}
         </main>
       </SidebarInset>

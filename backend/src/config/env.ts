@@ -26,6 +26,14 @@ export const env = {
   allowedOrigins,
   trustProxy,
   smartThingsToken: process.env.SMARTTHINGS_TOKEN || "",
+  // OAuth-In SmartApp. All three must be set to offer "Entrar com Samsung".
+  smartThingsClientId: process.env.SMARTTHINGS_CLIENT_ID || "",
+  smartThingsClientSecret: process.env.SMARTTHINGS_CLIENT_SECRET || "",
+  smartThingsRedirectUri: process.env.SMARTTHINGS_REDIRECT_URI || "",
+  smartThingsAuthorizeUrl:
+    process.env.SMARTTHINGS_AUTHORIZE_URL || "https://api.smartthings.com/oauth/authorize",
+  smartThingsTokenUrl:
+    process.env.SMARTTHINGS_TOKEN_URL || "https://auth-global.api.smartthings.com/oauth/token",
   lgClientId: process.env.LG_CLIENT_ID || "",
   lgClientSecret: process.env.LG_CLIENT_SECRET || "",
   lgRefreshToken: process.env.LG_REFRESH_TOKEN || "",

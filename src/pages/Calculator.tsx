@@ -1,4 +1,3 @@
-import React, { useState, useEffect } from "react";
 import {
   AppSidebar,
   SidebarProvider,
@@ -8,9 +7,11 @@ import { SidebarInset } from "@/components/ui/sidebar";
 import CalculatorTab from "@/components/tabs/CalculatorTab";
 import { Calculator } from "lucide-react";
 import { useAppliances, ApplianceInput } from "@/hooks/useAppliances";
+import { estimateAppliance } from "@/lib/energy";
 
 const Calculadora = () => {
-  const { addAppliance } = useAppliances();
+  const { appliances, addAppliance } = useAppliances();
+  const householdCost = appliances.reduce((sum, appliance) => sum + estimateAppliance(appliance).cost, 0);
 
   async function handleAddAppliance(appliance: ApplianceInput): Promise<void> {
     await addAppliance(appliance);
@@ -19,19 +20,15 @@ const Calculadora = () => {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-energy-green-light rounded flex items-center justify-center">
-              <Calculator className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-semibold">Calculadora</span>
-          </div>
+      <SidebarInset className="min-w-0">
+        <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4">
+          <SidebarTrigger />
+          <Calculator className="h-5 w-5 text-energy-green-light" aria-hidden="true" />
+          <span className="font-semibold">Calculadora</span>
         </header>
-        <div className="flex flex-col min-h-screen bg-background dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-          <main className="flex-grow container mx-auto px-4 pt-6 pb-10">
-            <CalculatorTab onAddAppliance={handleAddAppliance} />
+        <div className="flex min-h-screen flex-col bg-background">
+          <main className="container mx-auto min-w-0 max-w-7xl flex-grow px-4 py-6 sm:py-8">
+            <CalculatorTab onAddAppliance={handleAddAppliance} householdCost={householdCost} />
           </main>
         </div>
       </SidebarInset>
