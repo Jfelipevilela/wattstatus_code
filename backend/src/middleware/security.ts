@@ -47,17 +47,18 @@ export class MongoRateLimitStore implements Store {
   constructor(private db: MongoDatabase, public prefix: string) {}
   init(options: { windowMs: number }) { this.windowMs = options.windowMs; }
   increment(key: string) {
-    const identity = createHmac("sha256", env.jwtSecret).update(key).digest("hex");
+    const identity = createHmac("sha256", env.jwtSecret).update(key || "unknown-client").digest("hex");
     return this.db.consumeRateLimit(this.prefix, identity, this.windowMs);
   }
   async decrement(_key: string) {}
   async resetKey(_key: string) {}
 }
+const clientIp = (req: Request) => req.ip || req.socket?.remoteAddress || "unknown-client";
 export const createRequestLimiter = (db: MongoDatabase, prefix: string, max: number, windowMs: number,
   keyGenerator?: (req: Request) => string) => rateLimit({
     store: new MongoRateLimitStore(db, prefix), windowMs, max,
     standardHeaders: true, legacyHeaders: false,
-    ...(keyGenerator ? { keyGenerator } : {}),
+    keyGenerator: keyGenerator || clientIp,
     handler: (_req, res) => {
       logger.warn("security.rate_limit_exceeded", { reason: "too_many_requests", limiter: prefix });
       res.status(429).json({ error: "Muitas tentativas. Aguarde e tente novamente." });
@@ -67,8 +68,8 @@ export const createAccountLimiter = (db: MongoDatabase) => createRequestLimiter(
   15 * 60 * 1000, (req) => {
     const email = typeof req.body?.email === "string" && req.body.email.length <= 254
       ? normalizeEmail(req.body.email) : "invalid";
-    return `${req.ip}:${email}`;
+    return `${clientIp(req)}:${email}`;
   });
 export const createDistributedAccountLimiter = (db: MongoDatabase) => createRequestLimiter(db, "auth-account", 50,
   15 * 60 * 1000, (req) => typeof req.body?.email === "string" && req.body.email.length <= 254
-    ? normalizeEmail(req.body.email) : `invalid:${req.ip}`);
+    ? normalizeEmail(req.body.email) : `invalid:${clientIp(req)}`);

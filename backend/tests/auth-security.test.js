@@ -16,6 +16,7 @@ const { hashPassword, verifyPassword } = require("../dist/modules/auth/password"
 const { MongoDatabase } = require("../dist/storage/mongo-db");
 const { env } = require("../dist/config/env");
 const { AUTH_COOKIE_NAME } = require("../dist/modules/auth/auth-security");
+const { MongoRateLimitStore } = require("../dist/middleware/security");
 const { logger } = require("../dist/logging/logger");
 for (const level of ["info", "warn", "error", "debug"]) logger[level] = () => {};
 
@@ -80,6 +81,17 @@ function client(handler, ip = "192.0.2.10") {
     refreshCsrf: async () => { const res = await request("GET", "/api/auth/csrf"); csrf = res.data.csrfToken; return res; },
   };
 }
+test("limitador aceita requisições serverless sem IP e mantém chave estável", async () => {
+  const db = memoryDatabase();
+  const handler = serverless(createApp({ db, integrationManager: new IntegrationManager() }));
+  const event = { httpMethod: "GET", path: "/api/health", headers: {},
+    requestContext: {}, isBase64Encoded: false };
+  assert.equal((await handler(event, {})).statusCode, 200);
+  assert.equal((await handler(event, {})).statusCode, 200);
+  assert.equal(db.limits.size, 1);
+  const store = new MongoRateLimitStore(db, "missing-key");
+  assert.equal((await store.increment(undefined)).totalHits, 1);
+});
 const registration = email => ({ name: "Test User", email,
   password: "Uma frase de teste segura!", confirmPassword: "Uma frase de teste segura!", acceptTerms: true });
 
