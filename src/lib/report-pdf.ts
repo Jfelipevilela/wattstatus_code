@@ -13,6 +13,8 @@ export interface PdfReportInput {
   month: string;
   year: string;
   issuedAt: string;
+  // What the report covers, e.g. "Casa de férias · Sala". Optional.
+  scope?: string;
   estimated: PdfReportRow[];
   measured: PdfReportRow[];
 }
@@ -100,7 +102,7 @@ export const createReportPdf = (input: PdfReportInput) => {
   pdf.text("Relatório de energia", margin, 40);
   font(11);
   ink([200, 200, 210]);
-  pdf.text(periodName(input.month, input.year), margin, 48);
+  pdf.text(input.scope ? `${periodName(input.month, input.year)} · ${input.scope}` : periodName(input.month, input.year), margin, 48);
   font(9);
   ink([160, 160, 175]);
   pdf.text(`Cliente: ${input.userName}`, width - margin, 40, { align: "right" });

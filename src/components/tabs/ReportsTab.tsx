@@ -23,6 +23,8 @@ import { toast } from "@/components/ui/use-toast";
 import type { Appliance } from "@/hooks/useAppliances";
 import { useAuth } from "@/hooks/useAuth";
 import { useEnergyHistory } from "@/hooks/useEnergyHistory";
+import { useProperties, usePropertyLayout } from "@/hooks/useProperties";
+import { appliancePropertyId } from "@/lib/property-energy";
 import { apiRequest } from "@/lib/api";
 import { measuredByDevice, summarizeMeasured } from "@/lib/measured";
 import {
@@ -53,11 +55,23 @@ interface ReportRow {
 
 type SortKey = "applianceName" | "consumption" | "cost";
 
-const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }) => {
+const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) => {
   const { user, token } = useAuth();
   const now = new Date();
   const [period, setPeriod] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
   const [selectedAppliance, setSelectedAppliance] = useState("all");
+  const [propertyId, setPropertyId] = useState("all");
+  const [roomId, setRoomId] = useState("all");
+  const { properties, primary } = useProperties();
+  const { rooms } = usePropertyLayout(propertyId === "all" ? undefined : propertyId);
+  const property = properties.find((item) => item.id === propertyId);
+  const room = rooms.find((item) => item.id === roomId);
+  // Scope chain: property > room > appliance. Each level narrows the previous.
+  const appliances = allAppliances.filter(
+    (item) =>
+      (propertyId === "all" || appliancePropertyId(item, primary?.id ?? null) === propertyId) &&
+      (roomId === "all" || (roomId === "none" ? !item.roomId : item.roomId === roomId)),
+  );
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "cost", desc: true });
   const [exporting, setExporting] = useState(false);
   const generatedAt = useRef(new Date());
@@ -105,15 +119,21 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }) => {
 
   const totalConsumption = rows.reduce((sum, item) => sum + item.consumption, 0);
   const totalCost = rows.reduce((sum, item) => sum + item.cost, 0);
-  const measuredRows = measuredByDevice(measured.intervals);
-  const measuredTotals = summarizeMeasured(measured.intervals);
+  // Measured readings follow where the appliance was when captured.
+  const scopedIntervals = measured.intervals.filter(
+    (item) =>
+      (propertyId === "all" || item.propertyId === propertyId) &&
+      (roomId === "all" || (roomId === "none" ? !item.roomId && !item.locationChanged : item.roomId === roomId)),
+  );
+  const measuredRows = measuredByDevice(scopedIntervals);
+  const measuredTotals = summarizeMeasured(scopedIntervals);
   const hasMeasured = measuredRows.length > 0;
   const nameOf = (applianceId: string | null, deviceId: string) =>
-    appliances.find((appliance) => appliance.id === applianceId)?.name || `Dispositivo ${deviceId}`;
+    allAppliances.find((appliance) => appliance.id === applianceId)?.name || `Dispositivo ${deviceId}`;
 
   useEffect(() => {
     generatedAt.current = new Date();
-    if (!measured.loading) recordReportEvent("generation_completed", { itemCount: rows.length + measured.intervals.length });
+    if (!measured.loading) recordReportEvent("generation_completed", { itemCount: rows.length + scopedIntervals.length });
     // Record once per finished period/filter load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [measured.loading, period, selectedAppliance]);
@@ -131,13 +151,14 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }) => {
     if (measured.error || (rows.length === 0 && !hasMeasured) || exporting) return;
     setExporting(true);
     const startedAt = Date.now();
-    const itemCount = rows.length + measured.intervals.length;
+    const itemCount = rows.length + scopedIntervals.length;
     recordReportEvent("export_started", { itemCount });
     try {
       const { createReportPdf } = await import("@/lib/report-pdf");
       const month = String(period.month).padStart(2, "0");
       const pdf = createReportPdf({
         userName: user?.name || "Usuário",
+        scope: scopeLabel,
         month,
         year: String(period.year),
         issuedAt: new Date().toLocaleString("pt-BR"),
@@ -167,6 +188,13 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }) => {
     }
   };
 
+  const scopeLabel = [
+    property?.name ?? (properties.length > 1 ? "Todos os imóveis" : null),
+    roomId === "none" ? "Sem ambiente" : room?.name,
+    selectedAppliance !== "all" ? allAppliances.find((item) => item.id === selectedAppliance)?.name : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const selectedName =
     selectedAppliance === "all" ? "Todos os aparelhos" : appliances.find((item) => item.id === selectedAppliance)?.name ?? "Aparelho";
   const canExport = !measured.loading && !measured.error && (rows.length > 0 || hasMeasured);
@@ -208,6 +236,44 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }) => {
               Mês atual
             </Button>
           )}
+          {properties.length > 0 && (
+            <select
+              aria-label="Imóvel"
+              value={propertyId}
+              onChange={(event) => {
+                setPropertyId(event.target.value);
+                setRoomId("all");
+                setSelectedAppliance("all");
+              }}
+              className="h-11 max-w-[12rem] rounded-full border bg-card px-4 text-sm font-medium shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="all">Todos os imóveis</option>
+              {properties.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {propertyId !== "all" && (
+            <select
+              aria-label="Ambiente"
+              value={roomId}
+              onChange={(event) => {
+                setRoomId(event.target.value);
+                setSelectedAppliance("all");
+              }}
+              className="h-11 max-w-[12rem] rounded-full border bg-card px-4 text-sm font-medium shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="all">Todos os ambientes</option>
+              {rooms.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+              <option value="none">Sem ambiente</option>
+            </select>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger className="flex h-11 max-w-[14rem] items-center gap-2 rounded-full border bg-card px-4 text-sm font-medium shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <span className="truncate">{selectedName}</span>
@@ -236,7 +302,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }) => {
             <div>
               <p className="font-semibold text-white">WattStatus · Relatório de energia</p>
               <p className="mt-1">
-                {user?.name || "Usuário"} · <span className="capitalize">{periodLabel}</span> · {selectedName}
+                {user?.name || "Usuário"} · <span className="capitalize">{periodLabel}</span> · {scopeLabel || selectedName}
               </p>
             </div>
             <p className="text-xs">Emitido em {generatedAt.current.toLocaleString("pt-BR")}</p>
