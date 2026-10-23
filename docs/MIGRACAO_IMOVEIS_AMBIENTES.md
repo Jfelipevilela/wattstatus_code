@@ -7,11 +7,26 @@
 - Nada é apagado. Tokens SmartThings, sessões, tarifas, estimativas e medições não são tocados.
 - Leituras medidas antigas continuam como estão (sem local). Só leituras novas recebem `propertyId`/`roomId`.
 
-## Migração automática e segura
+## Migração automática × script manual
 
-A aplicação já faz essa adaptação sozinha, por usuário, na primeira vez que ele lista aparelhos ou imóveis. É idempotente: um índice único parcial (`one_legacy_default_per_user`) impede dois imóveis padrão para o mesmo usuário, mesmo com requisições simultâneas, e a atribuição só alcança aparelhos sem `propertyId` daquele mesmo usuário.
+São o mesmo código (`PropertyService.ensureDefault`) chamado de dois lugares:
 
-Para aplicar a todos de uma vez (recomendado antes de divulgar a funcionalidade), use o script abaixo.
+| | Migração automática | Script `migrate-properties.cjs` |
+| --- | --- | --- |
+| Quando | No primeiro `GET /api/properties` ou `GET /api/appliances` de cada usuário | Quando um operador executa |
+| Alcance | Só aquele usuário | Todos os usuários |
+| Grava | Sim (só adiciona) | Só com `--apply`; padrão é simulação |
+| Backup | Não faz backup | Rode `mongodump` antes (passo 1) |
+
+A automática nunca apaga, renomeia ou altera campos existentes: cria o imóvel e o pavimento padrão e preenche `propertyId`/`roomId` apenas em aparelhos que ainda não têm imóvel. Por isso é segura no primeiro acesso, mas **grava**. Para homologar com backup antes de qualquer gravação, rode o script com `--apply` depois do backup e antes de liberar a versão aos usuários: a automática então não encontra nada a fazer.
+
+Proteções contra duplicação:
+
+- o imóvel padrão é inserido com `_id` fixo `legacy-default:<userId>`, que o MongoDB sempre mantém único, mesmo sem índices;
+- o índice único parcial `one_legacy_default_per_user` é uma segunda barreira;
+- a atribuição só alcança aparelhos do próprio usuário sem `propertyId`, então repetir nunca move nada já organizado.
+
+Testado com 8 primeiros acessos simultâneos num banco sem índices: um único imóvel.
 
 ## Passo a passo
 

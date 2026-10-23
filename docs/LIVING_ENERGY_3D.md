@@ -59,6 +59,16 @@ Validações: Zod em todos os corpos, limites de geometria (0–200 m de posiç�
 - **Tarifas:** cada aparelho guarda a sua tarifa. A tarifa do imóvel é a sugestão usada ao cadastrar ou importar aparelhos nele; a do perfil continua como último recurso. Valores por estado são de referência, não tarifas oficiais vigentes.
 - **Medido:** fica sempre separado do estimado e nunca é preenchido com estimativa.
 
+## Fuso horário
+
+Cada imóvel guarda um fuso IANA (padrão `America/Sao_Paulo`). `src/lib/timezone.ts` converte "mês X no fuso do imóvel" em instantes UTC, considerando horário de verão e dias cuja meia-noite não existe.
+
+- **Imóvel e ambiente:** "este mês", os limites da consulta de medições e os meses do gráfico usam o fuso do imóvel.
+- **Visão geral com um imóvel selecionado:** mesmo fuso do imóvel; a consulta busca um dia a mais em cada ponta e depois separa por mês, para não perder leituras de imóveis em outro fuso.
+- **Visão geral em "Todos os imóveis" e Relatórios:** continuam no fuso do navegador, como antes. Somar imóveis em fusos diferentes num único "mês" não tem um corte único correto.
+- **Intervalos que cruzam a virada do mês** entram no mês em que a leitura terminou (regra que já existia, agora aplicada no fuso escolhido).
+- **Dados antigos:** nada foi reprocessado. As leituras guardam instantes UTC; só a forma de agrupar por mês muda, e apenas nas telas de imóvel.
+
 ## Histórico ao mover aparelhos
 
 Cada nova leitura grava `propertyId` e `roomId` do aparelho naquele momento. Ao montar os intervalos:
@@ -83,8 +93,13 @@ As projeções dos meses anteriores continuam usando o cadastro atual e são rot
 
 A integração, a autenticação e a criptografia dos tokens não mudaram. Na importação o usuário escolhe imóvel e ambiente; o nome do cômodo na SmartThings só pré-seleciona um ambiente do WattStatus com o mesmo nome. A coleta programada continua opt-in e passa a gravar o local de cada leitura.
 
+## Tokens visuais
+
+`src/components/floorplan/tokens.ts` concentra as cores da planta (placa, paredes, seleção, ausência de dado, paleta dos ambientes, rampa do mapa de calor e marcadores). O 3D precisa de cores literais, então 2D e 3D leem dali. Para aplicar a identidade final, troque esses valores. O verde principal continua vindo de `--primary` e `energy-*` do Tailwind.
+
 ## Testes
 
 - `backend/tests/properties.test.cjs`: imóvel padrão idempotente (inclusive concorrente), layout determinístico, isolamento entre usuários, rotas HTTP com ids estrangeiros/malformados, totais por ambiente sem duplicar, exclusões preservando aparelhos, validação de geometria, movimentação de aparelhos, intervalos com mudança de local.
 - `backend/tests/mongo-properties.test.cjs` (requer `TEST_MONGO_URL` local): índice único do imóvel padrão sob concorrência, snapshot de local nas medições, filtro por ambiente, exclusão de ambiente sem perder medições.
-- `tests/property-energy.test.cjs`: soma ambientes + sem ambiente = imóvel, imóveis = total, medido separado, mapa de calor tratando ausência como desconhecido.
+- `tests/property-energy.test.cjs`: soma ambientes + sem ambiente = imóvel, imóveis = total, medido separado, mapa de calor tratando ausência como desconhecido, tipo de ambiente pelo nome e cores distintas.
+- `tests/timezone.test.cjs`: virada de mês em fusos diferentes, horário de verão de Nova York, meia-noite inexistente no Chile, Índia +5:30, intervalos que cruzam o mês, fuso inválido.

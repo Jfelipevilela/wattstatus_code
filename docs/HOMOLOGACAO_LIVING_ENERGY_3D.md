@@ -2,15 +2,24 @@
 
 Branch: `feature/living-energy-3d`. Nada foi enviado ao GitHub nem publicado.
 
-## Verificado automaticamente
+## Verificado automaticamente (revisão de 23/10/2026)
 
 | Verificação | Resultado |
 | --- | --- |
-| `npm run build` (frontend) | OK. Pacote 3D separado (`FloorPlan3D`, ~860 kB, ~230 kB gzip), carregado só ao abrir a vista 3D |
-| `npm test` (frontend) | 12 testes passam |
-| `TEST_MONGO_URL=mongodb://127.0.0.1:27017 npm test` (backend) | 47 testes passam, incluindo Mongo real |
-| Migração em banco descartável | Simulação, aplicação e reaplicação idempotente conferidas |
-| Navegador (Chrome sem interface, banco descartável) | Cadastro de usuário, 5 ambientes, 7 aparelhos e 2 imóveis via API; telas Meus imóveis, Planta 3D, seleção de ambiente, mapa de consumo, Planta 2D, edição, Consumo, Ambientes, celular (390 px), página do ambiente e Visão geral com filtro por imóvel. Nenhum erro de console além do 401 esperado antes do login |
+| Frontend `npm test` | 18 testes passam (inclui fuso horário e agregações) |
+| Backend `TEST_MONGO_URL=mongodb://127.0.0.1:27017 npm test` | 52 testes passam, incluindo Mongo real |
+| HEAD isolado (worktree sem alterações de terceiros) | `tsc`, testes e `vite build` OK |
+| Navegador — usuário antigo com 3 aparelhos sem imóvel | 1 imóvel padrão, 3 aparelhos atribuídos; recarregar não duplica |
+| Navegador — imóveis | Lista sem requisição por card; tema claro |
+| Navegador — 3D | Canvas renderiza, ambientes com cores distintas, marcadores dentro dos cômodos |
+| Navegador — teclado | Ambiente 2D recebe foco; Enter abre o painel |
+| Navegador — totais | Soma dos ambientes = total do imóvel; "Todos" = soma dos imóveis |
+| Navegador — erro de rede nas medições | Mostra "indisponível", não "sem medição" |
+| Navegador — celular 390 px | Toque no ambiente abre painel inferior; sem rolagem horizontal |
+| Navegador — sem WebGL | Planta 2D com aviso, sem canvas |
+| Navegador — erros de JavaScript | Nenhum |
+
+Desempenho medido localmente (Chrome sem interface com renderização por software, 10 ambientes e 20 aparelhos): Meus imóveis 0,9 s e 5 requisições; imóvel em 3D 0,9 s, 7 requisições e ~10 MB de memória JS; o pacote 3D tem ~230 kB gzip e só carrega na vista 3D. Valores de máquina local; servem como referência, não como meta de produção.
 
 ## Roteiro manual
 
@@ -55,4 +64,7 @@ Branch: `feature/living-energy-3d`. Nada foi enviado ao GitHub nem publicado.
 - Estimativas de meses anteriores usam o cadastro atual (comportamento já existente), sempre rotuladas como estimativa.
 - Leituras medidas de antes desta versão não têm local e não entram em totais por imóvel/ambiente; aparecem como "medidos antes do registro de localização".
 - O pacote 3D é grande (~230 kB gzip), mas só é baixado na vista 3D.
-- Endereço e fuso do imóvel são guardados, mas o fuso ainda não muda o corte dos meses (usa o fuso do navegador, como o restante do app).
+- Visão geral em "Todos os imóveis" e Relatórios usam o fuso do navegador; telas de imóvel usam o fuso do imóvel.
+- Excluir um imóvel mantém as leituras com o id antigo: elas continuam no total geral, mas não aparecem em nenhum imóvel.
+- Ao estourar o limite global da API (120 requisições/min por IP), o app trata o `429` em `/api/auth/me` como sessão perdida e volta ao login. Comportamento anterior a esta funcionalidade; vale tratar antes de abrir para muitos usuários atrás do mesmo IP.
+- Sem uma tela de usuário "sem imóveis": todo usuário recebe o imóvel padrão no primeiro acesso.
