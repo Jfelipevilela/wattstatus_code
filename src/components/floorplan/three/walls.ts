@@ -42,8 +42,20 @@ const intersect = (a: Interval, b: Interval): Interval | null => {
   return e - s > EPS ? [s, e] : null;
 };
 
-export const buildWalls = (rooms: RoomLayout[]): WallSegment[] => {
+// Openings cut into interior walls (doors), as segments on the wall line.
+export interface WallOpening {
+  x1: number;
+  z1: number;
+  x2: number;
+  z2: number;
+}
+
+export const buildWalls = (rooms: RoomLayout[], openings: WallOpening[] = []): WallSegment[] => {
   const walls: WallSegment[] = [];
+  const cutsOn = (vertical: boolean, line: number): Interval[] =>
+    openings
+      .filter((o) => (vertical ? Math.abs(o.x1 - line) < EPS && Math.abs(o.x2 - line) < EPS : Math.abs(o.z1 - line) < EPS && Math.abs(o.z2 - line) < EPS))
+      .map((o) => (vertical ? [Math.min(o.z1, o.z2), Math.max(o.z1, o.z2)] : [Math.min(o.x1, o.x2), Math.max(o.x1, o.x2)]) as Interval);
   rooms.forEach((room, index) => {
     const others = rooms.filter((_, other) => other !== index);
     const xSpan: Interval = [room.x, room.x + room.width];
@@ -56,7 +68,7 @@ export const buildWalls = (rooms: RoomLayout[]): WallSegment[] => {
       .filter((n) => Math.abs(n.x + n.width - room.x) < EPS)
       .map((n) => intersect(zSpan, [n.y, n.y + n.depth]))
       .filter((part): part is Interval => part !== null);
-    for (const [s, e] of westShared) walls.push({ x1: room.x, z1: s, x2: room.x, z2: e, kind: "interior" });
+    for (const [s, e] of westShared.flatMap((part) => subtract(part, cutsOn(true, room.x)))) walls.push({ x1: room.x, z1: s, x2: room.x, z2: e, kind: "interior" });
     for (const [s, e] of subtract(zSpan, westShared)) walls.push({ x1: room.x, z1: s, x2: room.x, z2: e, kind: "exterior" });
 
     // North (back) side.
@@ -64,7 +76,7 @@ export const buildWalls = (rooms: RoomLayout[]): WallSegment[] => {
       .filter((n) => Math.abs(n.y + n.depth - room.y) < EPS)
       .map((n) => intersect(xSpan, [n.x, n.x + n.width]))
       .filter((part): part is Interval => part !== null);
-    for (const [s, e] of northShared) walls.push({ x1: s, z1: room.y, x2: e, z2: room.y, kind: "interior" });
+    for (const [s, e] of northShared.flatMap((part) => subtract(part, cutsOn(false, room.y)))) walls.push({ x1: s, z1: room.y, x2: e, z2: room.y, kind: "interior" });
     for (const [s, e] of subtract(xSpan, northShared)) walls.push({ x1: s, z1: room.y, x2: e, z2: room.y, kind: "exterior" });
 
     // East and south (front) sides: only where no neighbour's back side is.

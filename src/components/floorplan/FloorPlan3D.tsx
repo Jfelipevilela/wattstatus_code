@@ -13,8 +13,9 @@ import type { Room } from "@/types/property";
 import { heatColor, heatScale, metricValue } from "./heat";
 import { PLAN_TOKENS } from "./tokens";
 import type { FloorPlanProps } from "./FloorPlan2D";
-import { buildWalls, wallBox, WALL_HEIGHTS, type WallKind } from "./three/walls";
+import { buildWalls, wallBox, WALL_HEIGHTS, WALL_THICKNESS, type WallKind } from "./three/walls";
 import { furnitureFor, type FurniturePiece } from "./three/furniture";
+import { planDoors } from "./three/doors";
 import { placeAppliances } from "./three/applianceModels";
 import { easeInOutCubic, groupUnits, planTransition, TIMING, unitAt, type RoomPhase } from "./three/assembly";
 import {
@@ -513,8 +514,13 @@ export default function FloorPlan3D({
     // layoutKey captures every layout change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layoutKey]);
+  const doors = useMemo(
+    () => planDoors(placed.map((room) => ({ id: room.id, type: room.type, name: room.name, layout: room.layout! }))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [layoutKey],
+  );
   const walls = useMemo(
-    () => buildWalls(placed.map((room) => room.layout!)).sort((a, b) => WALL_ORDER.indexOf(a.kind) - WALL_ORDER.indexOf(b.kind)),
+    () => buildWalls(placed.map((room) => room.layout!), doors).sort((a, b) => WALL_ORDER.indexOf(a.kind) - WALL_ORDER.indexOf(b.kind)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [layoutKey],
   );
@@ -660,6 +666,28 @@ export default function FloorPlan3D({
           );
         })}
 
+        {/* Door leaves stand open against the room they swing into. */}
+        {doors
+          .filter((door) => door.leaf)
+          .map((door) => {
+            const vertical = Math.abs(door.x1 - door.x2) < 1e-6;
+            const length = Math.abs(vertical ? door.z2 - door.z1 : door.x2 - door.x1) - 0.12;
+            const height = WALL_HEIGHTS.interior + 0.15;
+            return (
+              <mesh
+                key={`${door.x1},${door.z1},${door.x2},${door.z2}`}
+                raycast={noRaycast}
+                geometry={geometries.box}
+                material={furnitureMaterial("wood", false)}
+                position={
+                  vertical
+                    ? [door.x1 + WALL_THICKNESS / 2 + length / 2, FLOOR_THICKNESS + height / 2, door.z1 + 0.08]
+                    : [door.x1 + 0.08, FLOOR_THICKNESS + height / 2, door.z1 + WALL_THICKNESS / 2 + length / 2]
+                }
+                scale={vertical ? [length, height, 0.04] : [0.04, height, length]}
+              />
+            );
+          })}
         {walls.map((wall, index) => {
           const { position, size } = wallBox(wall);
           return (
