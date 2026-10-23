@@ -208,15 +208,21 @@ test('every registered appliance gets a model that fits the room without collisi
       const placed = placeAppliances(appliances, decor, w, d);
       assert.equal(placed.length, appliances.length);
       const decorUnits = [...new Set(decor.map((p) => p.key.split('/')[0]))].map((id) => unitBox(decor.filter((p) => p.key.startsWith(`${id}/`))));
-      const models = placed.filter((item) => item.pieces.length).map((item) => unitBox(item.pieces));
-      for (const model of models) {
-        assert.ok(model.x0 >= margin - 1e-6 && model.x1 <= w - margin + 1e-6 && model.z0 >= margin - 1e-6 && model.z1 <= d - margin + 1e-6, `${type} ${w}x${d} inside walls`);
-        for (const unit of decorUnits) {
-          if (unit.y1 - unit.y0 < 0.05) continue; // rugs
-          assert.ok(!intersects(model, unit), `${type} ${w}x${d} appliance crosses furniture`);
+      // Each appliance part is checked on its own: a wall unit and its panel
+      // are separate solids, so a low object may stand in front of the panel.
+      const models = placed.filter((item) => item.pieces.length).map((item) => item.pieces.map(box));
+      for (const parts of models) {
+        for (const part of parts) {
+          assert.ok(part.x0 >= margin - 1e-6 && part.x1 <= w - margin + 1e-6 && part.z0 >= margin - 1e-6 && part.z1 <= d - margin + 1e-6, `${type} ${w}x${d} inside walls`);
+          for (const unit of decorUnits) {
+            if (unit.y1 - unit.y0 < 0.05) continue; // rugs
+            assert.ok(!intersects(part, unit), `${type} ${w}x${d} appliance crosses furniture`);
+          }
         }
       }
-      models.forEach((a, i) => models.slice(i + 1).forEach((b) => assert.ok(!intersects(a, b), `${type} ${w}x${d} appliances overlap`)));
+      models.forEach((a, i) =>
+        models.slice(i + 1).forEach((b) => a.forEach((pa) => b.forEach((pb) => assert.ok(!intersects(pa, pb), `${type} ${w}x${d} appliances overlap`)))),
+      );
       // Same input, same layout.
       assert.deepEqual(placeAppliances(appliances, decor, w, d), placed);
     }
@@ -236,4 +242,21 @@ test('decoration stands in for a matching appliance instead of a duplicate', () 
   const tiny = placeAppliances([{ id: 'g', name: 'Geladeira' }], [], 0.6, 0.6);
   assert.equal(tiny[0].pieces.length, 0);
   assert.equal(tiny[0].badge, null, 'no room: badge only, nothing through the walls');
+});
+
+test('wall-mounted A/C sits within the wall height, on a wall panel, never floating', () => {
+  const { placeAppliances } = load('components/floorplan/three/applianceModels.ts');
+  const { WALL_HEIGHTS } = load('components/floorplan/three/walls.ts');
+  const top = (pieces) => Math.max(...pieces.map((p) => p.y + p.size[1] / 2));
+  for (const name of ['Ar-condicionado', 'Chuveiro elétrico', 'Carregador carro']) {
+    const [item] = placeAppliances([{ id: 'x', name }], [], 4, 4);
+    assert.ok(top(item.pieces) <= WALL_HEIGHTS.exterior + 1e-6, `${name} below the wall top`);
+    const panel = item.pieces.find((p) => p.key.endsWith('/wall-panel'));
+    assert.ok(panel && panel.y - panel.size[1] / 2 === 0, `${name} has a panel down to the floor`);
+  }
+  // The decorative bedroom A/C follows the same rule.
+  const decor = furnitureFor('bedroom', 4, 4).filter((p) => p.key.startsWith('bedroom-wall-ac/'));
+  assert.ok(decor.length >= 3);
+  assert.ok(top(decor) <= WALL_HEIGHTS.exterior + 1e-6);
+  assert.ok(decor.some((p) => p.key.endsWith('/wall-panel')));
 });

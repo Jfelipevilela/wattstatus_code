@@ -57,8 +57,14 @@ const DECOR_ANCHOR: Partial<Record<ApplianceKind, string>> = {
   washer: "washer",
 };
 
-// Wall models stay above 0.9 m so they never reach floor furniture below.
+// Wall models sit below the model's wall height (1.05 m) and get a wall
+// panel behind them, so they read as fixed to the wall even where the wall
+// between two rooms is lower.
 type Mount = "floor" | "wall";
+const PANEL_THICKNESS = 0.05;
+const PANEL_HEIGHT = 1.05;
+// Below half the spacing between models, so neighbouring panels never meet.
+const PANEL_MARGIN = 0.03;
 interface Part {
   name: string;
   x: number; // min corner, relative to the model footprint
@@ -83,32 +89,33 @@ const MODELS: Record<ApplianceKind, Model> = {
   ac: {
     mount: "wall",
     w: 0.92,
-    d: 0.26,
-    top: 1.7,
+    d: 0.24,
+    top: 1.3,
     parts: [
-      { name: "unit", x: 0, z: 0, w: 0.92, d: 0.24, h: 0.28, y0: 1.36, finish: "white" },
-      { name: "vent", x: 0.07, z: 0.235, w: 0.78, d: 0.015, h: 0.035, y0: 1.39, finish: "dark" },
+      { name: "unit", x: 0, z: 0, w: 0.92, d: 0.22, h: 0.26, y0: 0.72, finish: "white" },
+      { name: "louver", x: 0.06, z: 0.215, w: 0.8, d: 0.02, h: 0.04, y0: 0.74, finish: "dark" },
+      { name: "display", x: 0.72, z: 0.215, w: 0.1, d: 0.012, h: 0.03, y0: 0.88, finish: "accent" },
     ],
   },
   charger: {
     mount: "wall",
     w: 0.32,
     d: 0.16,
-    top: 1.45,
+    top: 1.2,
     parts: [
-      { name: "box", x: 0, z: 0, w: 0.32, d: 0.14, h: 0.42, y0: 0.9, finish: "white" },
-      { name: "led", x: 0.12, z: 0.14, w: 0.08, d: 0.012, h: 0.02, y0: 1.2, finish: "accent" },
+      { name: "box", x: 0, z: 0, w: 0.32, d: 0.14, h: 0.38, y0: 0.55, finish: "white" },
+      { name: "led", x: 0.12, z: 0.14, w: 0.08, d: 0.012, h: 0.02, y0: 0.82, finish: "accent" },
     ],
   },
   shower: {
     mount: "wall",
     w: 0.4,
     d: 0.32,
-    top: 2.15,
+    top: 1.35,
     parts: [
-      { name: "pipe", x: 0.17, z: 0.0, w: 0.05, d: 0.05, h: 0.8, y0: 1.2, finish: "metal", shape: "cylinder" },
-      { name: "arm", x: 0.17, z: 0.0, w: 0.05, d: 0.28, h: 0.04, y0: 1.98, finish: "metal" },
-      { name: "head", x: 0.05, z: 0.1, w: 0.3, d: 0.22, h: 0.06, y0: 1.92, finish: "metal", shape: "cylinder" },
+      { name: "pipe", x: 0.17, z: 0.0, w: 0.05, d: 0.05, h: 0.45, y0: 0.55, finish: "metal", shape: "cylinder" },
+      { name: "arm", x: 0.17, z: 0.0, w: 0.05, d: 0.28, h: 0.04, y0: 0.98, finish: "metal" },
+      { name: "head", x: 0.05, z: 0.1, w: 0.3, d: 0.22, h: 0.06, y0: 0.92, finish: "metal", shape: "cylinder" },
     ],
   },
   tv: {
@@ -351,7 +358,29 @@ export const placeAppliances = (
       continue;
     }
     taken.push(spot);
-    const pieces = model.parts.map((part) => ({
+    // Behind wall models, against the wall's inner face, slightly wider than
+    // the model but never past the side walls.
+    const panelX0 = Math.max(WALL_THICKNESS / 2, spot.x - PANEL_MARGIN);
+    const panelX1 = Math.min(width - WALL_THICKNESS / 2, spot.x + model.w + PANEL_MARGIN);
+    if (model.mount === "wall") {
+      taken.push({ x: panelX0, z: spot.z - PANEL_THICKNESS, w: panelX1 - panelX0, d: PANEL_THICKNESS, y0: 0, y1: PANEL_HEIGHT });
+    }
+    const parts =
+      model.mount === "wall"
+        ? [
+            ...model.parts,
+            {
+              name: "wall-panel",
+              x: panelX0 - spot.x,
+              z: -PANEL_THICKNESS,
+              w: panelX1 - panelX0,
+              d: PANEL_THICKNESS,
+              h: PANEL_HEIGHT,
+              finish: "white" as const,
+            },
+          ]
+        : model.parts;
+    const pieces = parts.map((part) => ({
       key: `appliance-${appliance.id}/${part.name}`,
       shape: part.shape ?? "box",
       x: spot!.x + part.x + part.w / 2,
