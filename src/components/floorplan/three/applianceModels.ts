@@ -1,4 +1,7 @@
 import type { FurnitureFinish, FurniturePiece } from "./furniture";
+import { AirVent, Bath, Cpu, Fan, Flame, Lightbulb, Microwave, Monitor, Refrigerator, Tv, WashingMachine } from "lucide-react";
+import { applianceVisual } from "@/components/appliances/applianceVisual";
+import { normalizeSearch } from "@/lib/energy";
 import { WALL_THICKNESS } from "./walls";
 
 // 3D models for the user's registered appliances. Unlike decorative
@@ -45,8 +48,36 @@ const KIND_RULES: Array<[RegExp, ApplianceKind]> = [
 
 const normalize = (name: string) => name.toLowerCase().normalize("NFC");
 
-export const applianceKind = (name: string): ApplianceKind =>
-  KIND_RULES.find(([pattern]) => pattern.test(normalize(name)))?.[1] ?? "generic";
+// Extra spellings seen in real records ("Arcondicionado", "Split 12000 BTUs").
+const EXTRA_RULES: Array<[RegExp, ApplianceKind]> = [[/\bbtu|\binverter\b|\ba\/c\b|\bac\b|arcondicionado/, "ac"]];
+
+// The badge icon comes from applianceVisual; when the name rules above do not
+// recognise an appliance, the icon's category decides, so the model always
+// matches the icon the user sees.
+const ICON_KIND = new Map<unknown, ApplianceKind>([
+  [AirVent, "ac"],
+  [Tv, "tv"],
+  [Refrigerator, "fridge"],
+  [Bath, "shower"],
+  [WashingMachine, "washer"],
+  [Microwave, "microwave"],
+  [Flame, "oven"],
+  [Lightbulb, "lamp"],
+  [Fan, "fan"],
+  [Cpu, "computer"],
+  [Monitor, "computer"],
+]);
+
+export const applianceKind = (name: string): ApplianceKind => {
+  const text = normalize(name);
+  const plain = normalizeSearch(name);
+  return (
+    KIND_RULES.find(([pattern]) => pattern.test(text) || pattern.test(plain))?.[1] ??
+    EXTRA_RULES.find(([pattern]) => pattern.test(plain))?.[1] ??
+    ICON_KIND.get(applianceVisual(name).icon) ??
+    "generic"
+  );
+};
 
 // Decorative furniture that already represents a kind (see furniture.ts anchors).
 const DECOR_ANCHOR: Partial<Record<ApplianceKind, string>> = {

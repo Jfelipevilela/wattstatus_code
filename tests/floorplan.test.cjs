@@ -14,7 +14,11 @@ const load = (relative) => {
   loaded.filename = filename;
   loaded.paths = Module._nodeModulePaths(path.dirname(filename));
   const parentRequire = loaded.require.bind(loaded);
-  loaded.require = (request) => (request.startsWith('./') ? load(`${path.join(path.dirname(relative), request)}.ts`) : parentRequire(request));
+  loaded.require = (request) => {
+    if (request.startsWith('@/')) return load(`${request.slice(2)}.ts`);
+    if (request.startsWith('./')) return load(`${path.join(path.dirname(relative), request)}.ts`);
+    return parentRequire(request);
+  };
   loaded._compile(compiled, filename);
   return loaded.exports;
 };
@@ -259,4 +263,13 @@ test('wall-mounted A/C sits within the wall height, on a wall panel, never float
   assert.ok(decor.length >= 3);
   assert.ok(top(decor) <= WALL_HEIGHTS.exterior + 1e-6);
   assert.ok(decor.some((p) => p.key.endsWith('/wall-panel')));
+});
+
+test('the 3D model always matches the badge icon, whatever the spelling', () => {
+  const { applianceKind } = load('components/floorplan/three/applianceModels.ts');
+  for (const name of ['Arcondicionado', 'AR CONDICIONADO', 'Ar condicionado sala', 'Split 12000 BTUs', 'Inverter LG', 'A/C quarto', 'Climatizador'])
+    assert.equal(applianceKind(name), 'ac', name);
+  assert.equal(applianceKind('Lâmpada LED'), 'lamp');
+  assert.equal(applianceKind('Monitor gamer'), 'computer');
+  assert.equal(applianceKind('Aspirador'), 'generic');
 });
