@@ -4,7 +4,7 @@ Branch: `fix/audit-wattstatus-2026`. Sem merge, deploy ou validação com hardwa
 
 ## Dependências
 
-`npm audit --json` antes: 27 (18 altas, 7 moderadas, 2 baixas). Após `npm audit fix` sem `--force`, atualização Vite 8 e remoção de `lovable-tagger` incompatível com Vite 8: 8 (5 altas, 3 moderadas). Backend: 0. O tagger atuava só no modo de desenvolvimento e não integra a aplicação ou artefato de produção. Node 22.16.0 foi fixado em `.nvmrc` para satisfazer Vite 8.
+`npm audit --json` antes: 27 (18 altas, 7 moderadas, 2 baixas). Após `npm audit fix` sem `--force`, atualização Vite 8 e remoção de `lovable-tagger` incompatível com Vite 8: 8 (5 altas, 3 moderadas). Backend: 0. `tailwindcss-animate` foi classificado como dependência de desenvolvimento porque só participa da geração do CSS; a auditoria completa continua mostrando os 8 alertas. O tagger atuava só no modo de desenvolvimento e não integra a aplicação ou artefato de produção. Node 22.16.0 foi fixado em `.nvmrc` para satisfazer Vite 8.
 
 | Cadeia e aviso | Antes | Depois | Impacto no WattStatus e correção |
 |---|---|---|---|
