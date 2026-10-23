@@ -4,25 +4,25 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/hooks/use-theme";
-import Index from "./pages/Index";
-import Dashboard from "./pages/Dashboard";
-import Sobre from "./pages/Sobre";
-import Login from "./pages/Login";
-import SignUp from "./pages/SignUp";
-import NotFound from "./pages/NotFound";
-import Consumption from "./pages/Consumption";
-import Reports from "./pages/Reports";
-import Calculadora from "./pages/Calculator";
-import Appliances from "./pages/Appliances";
-import Anomalies from "./pages/Anomalies";
-import Tips from "./pages/Tips";
-import SmartThings from "./pages/SmartThings";
-import Apps from "./pages/Apps";
+import { lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { AppsProvider } from "./hooks/useApps";
 import { UserPreferencesProvider } from "./hooks/useUserPreferences";
 
 const queryClient = new QueryClient();
+const Index = lazy(() => import("./pages/Index"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Sobre = lazy(() => import("./pages/Sobre"));
+const Login = lazy(() => import("./pages/Login"));
+const SignUp = lazy(() => import("./pages/SignUp"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Reports = lazy(() => import("./pages/Reports"));
+const Calculadora = lazy(() => import("./pages/Calculator"));
+const Appliances = lazy(() => import("./pages/Appliances"));
+const Anomalies = lazy(() => import("./pages/Anomalies"));
+const Tips = lazy(() => import("./pages/Tips"));
+const SmartThings = lazy(() => import("./pages/SmartThings"));
+const Apps = lazy(() => import("./pages/Apps"));
 
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -43,6 +43,7 @@ const App = () => (
               <Toaster />
               <Sonner />
               <BrowserRouter>
+                <Suspense fallback={<div className="p-8 text-center text-sm" role="status">Carregando página…</div>}>
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/login" element={<Login />} />
@@ -115,6 +116,7 @@ const App = () => (
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                </Suspense>
               </BrowserRouter>
             </TooltipProvider>
           </ThemeProvider>

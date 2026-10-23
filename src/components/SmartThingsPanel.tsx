@@ -180,7 +180,6 @@ const SmartThingsPanel: React.FC = () => {
           ).catch(() => null)
         )
       );
-      console.log("Fetched SmartThings device statuses:", statusList);
       const map: Record<string, DeviceStatus> = {};
       statusList.forEach((item, idx) => {
         if (item?.status) {
@@ -197,7 +196,7 @@ const SmartThingsPanel: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [token, hasToken, user]);
+  }, [token, user]);
 
   useEffect(() => {
     fetchDevices();
