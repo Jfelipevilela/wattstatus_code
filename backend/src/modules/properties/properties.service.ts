@@ -37,7 +37,8 @@ export interface PropertyRepository {
 
 export const DEFAULT_PROPERTY_NAME = "Meu imóvel";
 export const DEFAULT_FLOOR_NAME = "Térreo";
-const PLAN_WIDTH = 24;
+// Rows wrap at 12 m so auto-placed rooms form a compact, house-like block.
+const PLAN_WIDTH = 12;
 
 const ROOM_SIZES: Record<string, [number, number]> = {
   living: [6, 5],
