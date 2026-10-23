@@ -88,7 +88,25 @@ const SmartThingsPanel: React.FC = () => {
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
   const [statuses, setStatuses] = useState<Record<string, DeviceStatus>>({});
   const [loading, setLoading] = useState(false);
+  const fetchingDevices = React.useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [collectionEnabled, setCollectionEnabled] = useState(false);
+  const [savingCollection, setSavingCollection] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    apiRequest<{ settings: { energyCollectionEnabled?: boolean } }>("/api/user-settings", { skipErrorToast: true }, token || undefined)
+      .then(({ settings }) => setCollectionEnabled(settings.energyCollectionEnabled === true))
+      .catch(() => setCollectionEnabled(false));
+  }, [user, token]);
+  const toggleCollection = async () => {
+    setSavingCollection(true);
+    try {
+      const next = !collectionEnabled;
+      await apiRequest("/api/user-settings", { method: "PUT", body: JSON.stringify({ energyCollectionEnabled: next }) }, token || undefined);
+      setCollectionEnabled(next);
+    } catch (err) { notifyError(err, { title: "Falha ao alterar coleta" }); }
+    finally { setSavingCollection(false); }
+  };
   const [onTimes, setOnTimes] = useState<
     Record<
       string,
@@ -161,7 +179,8 @@ const SmartThingsPanel: React.FC = () => {
   }, [token, user]);
 
   const fetchDevices = useCallback(async () => {
-    if (!user) return;
+    if (!user || fetchingDevices.current) return;
+    fetchingDevices.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -171,15 +190,17 @@ const SmartThingsPanel: React.FC = () => {
         token || undefined
       );
       setDevices(data.devices);
-      const statusList = await Promise.all(
-        data.devices.map((d) =>
+      const statusList: Array<{ status: DeviceStatus } | null> = [];
+      for (let index = 0; index < data.devices.length; index += 3) {
+        const batch = await Promise.all(data.devices.slice(index, index + 3).map((d) =>
           apiRequest<{ status: DeviceStatus }>(
             `/api/integrations/smartthings/devices/${d.id}/status`,
             { method: "GET", skipErrorToast: true },
             token || undefined
           ).catch(() => null)
-        )
-      );
+        ));
+        statusList.push(...batch);
+      }
       const map: Record<string, DeviceStatus> = {};
       statusList.forEach((item, idx) => {
         if (item?.status) {
@@ -195,6 +216,7 @@ const SmartThingsPanel: React.FC = () => {
       setError(message);
     } finally {
       setLoading(false);
+      fetchingDevices.current = false;
     }
   }, [token, user]);
 
@@ -205,7 +227,7 @@ const SmartThingsPanel: React.FC = () => {
   useEffect(() => {
     const id = setInterval(() => {
       fetchDevices();
-    }, 60000);
+    }, 300000);
     return () => clearInterval(id);
   }, [fetchDevices]);
 
@@ -534,6 +556,12 @@ const SmartThingsPanel: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
+        <div className="rounded-md border p-3 text-sm">
+          <p>Coleta periÃ³dica dos aparelhos importados com medidor compatÃ­vel. Leituras acumuladas geram intervalos; lacunas nÃ£o sÃ£o preenchidas.</p>
+          <Button className="mt-2" variant="outline" disabled={savingCollection} onClick={toggleCollection}>
+            {collectionEnabled ? "Desativar coleta periÃ³dica" : "Ativar coleta periÃ³dica"}
+          </Button>
+        </div>
         {error && (
           <div className="mb-4 text-sm text-red-600 dark:text-red-400">
             {error}

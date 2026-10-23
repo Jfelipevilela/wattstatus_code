@@ -27,6 +27,7 @@ type SettingsDoc = {
   historicalData?: Array<{ month: string; consumption: number; cost: number }>;
   tariffState?: string;
   tariffValue?: number;
+  energyCollectionEnabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -65,6 +66,8 @@ export class MongoDatabase {
     await this.db.collection("energy_samples").createIndex({ userId: 1, provider: 1, deviceId: 1, capturedAt: -1 });
     await this.db.collection("sessions").createIndex({ id: 1 }, { unique: true });
     await this.db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    await this.db.collection("appliances").createIndex({ integrationProvider: 1, id: 1 });
+    await this.db.collection("energy_collection").createIndex({ key: 1 }, { unique: true });
   }
 
   async close() {
@@ -130,6 +133,39 @@ export class MongoDatabase {
     ));
     const intervals = toEnergyIntervals([...preceding.flatMap((item) => item ? [item] : []), ...current]);
     return intervals.filter((item) => new Date(item.endAt) >= start && new Date(item.endAt) < end && (!applianceId || item.applianceId === applianceId));
+  }
+
+  async claimEnergyCollection(now: Date, leaseMs: number) {
+    const candidates = await this.appliances().find({ integrationProvider: "smartthings", integrationDeviceId: { $type: "string" } })
+      .project<Pick<ApplianceRecord, "id" | "userId" | "integrationDeviceId">>({ id: 1, userId: 1, integrationDeviceId: 1, _id: 0 })
+      .limit(200).toArray();
+    for (const appliance of candidates) {
+      const settings = await this.getUserSettings(appliance.userId);
+      if (!settings.energyCollectionEnabled) continue;
+      const key = `${appliance.userId}:smartthings:${appliance.integrationDeviceId}`;
+      const collection = this.db.collection("energy_collection");
+      try {
+        const row = await collection.findOneAndUpdate(
+          { key, nextAt: { $lte: now }, leaseUntil: { $lte: now } },
+          { $set: { leaseUntil: new Date(now.getTime() + leaseMs) } },
+          { returnDocument: "after" }
+        );
+        if (row) return { appliance, key };
+        await collection.insertOne({ key, nextAt: new Date(0), leaseUntil: new Date(now.getTime() + leaseMs), failures: 0 });
+        return { appliance, key };
+      } catch (error) {
+        if (!(error && typeof error === "object" && "code" in error && error.code === 11000)) throw error;
+      }
+    }
+    return null;
+  }
+
+  async finishEnergyCollection(key: string, now: Date, intervalMs: number, success: boolean) {
+    const collection = this.db.collection("energy_collection");
+    const row = await collection.findOne({ key });
+    const failures = success ? 0 : Math.min(6, Number(row?.failures ?? 0) + 1);
+    const delay = success ? intervalMs : Math.max(intervalMs, Math.min(6 * 3600000, 60000 * 2 ** failures));
+    await collection.updateOne({ key }, { $set: { nextAt: new Date(now.getTime() + delay), leaseUntil: new Date(0), failures } });
   }
 
   async getUserByEmail(email: string) {
@@ -280,6 +316,7 @@ export class MongoDatabase {
         historicalData: row.historicalData || [],
         tariffState: row.tariffState,
         tariffValue: row.tariffValue,
+        energyCollectionEnabled: row.energyCollectionEnabled === true,
         createdAt: row.createdAt?.toISOString?.() || new Date().toISOString(),
         updatedAt: row.updatedAt?.toISOString?.() || new Date().toISOString(),
       };
@@ -314,6 +351,7 @@ export class MongoDatabase {
       historicalData: input.historicalData ?? existing.historicalData ?? [],
       tariffState: input.tariffState ?? existing.tariffState,
       tariffValue: input.tariffValue ?? existing.tariffValue,
+      energyCollectionEnabled: input.energyCollectionEnabled ?? existing.energyCollectionEnabled,
       updatedAt: now.toISOString(),
     };
     await this.settings().updateOne(
@@ -325,6 +363,7 @@ export class MongoDatabase {
           historicalData: merged.historicalData,
           tariffState: merged.tariffState,
           tariffValue: merged.tariffValue,
+          energyCollectionEnabled: merged.energyCollectionEnabled,
           updatedAt: now,
         },
         $setOnInsert: { createdAt: now },

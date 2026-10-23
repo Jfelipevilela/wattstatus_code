@@ -53,6 +53,7 @@ export interface UserSettingsRecord {
   historicalData: Array<{ month: string; consumption: number; cost: number }>;
   tariffState?: string;
   tariffValue?: number;
+  energyCollectionEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }

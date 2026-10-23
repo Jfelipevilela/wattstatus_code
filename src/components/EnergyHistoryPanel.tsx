@@ -13,6 +13,7 @@ export const EnergyHistoryPanel = ({ year, month, appliances }: { year: number; 
   const selected = `${year}-${String(month).padStart(2, "0")}`;
   const current = intervals.filter((row) => localMonthKey(row.endAt) === selected);
   const totals = summarizeMeasured(current);
+  const longGaps = current.filter((row) => new Date(row.endAt).getTime() - new Date(row.startAt).getTime() > 2 * 3600000).length;
   const daily = new Map<string, number>();
   const devices = new Map<string, number>();
   for (const row of current) {
@@ -35,6 +36,7 @@ export const EnergyHistoryPanel = ({ year, month, appliances }: { year: number; 
       {error && <div role="alert"><p>{error}</p><Button variant="outline" onClick={refresh}>Tentar novamente</Button></div>}
       {!loading && !error && current.length === 0 && <p>Sem medições suficientes neste mês. Estimativas aparecem separadamente abaixo.</p>}
       {!loading && !error && current.length > 0 && <>
+        {longGaps > 0 && <p role="note">{longGaps} intervalo(s) entre leituras ultrapassam 2 horas. O consumo acumulado Ã© medido, mas sua distribuiÃ§Ã£o dentro da lacuna Ã© desconhecida.</p>}
         <div className="grid gap-3 sm:grid-cols-3">
           <p><strong>{formatNumber(totals.consumptionKWh)} kWh</strong><br />Medido neste mês</p>
           <p><strong>{totals.costComplete ? formatCurrency(totals.knownCost) : "Tarifa indisponível"}</strong><br />Custo calculado com tarifa registrada</p>

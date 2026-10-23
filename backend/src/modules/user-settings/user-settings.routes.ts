@@ -10,6 +10,7 @@ const updateSchema = z.object({
   apps: z.array(z.enum(["smartthings", "lg-thinq"])).optional(),
   tariffState: z.string().refine((value) => Object.prototype.hasOwnProperty.call(STATE_TARIFFS, value), "Estado inválido").optional(),
   tariffValue: z.number().finite().positive().optional(),
+  energyCollectionEnabled: z.boolean().optional(),
   historicalData: z
     .array(
       z.object({

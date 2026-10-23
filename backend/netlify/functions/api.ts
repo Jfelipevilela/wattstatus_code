@@ -1,4 +1,4 @@
-import type { Handler } from "@netlify/functions";
+import type { Handler, HandlerResponse } from "@netlify/functions";
 import serverless from "serverless-http";
 import { buildIntegrations, createApp } from "../../src/app";
 import { MongoDatabase } from "../../src/storage/mongo-db";
@@ -17,5 +17,5 @@ const serverlessApp = (async () => {
 export const handler: Handler = async (event, context) => {
   context.callbackWaitsForEmptyEventLoop = false;
   const appHandler = await serverlessApp;
-  return appHandler(event, context);
+  return await appHandler(event, context) as HandlerResponse;
 };
