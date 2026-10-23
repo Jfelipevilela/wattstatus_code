@@ -27,9 +27,11 @@ interface Props extends Omit<FloorPlanProps, "heat"> {
   heat: HeatMetric | null;
   onHeatChange: (metric: HeatMetric | null) => void;
   toolbar?: ReactNode;
+  // Extra controls shown only on the 2D plan, such as adding a room.
+  toolbar2D?: ReactNode;
 }
 
-export function FloorPlanViewer({ heat, onHeatChange, toolbar, editing, ...plan }: Props) {
+export function FloorPlanViewer({ heat, onHeatChange, toolbar, toolbar2D, editing, ...plan }: Props) {
   const viewerRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [webgl] = useState(supportsWebGL);
@@ -111,6 +113,7 @@ export function FloorPlanViewer({ heat, onHeatChange, toolbar, editing, ...plan 
           </button>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {!use3D && toolbar2D}
           {toolbar}
           <button
             type="button"

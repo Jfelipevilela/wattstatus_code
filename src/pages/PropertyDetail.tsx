@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Building, Check, ChevronDown, Crown, DoorOpen, Loader2, MapPin, Pencil, Plug, Radio, X } from "lucide-react";
+import { Building, Check, ChevronDown, Crown, DoorOpen, Loader2, MapPin, Pencil, Plug, Plus, Radio, X } from "lucide-react";
 import { AppSidebar, SidebarProvider, SidebarTrigger } from "@/components/Sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
@@ -86,6 +87,7 @@ export default function PropertyDetail() {
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const [heat, setHeat] = useState<HeatMetric | null>(null);
   const [editing, setEditing] = useState(false);
+  const [addingRoom, setAddingRoom] = useState(false);
   const [draft, setDraft] = useState<Map<string, RoomLayout>>(new Map());
   const [busyId, setBusyId] = useState<string | null>(null);
   const desktop = useDesktop();
@@ -346,6 +348,27 @@ export default function PropertyDetail() {
                         onHeatChange={setHeat}
                         editing={editing}
                         onLayoutChange={(roomId, value) => setDraft((current) => new Map(current).set(roomId, value))}
+                        toolbar2D={
+                          <Popover open={addingRoom} onOpenChange={setAddingRoom}>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="icon" className="h-9 w-9 rounded-full bg-card" aria-label="Adicionar ambiente" title="Adicionar ambiente">
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="end" className="w-[min(36rem,calc(100vw-2rem))]">
+                              <p className="mb-2 text-sm font-medium">Novo ambiente</p>
+                              <AddRoomForm
+                                floors={layout.floors}
+                                layout={layout}
+                                defaultFloorId={activeFloor?.id}
+                                onAdded={(room) => {
+                                  setAddingRoom(false);
+                                  setSelectedRoomId(room.id);
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        }
                         toolbar={
                           editing ? (
                             <>
