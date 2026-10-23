@@ -49,7 +49,7 @@ export const createPropertyRouter = (service: PropertyService) => {
   const router = Router();
 
   router.get("/", route(async (req, res) => {
-    res.json({ properties: await service.list(req.userId, req.query.archived === "1") });
+    res.json({ properties: await service.listWithStats(req.userId, req.query.archived === "1") });
   }));
   router.post("/", route(async (req, res) => {
     res.status(201).json({ property: await service.create(req.userId, propertyInputSchema.parse(req.body)) });

@@ -63,3 +63,20 @@ test('MongoDB keeps properties isolated and snapshots measurement locations', { 
     await db.close();
   }
 });
+
+test('default property stays unique even without secondary indexes', { skip: !uri }, async () => {
+  const dbName = `wattstatus_test_${randomUUID().replaceAll('-', '')}`;
+  const db = new MongoDatabase(uri, dbName);
+  const admin = new MongoClient(uri);
+  await db.init(false); // no indexes: only the deterministic _id protects
+  try {
+    const properties = new PropertyService(db);
+    await Promise.all(Array.from({ length: 8 }, () => properties.list('legacy-user')));
+    assert.equal((await db.listProperties('legacy-user')).length, 1);
+  } finally {
+    await admin.connect();
+    await admin.db(dbName).dropDatabase();
+    await admin.close();
+    await db.close();
+  }
+});

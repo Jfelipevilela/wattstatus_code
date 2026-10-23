@@ -18,7 +18,7 @@ import { notifyError } from "@/lib/error-toast";
 import type { usePropertyLayout } from "@/hooks/useProperties";
 import type { EnergyBucket } from "@/lib/property-energy";
 import { formatCurrency, formatNumber } from "@/lib/energy";
-import { ROOM_TYPES, roomColor, type Floor, type Room } from "@/types/property";
+import { inferRoomType, ROOM_TYPES, roomColor, type Floor, type Room } from "@/types/property";
 
 const selectClass =
   "h-11 rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -44,6 +44,7 @@ export function AddRoomForm({
 }) {
   const [name, setName] = useState("");
   const [type, setType] = useState("living");
+  const [typeTouched, setTypeTouched] = useState(false);
   const [floorId, setFloorId] = useState(defaultFloorId ?? "");
   return (
     <form
@@ -51,8 +52,9 @@ export function AddRoomForm({
       onSubmit={(event) => {
         event.preventDefault();
         const trimmed = name.trim() || ROOM_TYPES[type];
+        const finalType = typeTouched ? type : inferRoomType(trimmed) ?? type;
         layout.addRoom.mutate(
-          { name: trimmed, type, floorId: floorId || defaultFloorId || undefined },
+          { name: trimmed, type: finalType, floorId: floorId || defaultFloorId || undefined },
           {
             onSuccess: (room) => {
               setName("");
@@ -65,7 +67,10 @@ export function AddRoomForm({
       }}
     >
       <label className="sr-only" htmlFor="room-type">Tipo do ambiente</label>
-      <select id="room-type" className={selectClass} value={type} onChange={(event) => setType(event.target.value)}>
+      <select id="room-type" className={selectClass} value={type} onChange={(event) => {
+          setType(event.target.value);
+          setTypeTouched(true);
+        }}>
         {Object.entries(ROOM_TYPES).map(([value, label]) => (
           <option key={value} value={value}>
             {label}
@@ -79,7 +84,11 @@ export function AddRoomForm({
         placeholder={`Nome (ex.: ${type === "bedroom" ? "Quarto do João" : `${ROOM_TYPES[type]} principal`})`}
         value={name}
         maxLength={80}
-        onChange={(event) => setName(event.target.value)}
+        onChange={(event) => {
+          setName(event.target.value);
+          const guess = inferRoomType(event.target.value);
+          if (!typeTouched && guess) setType(guess);
+        }}
       />
       {floors.length > 1 && (
         <>

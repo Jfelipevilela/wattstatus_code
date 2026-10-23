@@ -238,7 +238,13 @@ export class MongoDatabase {
   }
 
   async insertProperty(record: PropertyRecord) {
-    await this.operation("persistence", "properties.insert", () => this.properties().insertOne({ ...record }));
+    // The default property gets a deterministic _id, which MongoDB always keeps
+    // unique, so concurrent first visits cannot create two even if the
+    // secondary unique index is missing.
+    const doc = record.legacyDefault ? { ...record, _id: `legacy-default:${record.userId}` } : { ...record };
+    await this.operation("persistence", "properties.insert", () =>
+      this.db.collection("properties").insertOne(doc as unknown as Record<string, unknown>)
+    );
   }
 
   async updateProperty(userId: string, id: string, patch: Partial<PropertyRecord>) {
@@ -308,6 +314,16 @@ export class MongoDatabase {
     await this.operation("persistence", "rooms.delete", () =>
       this.rooms().deleteMany({ userId, propertyId, ...(roomId ? { id: roomId } : {}) })
     );
+  }
+
+  async countRoomsByProperty(userId: string) {
+    const rows = await this.operation("query", "rooms.countByProperty", () =>
+      this.rooms().aggregate<{ _id: string; count: number }>([
+        { $match: { userId } },
+        { $group: { _id: "$propertyId", count: { $sum: 1 } } },
+      ]).toArray()
+    );
+    return Object.fromEntries(rows.map((row) => [row._id, row.count]));
   }
 
   async moveAppliances(

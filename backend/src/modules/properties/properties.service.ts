@@ -25,6 +25,8 @@ export interface PropertyRepository {
   insertRoom(record: RoomRecord): Promise<void>;
   updateRoom(userId: string, id: string, patch: Partial<RoomRecord>): Promise<RoomRecord | null>;
   deleteRooms(userId: string, propertyId: string, roomId?: string): Promise<void>;
+  // Room totals per property in a single query, for the property list.
+  countRoomsByProperty(userId: string): Promise<Record<string, number>>;
   listAppliances(userId: string): Promise<ApplianceRecord[]>;
   // Moves appliances matching the filter; only ever touches the user's records.
   moveAppliances(
@@ -144,6 +146,14 @@ export class PropertyService {
     return properties.filter((item) => includeArchived || !item.archivedAt);
   }
 
+  async listWithStats(userId: string, includeArchived = false) {
+    const [properties, rooms] = await Promise.all([
+      this.list(userId, includeArchived),
+      this.repo.countRoomsByProperty(userId),
+    ]);
+    return properties.map((property) => ({ ...property, roomCount: rooms[property.id] ?? 0 }));
+  }
+
   async get(userId: string, id: string) {
     const property = (await this.repo.listProperties(userId)).find((item) => item.id === id);
     if (!property) throw new ApiError(404, "Imóvel não encontrado");
@@ -177,6 +187,11 @@ export class PropertyService {
     if (archived === true && !property.archivedAt) {
       const others = (await this.repo.listProperties(userId)).filter((item) => item.id !== id && !item.archivedAt);
       if (others.length === 0) throw new ApiError(409, "Mantenha pelo menos um imóvel ativo");
+      // Archived properties leave every total; their appliances would vanish
+      // from the consolidated view, so they must be moved first.
+      if ((await this.repo.listAppliances(userId)).some((item) => item.propertyId === id)) {
+        throw new ApiError(409, "Mova os aparelhos deste imóvel antes de arquivá-lo");
+      }
       await this.repo.updateProperty(userId, id, { archivedAt: this.now(), isPrimary: false, updatedAt: this.now() });
       if (property.isPrimary) await this.repo.setPrimaryProperty(userId, others[0].id);
     } else if (archived === false && property.archivedAt) {

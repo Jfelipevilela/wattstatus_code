@@ -10,7 +10,7 @@ import { toast } from "@/components/ui/use-toast";
 import { DataState } from "@/components/DataState";
 import { PropertyForm } from "@/components/properties/PropertyForm";
 import { PROPERTY_ICONS } from "@/components/properties/propertyVisual";
-import { useProperties, usePropertyLayout } from "@/hooks/useProperties";
+import { useProperties } from "@/hooks/useProperties";
 import { useAppliances, type Appliance } from "@/hooks/useAppliances";
 import { useEnergyHistory, type EnergyInterval } from "@/hooks/useEnergyHistory";
 import { aggregatePropertyEnergy, daysInMonth } from "@/lib/property-energy";
@@ -31,9 +31,8 @@ function PropertyCard({
   intervals: EnergyInterval[];
   measuredLoading: boolean;
 }) {
-  const { rooms, loading } = usePropertyLayout(property.id);
   const now = new Date();
-  const energy = aggregatePropertyEnergy(property.id, primaryId, appliances, rooms, intervals, daysInMonth(now.getFullYear(), now.getMonth() + 1));
+  const energy = aggregatePropertyEnergy(property.id, primaryId, appliances, [], intervals, daysInMonth(now.getFullYear(), now.getMonth() + 1));
   const Icon = PROPERTY_ICONS[property.type];
   const accent = property.color || "#00C853";
   return (
@@ -81,7 +80,7 @@ function PropertyCard({
           <div className="flex items-center gap-2 rounded-xl bg-muted/60 px-3 py-2">
             <DoorOpen className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             <dt className="sr-only">Ambientes</dt>
-            <dd>{loading ? "…" : rooms.length} ambientes</dd>
+            <dd>{property.roomCount ?? 0} ambientes</dd>
           </div>
           <div className="flex items-center gap-2 rounded-xl bg-muted/60 px-3 py-2">
             <Plug className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />

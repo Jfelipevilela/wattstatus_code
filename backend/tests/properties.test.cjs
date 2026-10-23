@@ -46,6 +46,11 @@ const createRepo = () => {
     deleteRooms: async (userId, propertyId, roomId) => {
       data.rooms = data.rooms.filter((r) => !(r.userId === userId && r.propertyId === propertyId && (!roomId || r.id === roomId)));
     },
+    countRoomsByProperty: async (userId) => {
+      const counts = {};
+      for (const r of data.rooms) if (r.userId === userId) counts[r.propertyId] = (counts[r.propertyId] ?? 0) + 1;
+      return counts;
+    },
     listAppliances: async (userId) => data.appliances.filter((a) => a.userId === userId).map((a) => ({ ...a })),
     addAppliance: async (record) => { data.appliances.push({ ...record }); return record; },
     updateAppliance: async (userId, record) => patch(data.appliances, userId, record.id, record),
@@ -232,6 +237,116 @@ test('HTTP routes isolate users and reject malformed ids', async () => {
     assert.equal(summary.body.totals.roomCount, 1);
     const energy = await call(`/${home.id}/energy?start=2026-10-01T00:00:00.000Z&end=2026-11-01T00:00:00.000Z`, 'a');
     assert.deepEqual(energy.body.intervals, []);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('archiving requires an empty property so no appliance leaves the totals', async () => {
+  const repo = createRepo();
+  const service = new PropertyService(repo);
+  const [home] = await service.list('a');
+  const beach = await service.create('a', { name: 'Praia', type: 'house', timezone: 'America/Sao_Paulo' });
+  repo.data.appliances.push(appliance({ id: 'tv', propertyId: beach.id }));
+  await assert.rejects(service.update('a', beach.id, { archived: true }), (err) => err.status === 409);
+  repo.data.appliances[0].propertyId = home.id;
+  const archived = await service.update('a', beach.id, { archived: true });
+  assert.ok(archived.archivedAt);
+  assert.equal((await service.list('a')).some((p) => p.id === beach.id), false);
+  await assert.rejects(service.resolvePlacement('a', beach.id, null), (err) => err.status === 404);
+  const stats = await service.listWithStats('a', true);
+  assert.equal(stats.length, 2);
+});
+
+test('moving appliances between properties moves their whole estimate, never both', async () => {
+  const repo = createRepo();
+  const service = new PropertyService(repo);
+  const [home] = await service.list('a');
+  const beach = await service.create('a', { name: 'Praia', type: 'house', timezone: 'America/Sao_Paulo' });
+  repo.data.appliances.push(appliance({ id: 'ac', propertyId: home.id, tariffValue: 2 }), appliance({ id: 'tv', propertyId: home.id, tariffValue: 1 }));
+  const before = (await service.summary('a', home.id)).totals.estimatedCost + (await service.summary('a', beach.id)).totals.estimatedCost;
+  await repo.moveAppliances('a', { propertyId: home.id }, { propertyId: beach.id, roomId: null });
+  const homeAfter = (await service.summary('a', home.id)).totals;
+  const beachAfter = (await service.summary('a', beach.id)).totals;
+  assert.equal(homeAfter.applianceCount, 0);
+  assert.equal(beachAfter.applianceCount, 2);
+  assert.equal(homeAfter.estimatedCost + beachAfter.estimatedCost, before);
+});
+
+test('measured cost keeps the tariff of each reading after a tariff change', () => {
+  const sample = (minute, counterKWh, tariffValue) => ({
+    userId: 'a', applianceId: 'ac', provider: 'smartthings', deviceId: 'd', capturedAt: new Date(Date.UTC(2026, 9, 1, 10, minute)),
+    counterKWh, tariffValue, source: 'iot', readingType: 'cumulative', propertyId: 'p', roomId: 'r', createdAt: new Date(), sampleKey: String(minute),
+  });
+  const intervals = toEnergyIntervals([sample(0, 10, 1), sample(10, 12, 1), sample(20, 13, 3)]);
+  assert.deepEqual(intervals.map((i) => i.cost), [2, 3]);
+  const unknownTariff = toEnergyIntervals([sample(0, 1, null), sample(5, 2, null)]);
+  assert.equal(unknownTariff[0].cost, null);
+});
+
+test('second user gets 404 on every property route and cannot move rooms or appliances', async () => {
+  const repo = createRepo();
+  const service = new PropertyService(repo);
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => { req.userId = req.headers['x-user']; next(); });
+  app.use('/api/properties', createPropertyRouter(service));
+  app.use(errorHandler);
+  const server = app.listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${server.address().port}/api/properties`;
+  const call = async (path, user, method = 'GET', body) => {
+    const response = await fetch(base + path, { method, headers: { 'x-user': user, 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+    return response.status;
+  };
+  try {
+    const [home] = await service.list('a');
+    const [floor] = await service.listFloors('a', home.id);
+    const room = await service.addRoom('a', home.id, { name: 'Sala', type: 'living' });
+    repo.data.appliances.push(appliance({ id: 'tv', propertyId: home.id, roomId: room.id }));
+    await service.list('b');
+    const range = '?start=2026-10-01T00:00:00.000Z&end=2026-11-01T00:00:00.000Z';
+    const attempts = [
+      [`/${home.id}`, 'GET'], [`/${home.id}`, 'PATCH', { name: 'x' }], [`/${home.id}`, 'DELETE', {}],
+      [`/${home.id}/summary`, 'GET'], [`/${home.id}/energy${range}`, 'GET'],
+      [`/${home.id}/floors`, 'GET'], [`/${home.id}/floors`, 'POST', { name: 'x' }],
+      [`/${home.id}/floors/${floor.id}`, 'PATCH', { name: 'x' }], [`/${home.id}/floors/${floor.id}`, 'DELETE'],
+      [`/${home.id}/rooms`, 'GET'], [`/${home.id}/rooms`, 'POST', { name: 'x' }],
+      [`/${home.id}/rooms/${room.id}`, 'GET'], [`/${home.id}/rooms/${room.id}`, 'DELETE', {}],
+      [`/${home.id}/rooms/${room.id}/energy${range}`, 'GET'],
+      [`/${home.id}/layout`, 'GET'], [`/${home.id}/layout`, 'PUT', { rooms: [{ id: room.id, layout: { x: 1, y: 1, width: 2, depth: 2 } }] }],
+    ];
+    for (const [path, method, body] of attempts) assert.equal(await call(path, 'b', method, body), 404, `${method} ${path}`);
+    // Nothing of user a changed.
+    assert.equal(repo.data.rooms.find((r) => r.id === room.id).name, 'Sala');
+    assert.equal(repo.data.appliances[0].roomId, room.id);
+    assert.equal(repo.data.properties.filter((p) => p.userId === 'a').length, 1);
+    // A room id from another property of the same user is rejected in a delete target.
+    const [other] = await service.list('b');
+    const foreignRoom = await service.addRoom('b', other.id, { name: 'X', type: 'other' });
+    assert.equal(await call(`/${home.id}/rooms/${room.id}`, 'a', 'DELETE', { moveAppliancesTo: foreignRoom.id }), 404);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('mutations without a CSRF token are refused before reaching the routes', async () => {
+  const { protectMutation } = require('../dist/middleware/security');
+  const repo = createRepo();
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => { req.userId = 'a'; next(); });
+  app.use('/api', protectMutation);
+  app.use('/api/properties', createPropertyRouter(new PropertyService(repo)));
+  app.use(errorHandler);
+  const server = app.listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/properties`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: 'session=x' }, body: JSON.stringify({ name: 'X' }),
+    });
+    assert.equal(response.status, 403);
+    assert.equal(repo.data.properties.length, 0);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
