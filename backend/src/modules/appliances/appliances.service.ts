@@ -4,8 +4,18 @@ import { MongoDatabase } from "../../storage/mongo-db";
 import { ApplianceRecord, CalculationInput } from "../../types";
 import { calculateAppliance } from "../calculations/calculation.service";
 
+// Validates that a property/room pair belongs to the user.
+export interface PlacementResolver {
+  ensureDefault(userId: string): Promise<unknown>;
+  resolvePlacement(
+    userId: string,
+    propertyId: string | null | undefined,
+    roomId: string | null | undefined
+  ): Promise<{ propertyId: string; roomId: string | null }>;
+}
+
 export class ApplianceService {
-  constructor(private db: MongoDatabase) {}
+  constructor(private db: MongoDatabase, private placement?: PlacementResolver) {}
 
   private resolveCreatedAt(timestamp?: string) {
     if (!timestamp) return new Date().toISOString();
@@ -18,12 +28,17 @@ export class ApplianceService {
     return parsed.toISOString();
   }
 
-  list(userId: string) {
+  async list(userId: string) {
+    // Attaches legacy appliances to the default property before listing.
+    if (this.placement) await this.placement.ensureDefault(userId);
     return this.db.listAppliances(userId);
   }
 
   async create(userId: string, input: CalculationInput) {
     const calc = calculateAppliance(input);
+    const placement = this.placement
+      ? await this.placement.resolvePlacement(userId, input.propertyId, input.roomId)
+      : null;
 
     const record: ApplianceRecord = {
       id: randomUUID(),
@@ -41,6 +56,7 @@ export class ApplianceService {
       measuredConsumptionKWh: input.measuredConsumptionKWh,
       integrationProvider: input.integrationProvider,
       integrationDeviceId: input.integrationDeviceId,
+      ...(placement ? placement : {}),
       ...(input.integrationProvider && input.integrationDeviceId ? { importKey: `${userId}:${input.integrationProvider}:${input.integrationDeviceId}` } : {}),
     };
 
@@ -80,10 +96,19 @@ export class ApplianceService {
       integrationDeviceId: input.integrationDeviceId ?? existing.integrationDeviceId ?? undefined,
     };
 
+    let placement: { propertyId: string; roomId: string | null } | null = null;
+    if (this.placement && (input.propertyId !== undefined || input.roomId !== undefined)) {
+      const propertyId = input.propertyId ?? existing.propertyId ?? null;
+      const movedProperty = Boolean(input.propertyId) && input.propertyId !== existing.propertyId;
+      const roomId = input.roomId !== undefined ? input.roomId : movedProperty ? null : existing.roomId ?? null;
+      placement = await this.placement.resolvePlacement(userId, propertyId, roomId);
+    }
+
     const calc = calculateAppliance(payload);
     const updated: ApplianceRecord = {
       ...existing,
       ...payload,
+      ...(placement ? placement : {}),
       status: calc.status,
       monthlyCost: calc.cost,
       monthlyConsumption: calc.consumptionKWh,

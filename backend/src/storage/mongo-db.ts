@@ -2,7 +2,10 @@ import { MongoClient, MongoClientOptions, Collection, Db } from "mongodb";
 import crypto from "crypto";
 import {
   ApplianceRecord,
+  FloorRecord,
   IntegrationUsageHistory,
+  PropertyRecord,
+  RoomRecord,
   UserRecord,
   UserSettingsRecord,
   AuthSession,
@@ -103,6 +106,19 @@ export class MongoDatabase {
     await this.db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await this.db.collection("appliances").createIndex({ integrationProvider: 1, id: 1 });
     await this.db.collection("energy_collection").createIndex({ key: 1 }, { unique: true });
+    await this.db.collection("properties").createIndex({ id: 1 }, { unique: true });
+    await this.db.collection("properties").createIndex({ userId: 1, archivedAt: 1 });
+    // At most one default property per user, even under concurrent first access.
+    await this.db.collection("properties").createIndex(
+      { userId: 1 },
+      { unique: true, name: "one_legacy_default_per_user", partialFilterExpression: { legacyDefault: true } }
+    );
+    await this.db.collection("property_floors").createIndex({ id: 1 }, { unique: true });
+    await this.db.collection("property_floors").createIndex({ userId: 1, propertyId: 1 });
+    await this.db.collection("property_rooms").createIndex({ id: 1 }, { unique: true });
+    await this.db.collection("property_rooms").createIndex({ userId: 1, propertyId: 1, floorId: 1 });
+    await this.db.collection("appliances").createIndex({ userId: 1, propertyId: 1, roomId: 1 });
+    await this.db.collection("energy_samples").createIndex({ userId: 1, propertyId: 1, capturedAt: 1 });
       logger.info("mongodb.connection_succeeded", { database: this.dbName, durationMs: Date.now() - startedAt });
     } catch (error) {
       logger.error("mongodb.connection_failed", { database: this.dbName, durationMs: Date.now() - startedAt, ...getErrorFields(error) });
@@ -133,6 +149,15 @@ export class MongoDatabase {
   private settings(): Collection<SettingsDoc> {
     return this.db.collection<SettingsDoc>("user_settings");
   }
+  private properties(): Collection<PropertyRecord> {
+    return this.db.collection<PropertyRecord>("properties");
+  }
+  private floors(): Collection<FloorRecord> {
+    return this.db.collection<FloorRecord>("property_floors");
+  }
+  private rooms(): Collection<RoomRecord> {
+    return this.db.collection<RoomRecord>("property_rooms");
+  }
   private energySamples(): Collection<EnergySample> {
     return this.db.collection<EnergySample>("energy_samples");
   }
@@ -159,6 +184,7 @@ export class MongoDatabase {
     const sample: EnergySample = {
       userId, applianceId: appliance?.id ?? null, provider, deviceId, capturedAt,
       counterKWh, tariffValue, source: "iot", readingType: "cumulative",
+      propertyId: appliance?.propertyId ?? null, roomId: appliance?.roomId ?? null,
       createdAt: new Date(), sampleKey,
     };
     await this.energySamples().updateOne({ sampleKey }, { $setOnInsert: sample }, { upsert: true });
@@ -178,6 +204,7 @@ export class MongoDatabase {
     const sample: EnergySample = {
       userId, applianceId: appliance?.id ?? null, provider, deviceId, capturedAt: endAt, startAt,
       counterKWh: deltaKWh, tariffValue, source: "iot", readingType: "delta",
+      propertyId: appliance?.propertyId ?? null, roomId: appliance?.roomId ?? null,
       createdAt: new Date(), sampleKey,
     };
     await this.energySamples().updateOne({ sampleKey }, { $setOnInsert: sample }, { upsert: true });
@@ -193,6 +220,109 @@ export class MongoDatabase {
     ));
     const intervals = toEnergyIntervals([...preceding.flatMap((item) => item ? [item] : []), ...current]);
     return intervals.filter((item) => new Date(item.endAt) >= start && new Date(item.endAt) < end && (!applianceId || item.applianceId === applianceId));
+  }
+
+  // Living Energy: properties, floors and rooms. Every query is scoped by userId.
+  private clean<T extends object>(doc: T | null) {
+    if (!doc) return null;
+    const { _id, ...rest } = doc as T & { _id?: unknown };
+    void _id;
+    return rest as T;
+  }
+
+  async listProperties(userId: string) {
+    const rows = await this.operation("query", "properties.list", () =>
+      this.properties().find({ userId }).sort({ isPrimary: -1, createdAt: 1 }).toArray()
+    );
+    return rows.map((row) => this.clean(row)!);
+  }
+
+  async insertProperty(record: PropertyRecord) {
+    await this.operation("persistence", "properties.insert", () => this.properties().insertOne({ ...record }));
+  }
+
+  async updateProperty(userId: string, id: string, patch: Partial<PropertyRecord>) {
+    const { id: _ignoredId, userId: _ignoredUser, ...safe } = patch;
+    void _ignoredId; void _ignoredUser;
+    const row = await this.operation("persistence", "properties.update", () =>
+      this.properties().findOneAndUpdate({ id, userId }, { $set: safe }, { returnDocument: "after" })
+    );
+    return this.clean(row);
+  }
+
+  async setPrimaryProperty(userId: string, id: string) {
+    await this.operation("persistence", "properties.setPrimary", async () => {
+      await this.properties().updateMany({ userId, id: { $ne: id } }, { $set: { isPrimary: false } });
+      await this.properties().updateOne({ userId, id }, { $set: { isPrimary: true } });
+    });
+  }
+
+  async deleteProperty(userId: string, id: string) {
+    const res = await this.operation("persistence", "properties.delete", () => this.properties().deleteOne({ userId, id }));
+    return res.deletedCount > 0;
+  }
+
+  async listFloors(userId: string, propertyId: string) {
+    const rows = await this.operation("query", "floors.list", () => this.floors().find({ userId, propertyId }).toArray());
+    return rows.map((row) => this.clean(row)!);
+  }
+
+  async insertFloor(record: FloorRecord) {
+    await this.operation("persistence", "floors.insert", () => this.floors().insertOne({ ...record }));
+  }
+
+  async updateFloor(userId: string, id: string, patch: Partial<FloorRecord>) {
+    const { id: _a, userId: _b, propertyId: _c, ...safe } = patch;
+    void _a; void _b; void _c;
+    const row = await this.operation("persistence", "floors.update", () =>
+      this.floors().findOneAndUpdate({ id, userId }, { $set: safe }, { returnDocument: "after" })
+    );
+    return this.clean(row);
+  }
+
+  async deleteFloors(userId: string, propertyId: string, floorId?: string) {
+    await this.operation("persistence", "floors.delete", () =>
+      this.floors().deleteMany({ userId, propertyId, ...(floorId ? { id: floorId } : {}) })
+    );
+  }
+
+  async listRooms(userId: string, propertyId: string) {
+    const rows = await this.operation("query", "rooms.list", () => this.rooms().find({ userId, propertyId }).toArray());
+    return rows.map((row) => this.clean(row)!);
+  }
+
+  async insertRoom(record: RoomRecord) {
+    await this.operation("persistence", "rooms.insert", () => this.rooms().insertOne({ ...record }));
+  }
+
+  async updateRoom(userId: string, id: string, patch: Partial<RoomRecord>) {
+    const { id: _a, userId: _b, propertyId: _c, ...safe } = patch;
+    void _a; void _b; void _c;
+    const row = await this.operation("persistence", "rooms.update", () =>
+      this.rooms().findOneAndUpdate({ id, userId }, { $set: safe }, { returnDocument: "after" })
+    );
+    return this.clean(row);
+  }
+
+  async deleteRooms(userId: string, propertyId: string, roomId?: string) {
+    await this.operation("persistence", "rooms.delete", () =>
+      this.rooms().deleteMany({ userId, propertyId, ...(roomId ? { id: roomId } : {}) })
+    );
+  }
+
+  async moveAppliances(
+    userId: string,
+    filter: { propertyId?: string | null; roomId?: string },
+    target: { propertyId: string; roomId: string | null }
+  ) {
+    const query: Record<string, unknown> = { userId };
+    if (filter.propertyId === null) query.propertyId = { $in: [null] };
+    else if (filter.propertyId) query.propertyId = filter.propertyId;
+    if (filter.roomId) query.roomId = filter.roomId;
+    const res = await this.operation("persistence", "appliances.move", () =>
+      this.appliances().updateMany(query, { $set: target })
+    );
+    return res.modifiedCount;
   }
 
   async claimEnergyCollection(now: Date, leaseMs: number) {

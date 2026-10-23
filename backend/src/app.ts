@@ -19,6 +19,8 @@ import { createEnergyRouter } from "./modules/energy/energy.routes";
 import { ApiError } from "./middleware/error-handler";
 import { env } from "./config/env";
 import { createReportRouter } from "./modules/reports/report.routes";
+import { PropertyService } from "./modules/properties/properties.service";
+import { createPropertyRouter } from "./modules/properties/properties.routes";
 import { createRequestLimiter, protectMutation } from "./middleware/security";
 
 export interface AppDependencies {
@@ -47,7 +49,8 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
   app.use("/api", protectMutation);
 
   const authService = new AuthService(db);
-  const applianceService = new ApplianceService(db);
+  const propertyService = new PropertyService(db);
+  const applianceService = new ApplianceService(db, propertyService);
 
   app.get(["/health", "/api/health"], (_req, res) => {
     res.json({
@@ -64,6 +67,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
     createApplianceRouter(applianceService)
   );
   app.use("/api/calculations", authenticate, createCalculationRouter());
+  app.use("/api/properties", authenticate, createPropertyRouter(propertyService));
   app.use(
     "/api/integrations",
     authenticate,

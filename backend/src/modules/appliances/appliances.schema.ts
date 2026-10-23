@@ -11,6 +11,8 @@ export const applianceInputSchema = z.object({
   integrationProvider: z.string().optional(),
   integrationDeviceId: z.string().optional(),
   createdAt: z.string().optional(),
+  propertyId: z.string().uuid().nullable().optional(),
+  roomId: z.string().uuid().nullable().optional(),
 });
 
 export const applianceUpdateSchema = applianceInputSchema.partial();
