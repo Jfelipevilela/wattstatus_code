@@ -15,6 +15,7 @@ import { PLAN_TOKENS } from "./tokens";
 import type { FloorPlanProps } from "./FloorPlan2D";
 import { buildWalls, wallBox, WALL_HEIGHTS, type WallKind } from "./three/walls";
 import { furnitureFor, type FurniturePiece } from "./three/furniture";
+import { placeAppliances } from "./three/applianceModels";
 import { easeInOutCubic, groupUnits, planTransition, TIMING, unitAt, type RoomPhase } from "./three/assembly";
 import {
   disposeMaterials,
@@ -67,17 +68,6 @@ const useCompact = () => {
     return () => window.removeEventListener("resize", update);
   }, []);
   return compact;
-};
-
-// Which furniture piece an appliance can sit on, by its name.
-const applianceAnchor = (name: string) => {
-  const text = name.toLowerCase();
-  if (/\bar\b|condicion|split/.test(text)) return "ac";
-  if (/\btv\b|televis|crystal|qled|oled/.test(text)) return "tv";
-  if (/geladeira|refriger|freezer/.test(text)) return "fridge";
-  if (/computador|notebook|\bpc\b|monitor/.test(text)) return "desk";
-  if (/lavar|lavadora|secadora/.test(text)) return "washer";
-  return null;
 };
 
 // Projected size of the plan on screen, for an isometric-ish camera.
@@ -363,24 +353,34 @@ function RoomModel({
 }) {
   const { x, y, width, depth } = room.layout!;
   const [hover, setHover] = useState(false);
-  const pieces = useMemo(() => furnitureFor(room.type, width, depth), [room.type, width, depth]);
+  const decor = useMemo(() => furnitureFor(room.type, width, depth), [room.type, width, depth]);
+  // Every registered appliance gets its own model, or uses the matching
+  // decorative object (TV, fridge, A/C...) when the room already has one.
+  const applianceKey = appliances.map((item) => `${item.id}:${item.name}`).join("|");
+  const placedAppliances = useMemo(
+    () => placeAppliances(appliances, decor, width, depth),
+    // applianceKey captures the appliance list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [applianceKey, decor, width, depth],
+  );
+  const pieces = useMemo(() => [...decor, ...placedAppliances.flatMap((item) => item.pieces)], [decor, placedAppliances]);
   const state = selected ? "selected" : dimmed ? "dimmed" : "normal";
   const floor = energyMode
     ? heatFloorMaterial(heatFill ?? PLAN_TOKENS.noData, state)
     : floorMaterial(FLOOR_FINISH[room.type] ?? "wood", state);
 
-  // Badges sit on matching furniture when there is one, otherwise in a row
-  // along the open front of the room.
+  // Badges sit on the appliance's model (or the decoration standing in for
+  // it); appliances that did not fit keep a badge in a row at the front.
   const badges = useMemo(() => {
-    const used = new Set<string>();
     const loose: Appliance[] = [];
     const placed: Array<{ appliance: Appliance; position: [number, number, number] }> = [];
-    for (const appliance of appliances.slice(0, 8)) {
-      const anchor = applianceAnchor(appliance.name);
-      const piece = anchor && !used.has(anchor) ? pieces.find((item) => item.anchor === anchor) : undefined;
-      if (piece && anchor) {
-        used.add(anchor);
+    for (const appliance of appliances) {
+      const where = placedAppliances.find((item) => item.applianceId === appliance.id);
+      const piece = where?.decorAnchor ? decor.find((item) => item.anchor === where.decorAnchor) : undefined;
+      if (piece) {
         placed.push({ appliance, position: [x + piece.x, FLOOR_THICKNESS + piece.y + piece.size[1] / 2 + 0.3, y + piece.z] });
+      } else if (where?.badge) {
+        placed.push({ appliance, position: [x + where.badge[0], FLOOR_THICKNESS + where.badge[1], y + where.badge[2]] });
       } else loose.push(appliance);
     }
     const gap = 0.75;
@@ -389,7 +389,7 @@ function RoomModel({
       placed.push({ appliance, position: [x + width / 2 + offset, 0.45, y + depth - 0.55] });
     });
     return placed;
-  }, [appliances, pieces, x, y, width, depth]);
+  }, [appliances, placedAppliances, decor, x, y, width, depth]);
 
   const click = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();

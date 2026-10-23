@@ -186,3 +186,54 @@ test('no unit ever jumps between consecutive frames during a transition', () => 
   for (const [room, values] of last) values.forEach((value) => assert.equal(value, 0, `${room} rests at 0`));
   void TIMING;
 });
+
+test('every registered appliance gets a model that fits the room without collisions', () => {
+  const { placeAppliances, applianceKind } = load('components/floorplan/three/applianceModels.ts');
+  const names = {
+    'Ar-condicionado Split': 'ac', 'TV LED 55': 'tv', 'Geladeira Frost Free': 'fridge', 'Freezer horizontal': 'freezer',
+    'Micro-ondas': 'microwave', 'Airfryer': 'microwave', 'Fogão 4 bocas': 'oven', 'Máquina de lavar': 'washer',
+    'Computador': 'computer', 'Videogame': 'console', 'Chuveiro elétrico': 'shower', 'Aquecedor': 'heater',
+    'Ventilador de coluna': 'fan', 'Luminária': 'lamp', 'Roteador Wi-Fi': 'router', 'Carregador carro': 'charger', 'Aspirador': 'generic',
+  };
+  for (const [name, kind] of Object.entries(names)) assert.equal(applianceKind(name), kind, name);
+
+  const margin = WALL_THICKNESS / 2;
+  const box = (p) => ({ x0: p.x - p.size[0] / 2, x1: p.x + p.size[0] / 2, y0: p.y - p.size[1] / 2, y1: p.y + p.size[1] / 2, z0: p.z - p.size[2] / 2, z1: p.z + p.size[2] / 2 });
+  const unitBox = (pieces) => pieces.map(box).reduce((a, b) => ({ x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), y0: Math.min(a.y0, b.y0), y1: Math.max(a.y1, b.y1), z0: Math.min(a.z0, b.z0), z1: Math.max(a.z1, b.z1) }));
+  const intersects = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.z0 < b.z1 && b.z0 < a.z1 && a.y0 < b.y1 && b.y0 < a.y1;
+  const appliances = Object.keys(names).map((name, index) => ({ id: `a${index}`, name }));
+  for (const type of ['living', 'bedroom', 'kitchen', 'bathroom', 'office', 'laundry', 'garage', 'other']) {
+    for (const [w, d] of [[2, 2], [4, 3], [6, 5], [10, 8]]) {
+      const decor = furnitureFor(type, w, d);
+      const placed = placeAppliances(appliances, decor, w, d);
+      assert.equal(placed.length, appliances.length);
+      const decorUnits = [...new Set(decor.map((p) => p.key.split('/')[0]))].map((id) => unitBox(decor.filter((p) => p.key.startsWith(`${id}/`))));
+      const models = placed.filter((item) => item.pieces.length).map((item) => unitBox(item.pieces));
+      for (const model of models) {
+        assert.ok(model.x0 >= margin - 1e-6 && model.x1 <= w - margin + 1e-6 && model.z0 >= margin - 1e-6 && model.z1 <= d - margin + 1e-6, `${type} ${w}x${d} inside walls`);
+        for (const unit of decorUnits) {
+          if (unit.y1 - unit.y0 < 0.05) continue; // rugs
+          assert.ok(!intersects(model, unit), `${type} ${w}x${d} appliance crosses furniture`);
+        }
+      }
+      models.forEach((a, i) => models.slice(i + 1).forEach((b) => assert.ok(!intersects(a, b), `${type} ${w}x${d} appliances overlap`)));
+      // Same input, same layout.
+      assert.deepEqual(placeAppliances(appliances, decor, w, d), placed);
+    }
+  }
+});
+
+test('decoration stands in for a matching appliance instead of a duplicate', () => {
+  const { placeAppliances } = load('components/floorplan/three/applianceModels.ts');
+  const living = furnitureFor('living', 6, 5);
+  const [tv, secondTv] = placeAppliances([{ id: 't1', name: 'TV LED 55' }, { id: 't2', name: 'TV Quarto' }], living, 6, 5);
+  assert.equal(tv.decorAnchor, 'tv');
+  assert.equal(tv.pieces.length, 0);
+  assert.equal(secondTv.decorAnchor, null, 'a second TV gets its own model');
+  assert.ok(secondTv.pieces.length > 0);
+  const bedroom = placeAppliances([{ id: 'ac', name: 'Ar-condicionado' }], furnitureFor('bedroom', 4, 4), 4, 4);
+  assert.equal(bedroom[0].decorAnchor, 'ac');
+  const tiny = placeAppliances([{ id: 'g', name: 'Geladeira' }], [], 0.6, 0.6);
+  assert.equal(tiny[0].pieces.length, 0);
+  assert.equal(tiny[0].badge, null, 'no room: badge only, nothing through the walls');
+});
