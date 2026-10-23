@@ -111,7 +111,7 @@ test('enter drops from above and settles exactly at rest with a small overshoot'
   assert.equal(end.visible, true);
   assert.equal(end.done, true);
   // Later units wait their turn; staggering is capped.
-  assert.ok(unitAt(phase, 2, 1000 + TIMING.enterStagger).offset > 1.9, 'later units are still up, waiting');
+  assert.ok(unitAt(phase, 2, 1000 + TIMING.enterStagger).offset > TIMING.dropHeight - 0.01, 'later units are still up, waiting');
   assert.equal(unitAt(phase, 50, 1000 + TIMING.maxStaggered * TIMING.enterStagger + 1).visible, true);
 });
 
@@ -129,13 +129,14 @@ test('fast clicks never leave rooms hidden: everything ends at rest', () => {
   const { planTransition, unitAt } = load('components/floorplan/three/assembly.ts');
   const units = () => 3;
   let phases = planTransition(new Map(), new Map(), 'garage', 'living', 0, units);
-  assert.equal(phases.get('garage').kind, 'exit');
+  // Only the chosen room hops; the previous one keeps its furniture.
+  assert.equal(phases.has('garage'), false);
   assert.equal(phases.get('living').kind, 'enter');
   // 150 ms later the user picks the kitchen, then the bedroom.
   const offsetsAt = (map, now) => new Map([...map].map(([id, phase]) => [id, [0, 1, 2].map((i) => unitAt(phase, i, now).offset)]));
   phases = planTransition(phases, offsetsAt(phases, 150), 'living', 'kitchen', 150, units);
-  assert.equal(phases.get('garage').kind, 'restore');
-  assert.equal(phases.get('living').kind, 'exit');
+  // Living was mid-hop: it settles from where it is.
+  assert.equal(phases.get('living').kind, 'restore');
   assert.equal(phases.get('kitchen').kind, 'enter');
   phases = planTransition(phases, offsetsAt(phases, 260), 'kitchen', 'bedroom', 260, units);
   // Long after, every room is visible at its final position.

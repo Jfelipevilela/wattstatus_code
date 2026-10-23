@@ -1,8 +1,8 @@
 import type { FurniturePiece } from "./furniture";
 
-// Furniture "assembly" animation for room changes: the previous room's
-// furniture sinks through the floor, the camera travels, then the new room's
-// furniture drops in from above and settles. Pure timing maths lives here so
+// Furniture animation for room changes: while the camera travels, the new
+// room's furniture gives a small staggered hop and settles in place. (The
+// exit phase is kept for callers that want a full disassembly.) Pure timing maths lives here so
 // it can be tested without WebGL; FloorPlan3D only applies the offsets.
 
 // Pieces are keyed "assembly/part" (see furniture.ts). A unit is one whole
@@ -25,11 +25,11 @@ export const TIMING = {
   exit: 300, // ms each unit takes to sink
   exitStagger: 45,
   camera: 480,
-  enterDelay: 220, // enter starts while the camera is still moving
-  enter: 520,
-  enterStagger: 55,
+  enterDelay: 90, // short lift before the first unit lands
+  enter: 420,
+  enterStagger: 45,
   restore: 380, // the previous room quietly re-assembles afterwards
-  dropHeight: 2.0, // metres above the final position
+  dropHeight: 0.35, // a small hop above the final position
   sinkDepth: 1.4, // metres below the floor, hidden by floor and base
   maxStaggered: 8, // later units share the last slot, keeping it short
 } as const;
@@ -132,13 +132,12 @@ export const planTransition = (
   }
   const enterStart = now + TIMING.enterDelay / speed;
   plan.set(next, { kind: "enter", start: enterStart, liftStart: now, from: offsets.get(next) ?? [] });
-  if (previous) {
-    plan.set(previous, {
-      kind: "exit",
-      start: now,
-      from: offsets.get(previous) ?? [],
-      restoreAt: enterEnd(enterStart, unitsIn(next), speed) + 60 / speed,
-    });
+  // The previous room keeps its furniture; it only settles if it was still
+  // hopping from an earlier click.
+  if (previous && current.has(previous)) {
+    const from = offsets.get(previous) ?? [];
+    if (from.some((value) => Math.abs(value) > 1e-3)) plan.set(previous, { kind: "restore", start: now, from });
   }
+  void unitsIn;
   return plan;
 };
