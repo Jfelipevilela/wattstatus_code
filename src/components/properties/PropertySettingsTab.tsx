@@ -12,6 +12,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogIcon,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
 import { notifyError } from "@/lib/error-toast";
@@ -158,6 +159,7 @@ export function PropertySettingsTab({ property, properties, floors, rooms, appli
       <AlertDialog open={deleting} onOpenChange={setDeleting}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <AlertDialogIcon tone="red"><Trash2 /></AlertDialogIcon>
             <AlertDialogTitle>Excluir {property.name}?</AlertDialogTitle>
             <AlertDialogDescription>
               Ambientes e planta serão removidos. {applianceCount > 0 ? `Os ${applianceCount} aparelhos e o histórico medido serão mantidos e movidos para o imóvel escolhido.` : "Não há aparelhos aqui."}

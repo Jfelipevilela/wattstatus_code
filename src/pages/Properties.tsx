@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Building, DoorOpen, MapPin, Plug, Plus, Radio, Star } from "lucide-react";
+import { ArrowRight, Building, DoorOpen, MapPin, Plug, Plus, Radio, Star, Building2 } from "lucide-react";
 import { AppSidebar, SidebarProvider, SidebarTrigger } from "@/components/Sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogIcon } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/use-toast";
 import { DataState } from "@/components/DataState";
@@ -164,8 +164,9 @@ export default function Properties() {
         </main>
       </SidebarInset>
       <Dialog open={creating} onOpenChange={setCreating}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
+            <DialogIcon><Building2 /></DialogIcon>
             <DialogTitle>Novo imóvel</DialogTitle>
             <DialogDescription>Depois você adiciona os ambientes e organiza os aparelhos.</DialogDescription>
           </DialogHeader>

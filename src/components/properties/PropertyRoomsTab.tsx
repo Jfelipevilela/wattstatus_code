@@ -12,6 +12,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogIcon,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
 import { notifyError } from "@/lib/error-toast";
@@ -218,6 +219,7 @@ export function PropertyRoomsTab({ propertyId, floors, rooms, energy, layout }: 
       <AlertDialog open={Boolean(deleting)} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <AlertDialogIcon tone="red"><Trash2 /></AlertDialogIcon>
             <AlertDialogTitle>Excluir {deleting?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
               Os aparelhos e o histórico de medições são mantidos. Escolha para onde os aparelhos vão.
