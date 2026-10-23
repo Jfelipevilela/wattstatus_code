@@ -96,6 +96,8 @@ const PANEL_THICKNESS = 0.05;
 const PANEL_HEIGHT = 1.05;
 // Below half the spacing between models, so neighbouring panels never meet.
 const PANEL_MARGIN = 0.03;
+// Free depth wanted in front of a wall model before it settles above furniture.
+const CLEAR_FRONT = 0.7;
 interface Part {
   name: string;
   x: number; // min corner, relative to the model footprint
@@ -377,10 +379,18 @@ export const placeAppliances = (
     // back wall forward. The first free spot wins, so placement is stable.
     const rows = model.mount === "wall" ? [MARGIN] : [];
     if (model.mount === "floor") for (let z = MARGIN; z + model.d <= depth - MARGIN + 1e-6; z += STEP) rows.push(z);
-    for (const z of rows) {
-      for (let x = MARGIN; x + model.w <= width - MARGIN + 1e-6 && !spot; x += STEP) {
-        const candidate = { x, z, w: model.w, d: model.d, y0, y1 };
-        if (!taken.some((box) => clash(candidate, box))) spot = candidate;
+    // Wall models first look for a stretch of wall with nothing standing in
+    // front of it, so a desk or bench never seems to run through the unit;
+    // only then do they settle above lower furniture.
+    const passes = model.mount === "wall" ? [CLEAR_FRONT, 0] : [0];
+    for (const front of passes) {
+      for (const z of rows) {
+        for (let x = MARGIN; x + model.w <= width - MARGIN + 1e-6 && !spot; x += STEP) {
+          const candidate = { x, z, w: model.w, d: model.d, y0, y1 };
+          const reach = { ...candidate, d: Math.max(model.d, front), y0: front ? 0 : y0 };
+          if (!taken.some((box) => clash(reach, box))) spot = candidate;
+        }
+        if (spot) break;
       }
       if (spot) break;
     }

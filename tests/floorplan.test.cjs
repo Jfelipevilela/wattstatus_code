@@ -274,3 +274,27 @@ test('the 3D model always matches the badge icon, whatever the spelling', () => 
   assert.equal(applianceKind('Monitor gamer'), 'computer');
   assert.equal(applianceKind('Aspirador'), 'generic');
 });
+
+test('no model or furniture ends up inside another, in any room size', () => {
+  const { placeAppliances } = load('components/floorplan/three/applianceModels.ts');
+  const box = (p) => ({ x0: p.x - p.size[0] / 2, x1: p.x + p.size[0] / 2, y0: p.y - p.size[1] / 2, y1: p.y + p.size[1] / 2, z0: p.z - p.size[2] / 2, z1: p.z + p.size[2] / 2 });
+  const inside = (a, b) => Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) > 0.01 && Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0) > 0.01 && Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) > 0.01;
+  const owner = (p) => p.key.split('/')[0];
+  const names = ['Ar-condicionado', 'TV LED 55', 'Geladeira', 'Freezer', 'Micro-ondas', 'Fogão', 'Máquina de lavar', 'Computador', 'Videogame', 'Chuveiro elétrico', 'Aquecedor', 'Ventilador', 'Luminária', 'Roteador', 'Carregador carro', 'Aspirador'];
+  let seed = 7;
+  const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const types = ['living', 'bedroom', 'suite', 'kitchen', 'bathroom', 'office', 'laundry', 'garage', 'other'];
+  for (let run = 0; run < 3000; run++) {
+    const type = types[run % types.length];
+    const w = 1 + random() * 9;
+    const d = 1 + random() * 9;
+    const appliances = Array.from({ length: 1 + Math.floor(random() * 8) }, (_, i) => ({ id: `a${i}`, name: names[Math.floor(random() * names.length)] }));
+    const decor = furnitureFor(type, w, d);
+    const all = [...decor, ...placeAppliances(appliances, decor, w, d).flatMap((item) => item.pieces)].filter((p) => p.size[1] >= 0.05);
+    all.forEach((p, i) =>
+      all.slice(i + 1).forEach((q) => {
+        if (owner(p) !== owner(q)) assert.ok(!inside(box(p), box(q)), `${type} ${w.toFixed(2)}x${d.toFixed(2)}: ${p.key} inside ${q.key}`);
+      }),
+    );
+  }
+});
