@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import { useState } from "react";
 import type { Appliance, ApplianceInput } from "@/hooks/useAppliances";
 import ApplianceCalculator from "@/components/ApplianceCalculator";
@@ -7,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogIcon,
 } from "@/components/ui/dialog";
 
 export default function EditApplianceModal({
@@ -28,8 +30,9 @@ export default function EditApplianceModal({
         if (!open && !busy) onClose();
       }}
     >
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
+          <DialogIcon><Pencil /></DialogIcon>
           <DialogTitle>Editar aparelho</DialogTitle>
           <DialogDescription>
             Ajuste os dados e salve suas alterações.
