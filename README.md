@@ -1,4 +1,4 @@
-﻿# WattStatus
+# WattStatus
 
 Plataforma web para monitoramento de consumo de energia, cÃ¡lculo de custos, gestÃ£o de aparelhos e integraÃ§Ã£o com dispositivos IoT (ex.: SmartThings), com foco em acompanhamento residencial e tomada de decisÃ£o.
 
@@ -342,17 +342,33 @@ Se a API subir mas falhar em rotas autenticadas/persistÃªncia:
 
 ## Auditoria de outubro de 2026
 
-A matriz de requisitos, achados e limites estÃ¡ em [docs/AUDITORIA_REQUISITOS_WATTSTATUS.md](docs/AUDITORIA_REQUISITOS_WATTSTATUS.md). A branch `fix/audit-wattstatus-2026` contÃ©m correÃ§Ã£o do isolamento SmartThings e ajustes de compilaÃ§Ã£o. HistÃ³rico medido de kWh, tarifa pessoal e relatÃ³rio baseado em mediÃ§Ãµes ainda nÃ£o estÃ£o prontos; nÃ£o publique esta branch como soluÃ§Ã£o completa desses requisitos.
+Consulte [matriz de requisitos](docs/AUDITORIA_REQUISITOS_WATTSTATUS.md) e [correções propostas ao documento acadêmico](docs/ALTERACOES_DOCUMENTO_ACADEMICO.md). Esta branch registra amostras energéticas SmartThings em `energy_samples`; não inventa dados anteriores à coleta. O dashboard e os relatórios mostram estimativas e medições separadas. A coleta acontece quando o status do dispositivo é consultado, sem processo contínuo em Netlify.
 
-### Ambiente e publicaÃ§Ã£o
+### Ambiente
 
-Use `backend/.env.example` como referÃªncia local. Configure `MONGO_URL`, `MONGO_DB_NAME`, `JWT_SECRET` e `SMARTTHINGS_TOKEN_SECRET` no ambiente Netlify. Em produÃ§Ã£o, os dois segredos sÃ£o obrigatÃ³rios. `SMARTTHINGS_TOKEN` global nÃ£o autentica contas individuais. Tokens SmartThings sÃ£o salvos por usuÃ¡rio, cifrados no MongoDB; mantenha a chave de cifra estÃ¡vel para permitir leitura dos tokens existentes.
+Use `backend/.env.example` como referência local. Configure `MONGO_URL`, `MONGO_DB_NAME`, `JWT_SECRET`, `SMARTTHINGS_TOKEN_SECRET` e `FRONTEND_ORIGIN` no Netlify. Os dois segredos são obrigatórios em produção. `FRONTEND_ORIGIN` permite CORS para o frontend configurado; requisições de mesma origem continuam aceitas. `SMARTTHINGS_TOKEN` global não autentica usuários. Mantenha `SMARTTHINGS_TOKEN_SECRET` estável para decifrar tokens existentes. Sessões anteriores a esta branch não possuem `jti` e exigem novo login.
 
-`backend/.env` foi retirado do Ã­ndice Git, mas continua no histÃ³rico. Rotacione os segredos expostos antes de publicar. A remoÃ§Ã£o do Ã­ndice nÃ£o apaga o histÃ³rico remoto. NÃ£o inclua `.env` em commits futuros.
+`backend/.env` saiu do índice Git, mas aparece no histórico. Identifique valores reais e rotacione segredos com procedimento coordenado, sem registrar seus valores. Não inclua `.env` em commits futuros.
 
-A configuraÃ§Ã£o `netlify.toml` instala dependÃªncias, compila backend e frontend e publica `dist`. Antes de habilitar deploy da branch, execute `npm ci`, `npm test`, `npm run build` na raiz e `npm ci`, `npm test` em `backend`. Confira variÃ¡veis no ambiente de prÃ©via, valide login e SmartThings com contas de teste distintas e sÃ³ entÃ£o promova a versÃ£o. NÃ£o faÃ§a merge ou deploy automÃ¡tico sem essa validaÃ§Ã£o.
+### Banco de dados e coleta
 
-O backend inicializa Ã­ndices de usuÃ¡rios, aparelhos e integraÃ§Ãµes em `MongoDatabase.init()`. Esta branch nÃ£o migra nem apaga documentos existentes. NÃ£o hÃ¡ nova coleÃ§Ã£o de consumo medido.
+`MongoDatabase.init()` cria índices em `energy_samples`, `sessions` e `appliances.importKey`. Não apaga registros existentes. A amostra inclui usuário, aparelho vinculado quando houver, provedor, dispositivo, instante UTC, contador kWh e tarifa capturada. Diferenças entre amostras consecutivas formam intervalos. Reinicialização de contador não gera consumo negativo. A ausência de segunda leitura aparece como ausência de dado medido. Alterações no cadastro atual não reescrevem amostras históricas.
 
+A tarifa pessoal é informada em R$/kWh no cadastro ou edição de aparelho e armazenada em `user_settings` e `appliances.tariffValue`. Aparelhos antigos usam referência estadual até edição. Importação SmartThings exige potência fornecida pelo dispositivo, tarifa salva e não aceita dispositivo duplicado.
 
-Tarifa pessoal: ao cadastrar ou editar aparelho, selecione estado de referência e informe seu preço em R$/kWh. O valor passa a compor o aparelho e `user_settings` por usuário. Aparelhos antigos mantêm tarifa estadual até serem editados. A importação SmartThings exige potência fornecida pelo dispositivo e tarifa já salva; não cria potência fictícia. Nenhuma migração MongoDB destrutiva é necessária. Campos novos: `appliances.tariffValue`, `user_settings.tariffState` e `user_settings.tariffValue`.
+### Endpoints principais
+
+- `GET /api/energy/history?start=<ISO>&end=<ISO>[&applianceId=<UUID>]`: intervalos energéticos do usuário autenticado; máximo de 366 dias. Limites ISO devem representar a competência no fuso do usuário.
+- `GET /api/integrations/smartthings/devices/:deviceId/status`: consulta status e registra amostra somente se `energyMeter.energy` tiver unidade `Wh` ou `kWh` válida.
+- `POST /api/integrations/smartthings/token`: salva ou revoga token por usuário. Token não retorna ao frontend após salvo.
+- `POST /api/auth/logout`: remove sessão MongoDB; JWT correspondente deixa de funcionar.
+
+### Testes e publicação
+
+Na raiz, execute `npm ci`, `npm test`, `npm run build`, `npm run lint` e `npx tsc --noEmit -p tsconfig.app.json`. Em `backend`, execute `npm ci` e `npm test`. Para teste MongoDB real, inicie instância local isolada e defina `TEST_MONGO_URL=mongodb://127.0.0.1:<porta>` antes de `npm test`; sem essa variável, o teste MongoDB é explicitamente ignorado.
+
+`netlify.toml` compila backend e frontend e publica `dist`. Valide as variáveis e a inicialização dos índices em ambiente de prévia. Use duas contas de teste e dispositivo físico compatível antes de considerar revisão de deploy. Não houve merge ou deploy nesta auditoria. RNF-002 ainda requer medição de desempenho reproduzível.
+
+### Dependências e desempenho
+
+As páginas agora usam carregamento sob demanda. No build local, o chunk principal caiu de cerca de 1,12 MB para 346 KB antes de gzip; isso não comprova RNF-002. jsPDF e React Router foram atualizados e passaram build/testes. `npm audit` backend mostrou 0 vulnerabilidades. No frontend, restaram 5 altas e 2 moderadas ligadas à cadeia Tailwind CSS 3; a correção automática exige migração major para Tailwind 4 e revisão visual, ainda pendente.

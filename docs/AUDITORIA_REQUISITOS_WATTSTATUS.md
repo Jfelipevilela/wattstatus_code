@@ -1,46 +1,47 @@
 # Auditoria de requisitos WattStatus
 
-Base: `dev_V1` (`d53cb07`); especificação acadêmica consultada em 22/10/2026. Esta matriz descreve evidência observada no código e testes executados, não declara validação em produção.
+Base: `dev_V1` (`d53cb07`). Especificação acadêmica consultada em 22/10/2026. Status indicam comportamento comprovado nesta branch, sem validação em produção ou dispositivo físico.
 
-| ID | Requisito | Status | Evidência no código | Teste | Observações |
+| ID | Requisito | Status | Evidência no código | Teste e resultado | Limitações |
 |---|---|---|---|---|---|
-| RF-001 | Cadastrar aparelhos | Parcial | `backend/src/modules/appliances/` | Não há teste de API | Fluxo existe; falta teste de persistência MongoDB. |
-| RF-002 | Editar aparelhos | Parcial | `appliances.service.ts` | Não há teste de API | Atualiza cálculos; falta teste de isolamento. |
-| RF-003 | Calcular consumo | Implementado | `calculation.service.ts`, `src/lib/energy.ts` | `tests/energy.test.mjs` | Cálculo estimado em kWh validado para mês e ano bissexto. |
-| RF-004 | Calcular custo | Implementado | `calculation.service.ts` | `energy.test.mjs`, `tariff.test.cjs` | Valor manual validado; custo continua estimado. |
-| RF-005 | Selecionar ou informar tarifa | Parcial | `ApplianceCalculator.tsx`, `user-settings.routes.ts`, `mongo-db.ts` | `tariff.test.cjs` | Valor manual persistido por usuário; falta teste MongoDB real e migração de aparelhos antigos. |
-| RF-006 | Relatórios | Parcial | `src/components/tabs/ReportsTab.tsx` | Não há teste de relatório | Estimativas retrospectivas não são histórico medido. |
-| RF-007 | Dashboard | Parcial | `src/pages/Dashboard.tsx` | Não há teste de interface | Há gráficos de estimativas; métricas reais exigem histórico. |
-| RF-008 | Histórico de consumo | Pendente | `integration_usage_history` guarda tempo ligado | `energy.test.mjs` cobre só projeção | Não há coleção persistente de kWh medido. |
-| RF-009 | Exportar PDF | Não comprovado | `ReportsTab.tsx` usa jsPDF | Não há teste estrutural de PDF | Build passou; layout e paginação não foram validados. |
-| RF-010 | Autenticação | Parcial | `auth.routes.ts`, `auth-middleware.ts` | Teste de token expirado em `backend/tests/integration-isolation.test.cjs` | Logout limpa cookie, mas JWT emitido continua válido até expirar. |
-| RNF-001 | Interface simples | Não comprovado | Componentes React e navegação | Sem teste de usabilidade | Precisa de validação com usuários. |
-| RNF-002 | Telas em menos de 3 s | Não comprovado | Build Vite | Sem medição representativa | Bundle principal supera 1 MB antes de gzip. |
-| RNF-003 | Segurança e controle de acesso | Parcial | `auth-middleware.ts`, rotas MongoDB e SmartThings | `integration-isolation.test.cjs` | Isolamento IoT testado com mock; falta MongoDB real e revisão CSRF/CORS/sessões. |
-| RNF-004 | Navegadores modernos | Não comprovado | Vite/React | Sem matriz de navegadores | Build local passou. |
-| RNF-005 | Arquitetura expansível | Parcial | Módulos backend e MongoDB | Build backend | Adaptadores legados e histórico ausente exigem revisão. |
+| RF-001 | Cadastrar aparelhos | Parcial | `backend/src/modules/appliances/` | Build backend e criação MongoDB em `mongo-energy.test.cjs` passaram | Falta teste HTTP de todas as entradas inválidas. |
+| RF-002 | Editar aparelhos | Parcial | `appliances.service.ts` | Edição e tarifa histórica em `mongo-energy.test.cjs` passaram | Falta suíte completa de API. |
+| RF-003 | Calcular consumo estimado | Implementado | `calculation.service.ts`, `src/lib/energy.ts` | `energy.test.mjs`, `tariff.test.cjs` passaram | Estimativa depende dos dados informados. |
+| RF-004 | Calcular custo estimado | Implementado | `calculation.service.ts` | `tariff.test.cjs` passou | Não equivale à conta da distribuidora. |
+| RF-005 | Tarifa estadual ou manual | Parcial | `ApplianceCalculator.tsx`, `user-settings.routes.ts`, `mongo-db.ts` | Cálculo em `tariff.test.cjs`; tarifa congelada em `mongo-energy.test.cjs` passaram | Cadastro antigo usa referência estadual até edição. |
+| RF-006 | Relatórios | Parcial | `ReportsTab.tsx`, `measured.ts` | Agrupamento em `measured.test.mjs` passou | Medição representa apenas intervalos coletados. |
+| RF-007 | Dashboard | Parcial | `Dashboard.tsx`, `EnergyHistoryPanel.tsx` | Build, tipos e agrupamento passaram | UX não validada com usuários; tendência medida depende de coleta. |
+| RF-008 | Histórico energético | Parcial | `energy-history.ts`, `energy.routes.ts`, `mongo-db.ts` | MongoDB isolado, duplicatas, reinício, usuário, aparelho e tarifa passaram | Coleta por consulta de status; não cobre intervalos sem consultas. |
+| RF-009 | Exportar PDF | Parcial | `report-pdf.ts`, `ReportsTab.tsx` | `report-pdf.test.cjs` passou; páginas renderizadas e inspecionadas | Não houve revisão visual com dados reais ou todos os navegadores. |
+| RF-010 | Autenticação | Implementado | `auth.service.ts`, `auth.routes.ts`, `auth-middleware.ts` | Registro, revogação e acesso negado após logout no MongoDB isolado passaram | JWTs antigos sem `jti` exigem novo login. |
+| RNF-001 | Interface simples | Não comprovado | Componentes React | Build passou | Falta teste de usabilidade. |
+| RNF-002 | Telas em menos de 3 s | Não comprovado | Build Vite | Sem medição representativa | Rotas passaram a carregar sob demanda; tamanho do chunk principal caiu de cerca de 1,12 MB para 346 KB antes de gzip. Falta medição de tempo real. |
+| RNF-003 | Segurança e controle de acesso | Parcial | Sessões MongoDB, CSRF, CORS e rotas autenticadas | Testes com duas contas e MongoDB isolado passaram | Rate limit em memória não é distribuído entre instâncias Netlify. Auditoria npm do frontend ainda aponta 5 vulnerabilidades altas e 2 moderadas na cadeia Tailwind 3; migração para Tailwind 4 requer revisão visual. |
+| RNF-004 | Navegadores modernos | Não comprovado | Vite/React | Build passou | Falta matriz Chrome, Firefox, Edge e Safari. |
+| RNF-005 | Arquitetura para crescimento | Parcial | Módulos backend e índices MongoDB | Build backend e teste MongoDB passaram | Adaptadores PostgreSQL/locais legados permanecem. |
 
-## Achados de segurança
+## Dados energéticos e limites
 
-- SmartThings reutilizava cliente singleton com token mutável. Agora cada requisição usa token do usuário autenticado e cliente novo. Lista/status/comando usam escopo do token atual. Status e comando verificam presença do dispositivo na lista desse token. Revogação apaga token persistido.
-- `backend/.env` estava rastreado e aparece no histórico Git. Foi retirado do índice sem apagar arquivo local; `.gitignore` passou a ignorá-lo. **Rotacione todos os segredos potencialmente expostos** após identificar proprietários e dependências. Não reescreva histórico sem plano coordenado.
-- Erros internos não devolvem nem registram objeto de exceção completo, que poderia conter headers de autorização.
-- `SMARTTHINGS_TOKEN` global não é mais usado para acesso de usuários. Remover a variável do ambiente após verificar dependências externas.
+`energy_samples` guarda amostras imutáveis de `energyMeter.energy` somente quando SmartThings retorna unidade `Wh` ou `kWh` e o usuário consulta status. `Wh` é dividido por 1000. Uma amostra isolada não gera consumo de intervalo. Diferenças entre contadores consecutivos geram intervalos; contador reduzido indica reinicialização e não produz consumo negativo. Amostras repetidas no mesmo minuto com mesmo valor são deduplicadas por `sampleKey`. Leituras iguais posteriores representam intervalo medido de zero. O custo usa tarifa copiada para a amostra final. Alterar potência ou tarifa atual não reescreve amostras.
 
-## Limites e próximos passos
+O agrupamento mensal e diário da interface usa fuso local do navegador. API armazena instantes UTC e recebe limites ISO com offset do navegador. Intervalos sem consulta não são preenchidos. Um intervalo que atravessa competências é atribuído ao mês de sua segunda leitura; isso não equivale a medição completa daquele mês. Não há agendador serverless contínuo. Para maior cobertura, será necessário definir estratégia de coleta periódica de baixo custo, com consentimento e validação operacional.
 
-1. Persistir leituras energéticas em MongoDB com índice por usuário, aparelho, fonte e instante; tratar contador acumulativo, reset e duplicação. Não migrar projeções antigas como medições.
-2. Validar tarifa pessoal com MongoDB real e congelar tarifa aplicada em cada novo registro histórico.
-3. Alimentar dashboard e relatórios com leituras persistidas; rotular projeções e ausência de dados. Testar PDF.
-4. Validar fluxos de autenticação, aparelhos e IoT com MongoDB isolado e dispositivos SmartThings de teste.
-5. Medir RNF-002 em ambiente representativo. Corrigir lint e ampliar testes de navegador.
-6. Resolver referência `RNF-006` no documento acadêmico: a lista principal contém somente RNF-001 a RNF-005. Renumerar ou remover citações sem requisito definido.
+Os índices novos são criados por `MongoDatabase.init()` sem apagar dados. `energy_samples`: `sampleKey` único, período por usuário/aparelho e série por usuário/provedor/dispositivo. `sessions`: `id` único e TTL por `expiresAt`. `appliances.importKey` único apenas quando presente, preservando registros legados.
 
-## Ajustes recomendados ao documento acadêmico
+## Segurança e segredos
 
-- Quadro 11: marcar RF-005 como parcial, RF-008 como pendente; RF-006, RF-007, RF-009 e RF-010 como parciais ou não comprovados até validação correspondente.
-- Seções 17.3, 18.1 e 18.2: retirar afirmações de coleta contínua, coleção `ConsumptionHistory` operacional e histórico medido até implementação e testes. Descrever `integration_usage_history` como duração ligada em milissegundos.
-- Seções 1.1 e 4: qualificar “tempo real” e “SmartThings validado de ponta a ponta” com evidência de dispositivo físico, caso exista. Sem evidência, usar “integração em desenvolvimento e validação”.
-- Quadro 12: RNF-002 continua não comprovado. RNF-003 depende de revisão completa de sessão, CORS e CSRF. RNF-004 requer testes reais de navegador.
+- SmartThings usa cliente novo por requisição e credencial do usuário autenticado. Status e comandos verificam dispositivo. Respostas de erro não expõem token. Importação duplicada é rejeitada.
+- Sessões têm identificador `jti` persistido. Logout revoga a sessão; token expirado ou revogado recebe 401. Cookies HTTP-only expiram em 12 horas.
+- Mutação autenticada por cookie exige `Origin` aceitável. Produção restringe CORS a `FRONTEND_ORIGIN`; acesso de mesma origem continua permitido. Login e cadastro têm limite adicional de tentativas.
+- `backend/.env` foi retirado do índice, mas o commit `9e45baa` contém tipos de segredos `DATABASE_URL`, `JWT_SECRET`, `LG_CLIENT_ID`, `LG_CLIENT_SECRET`, `LG_REFRESH_TOKEN` e `MONGO_URL`. Nenhum valor foi impresso na auditoria. Confirmar se cada valor foi real antes de rotacionar. Criar credenciais substitutas, configurá-las em Netlify e serviços dependentes, validar, então revogar antigas. Trocar `JWT_SECRET` invalida sessões; trocar `SMARTTHINGS_TOKEN_SECRET` sem migração impede decifrar tokens armazenados. Não reescrever histórico sem procedimento coordenado.
 
-Documento externo não foi alterado.
+## Validação executada
+
+- Backend: 8 testes passaram com MongoDB `mongo:7` isolado em Docker. `npm audit` backend: 0 vulnerabilidades após atualização de dependências. Incluem isolamento entre usuários, deduplicação, contador, reinício, tarifa, sessão e API SmartThings simulada.
+- Frontend: 9 testes passaram. PDF longo gerou páginas com orientação consistente; amostra foi renderizada e inspecionada. jsPDF e React Router foram atualizados. Auditoria npm frontend: 0 críticas, 5 altas e 2 moderadas remanescentes na cadeia Tailwind 3.
+- Build frontend/backend, tipos frontend e lint passaram. Lint manteve 11 avisos de Fast Refresh em componentes compartilhados; não são falhas de produção.
+- Dispositivo físico, latência de produção, navegadores e deploy não foram validados.
+
+## Referência acadêmica
+
+O Documento de Especificação de outubro de 2026 declara RF-001 a RF-010 como implementados, mas esta matriz usa evidência do código e testes. Referências a `RNF-006` devem ser corrigidas: a lista principal contém apenas RNF-001 a RNF-005. Veja `docs/ALTERACOES_DOCUMENTO_ACADEMICO.md`. O Google Doc não foi alterado.
