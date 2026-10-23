@@ -5,9 +5,9 @@
   "description": "Backend Node.js/Express for WattStatus with auth, calculations, and pluggable IoT integrations.",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test tests/*.test.js",
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.functions.json",
+    "test": "npm run build && node --test tests/*.test.cjs tests/*.test.js",
     "start": "node dist/server.js"
   },
   "dependencies": {
@@ -32,7 +32,7 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^22.5.5",
     "@types/pg": "^8.11.6",
-    "ts-node-dev": "^2.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.5.3"
   }
 }

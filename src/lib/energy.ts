@@ -55,9 +55,9 @@ export function estimateAppliance(appliance: Appliance, daysInMonth = 31) {
       Math.min(appliance.days, daysInMonth)) /
     1000;
   const rate =
-    appliance.monthlyConsumption > 0
+    appliance.tariffValue ?? (appliance.monthlyConsumption > 0
       ? appliance.monthlyCost / appliance.monthlyConsumption
-      : STATE_TARIFFS[appliance.tariff] || 0;
+      : STATE_TARIFFS[appliance.tariff] || 0);
   return { consumption, cost: consumption * rate };
 }
 export function getMonthlyEstimate(

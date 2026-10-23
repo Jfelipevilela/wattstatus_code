@@ -12,6 +12,7 @@ export interface Appliance {
   monthlyCost: number;
   monthlyConsumption: number;
   tariff: string;
+  tariffValue?: number;
   createdAt: string;
   measuredConsumptionKWh?: number | null;
   integrationProvider?: string | null;
@@ -24,6 +25,7 @@ export interface ApplianceInput {
   usageHours: number;
   days: number;
   tariff: string;
+  tariffValue?: number;
   measuredConsumptionKWh?: number;
   integrationProvider?: string;
   integrationDeviceId?: string;

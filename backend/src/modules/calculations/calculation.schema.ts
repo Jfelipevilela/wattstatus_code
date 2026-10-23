@@ -6,6 +6,7 @@ export const calculationSchema = z.object({
   usageHours: z.number().positive(),
   days: z.number().int().min(1).max(31),
   tariff: z.string().min(2),
+  tariffValue: z.number().finite().positive().optional(),
   measuredConsumptionKWh: z.number().positive().optional(),
 });
 

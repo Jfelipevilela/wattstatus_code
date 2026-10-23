@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 .env
+**/.env
+tmp/
+audit-before.json
 .env.*
 !.env.example
 /PROXIMA_ETAPA.md

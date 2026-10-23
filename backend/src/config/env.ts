@@ -8,6 +8,9 @@ const jwtSecret = process.env.JWT_SECRET || (production ? "" : randomBytes(32).t
 if (production && (jwtSecret.length < 32 || /^(wattstatus-dev-secret|change-me)/i.test(jwtSecret))) {
   throw new Error("JWT_SECRET deve conter pelo menos 32 caracteres aleatórios em produção.");
 }
+if (production && !process.env.SMARTTHINGS_TOKEN_SECRET) {
+  throw new Error("SMARTTHINGS_TOKEN_SECRET é obrigatório em produção para preservar os tokens criptografados.");
+}
 const allowedOrigins = (process.env.APP_ORIGINS || process.env.URL ||
   (production ? "https://wattstatus.netlify.app" :
     "https://wattstatus.netlify.app,http://localhost:8080,http://localhost:5173,http://localhost:4000"))
@@ -29,7 +32,7 @@ export const env = {
   databaseUrl:
     process.env.DATABASE_URL || "postgres://user:password@localhost:5432/wattstatus",
   smartThingsTokenSecret:
-    process.env.SMARTTHINGS_TOKEN_SECRET || jwtSecret,
+    process.env.SMARTTHINGS_TOKEN_SECRET || process.env.JWT_SECRET || "wattstatus-dev-secret",
   tariffsApiUrl: process.env.TARIFFS_API_URL || "",
   mongoUrl: process.env.MONGO_URL || "mongodb://localhost:27017",
   mongoDbName: process.env.MONGO_DB_NAME || "wattstatus",

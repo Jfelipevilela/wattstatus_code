@@ -9,15 +9,7 @@ import {
 import { getErrorFields, logger } from "../../../logging/logger";
 
 const BASE_URL = "https://api.lgthinq.com/v1";
-
-interface LgDevice {
-  deviceId?: string;
-  id: string;
-  alias?: string;
-  name: string;
-  modelName?: string;
-  features?: string[];
-}
+type LgDevice = { deviceId?: string; id?: string; alias?: string; name?: string; modelName?: string; features?: string[] };
 
 export class LgThinQIntegration implements DeviceIntegration {
   id = "lg-thinq";
@@ -83,8 +75,8 @@ export class LgThinQIntegration implements DeviceIntegration {
       );
 
       return (data.items || []).map((item) => ({
-        id: item.deviceId || item.id,
-        name: item.alias || item.name,
+        id: item.deviceId || item.id || "",
+        name: item.alias || item.name || "",
         brand: "LG",
         model: item.modelName,
         capabilities: item.features,

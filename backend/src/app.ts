@@ -12,13 +12,13 @@ import { createAuthRouter } from "./modules/auth/auth.routes";
 import { IntegrationManager } from "./modules/integrations/integration-manager";
 import { createIntegrationRouter } from "./modules/integrations/integration.routes";
 import { SmartThingsIntegration } from "./modules/integrations/providers/smartthings";
-import { LgThinQIntegration } from "./modules/integrations/providers/lg-thinq";
-import { env } from "./config/env";
 import { createUserSettingsRouter } from "./modules/user-settings/user-settings.routes";
 import { createAnalyticsRouter } from "./modules/analytics/analytics.routes";
 import { MongoDatabase } from "./storage/mongo-db";
-import { createReportRouter } from "./modules/reports/report.routes";
+import { createEnergyRouter } from "./modules/energy/energy.routes";
 import { ApiError } from "./middleware/error-handler";
+import { env } from "./config/env";
+import { createReportRouter } from "./modules/reports/report.routes";
 import { createRequestLimiter, protectMutation } from "./middleware/security";
 
 export interface AppDependencies {
@@ -71,6 +71,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
   );
   app.use("/api/user-settings", authenticate, createUserSettingsRouter(db));
   app.use("/api/analytics", authenticate, createAnalyticsRouter(db));
+  app.use("/api/energy", authenticate, createEnergyRouter(db));
   app.use("/api/reports", authenticate, createReportRouter());
 
   app.use(errorHandler);
@@ -81,14 +82,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
 export const buildIntegrations = () => {
   const manager = new IntegrationManager();
 
-  manager.register(new SmartThingsIntegration(env.smartThingsToken));
-  manager.register(
-    new LgThinQIntegration(
-      env.lgClientId,
-      env.lgClientSecret,
-      env.lgRefreshToken
-    )
-  );
-
+  // User credentials are loaded from MongoDB for each request.
+  manager.register(new SmartThingsIntegration(""));
   return manager;
 };

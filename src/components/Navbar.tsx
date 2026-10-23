@@ -39,7 +39,7 @@ const Navbar = () => {
   };
 
   const handleLogout = async () => {
-    try { await logout(); } catch { return; }
+    if (!await logout()) return;
     navigate("/");
     setMobileMenuOpen(false);
   };

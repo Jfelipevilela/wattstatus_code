@@ -7,6 +7,8 @@ export type UserPreferences = {
   theme: "light" | "dark" | "system";
   apps: AvailableAppId[];
   historicalData: Array<{ month: string; consumption: number; cost: number }>;
+  tariffState?: string;
+  tariffValue?: number;
 };
 
 const DEFAULT_PREFERENCES: UserPreferences = {

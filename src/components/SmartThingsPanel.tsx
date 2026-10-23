@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppliances } from "@/hooks/useAppliances";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { toast } from "@/components/ui/use-toast";
 import { Loader2, PlugZap, Zap, Download, LogOut } from "lucide-react";
 import {
@@ -36,10 +37,17 @@ interface DeviceSummary {
 interface DeviceStatus {
   id: string;
   online: boolean;
-  raw: any;
+  raw: SmartStatus;
 }
 
-const extractEnergyInfo = (status: any) => {
+type SmartStatus = { components?: { main?: {
+  switch?: { switch?: { value?: string } };
+  powerMeter?: { power?: { value?: number; unit?: string } };
+  energyMeter?: { energy?: { value?: number; unit?: string } };
+  powerConsumptionReport?: { powerConsumption?: { value?: { energy?: number; power?: number } } };
+} } };
+
+const extractEnergyInfo = (status: SmartStatus) => {
   const main = status?.components?.main;
   const power = main?.powerMeter?.power?.value;
   const energy = main?.energyMeter?.energy?.value;
@@ -52,18 +60,18 @@ const extractEnergyInfo = (status: any) => {
   const powerFromReport =
     typeof pcr?.power === "number" ? pcr.power : undefined;
   const energyKWhFromReport =
-    typeof energyWh === "number" ? energyWh / 1000 : undefined;
+    typeof energyWh === "number" && Number.isFinite(energyWh) ? energyWh / 1000 : undefined;
 
   return {
     power:
-      typeof power === "number"
-        ? power
+      typeof power === "number" && Number.isFinite(power)
+        ? (unitPower === "kW" ? power * 1000 : power)
         : typeof powerFromReport === "number"
         ? powerFromReport
         : null,
     energy:
-      typeof energy === "number"
-        ? energy
+      typeof energy === "number" && Number.isFinite(energy)
+        ? (unitEnergy === "Wh" ? energy / 1000 : energy)
         : typeof energyKWhFromReport === "number"
         ? energyKWhFromReport
         : null,
@@ -76,10 +84,29 @@ const SmartThingsPanel: React.FC = () => {
   const { token, user } = useAuth();
   const { revoking, revokeToken, hasToken } = useSmartThingsToken();
   const { addAppliance, appliances, updateAppliance } = useAppliances();
+  const { preferences } = useUserPreferences();
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
   const [statuses, setStatuses] = useState<Record<string, DeviceStatus>>({});
   const [loading, setLoading] = useState(false);
+  const fetchingDevices = React.useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [collectionEnabled, setCollectionEnabled] = useState(false);
+  const [savingCollection, setSavingCollection] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    apiRequest<{ settings: { energyCollectionEnabled?: boolean } }>("/api/user-settings", { skipErrorToast: true }, token || undefined)
+      .then(({ settings }) => setCollectionEnabled(settings.energyCollectionEnabled === true))
+      .catch(() => setCollectionEnabled(false));
+  }, [user, token]);
+  const toggleCollection = async () => {
+    setSavingCollection(true);
+    try {
+      const next = !collectionEnabled;
+      await apiRequest("/api/user-settings", { method: "PUT", body: JSON.stringify({ energyCollectionEnabled: next }) }, token || undefined);
+      setCollectionEnabled(next);
+    } catch (err) { notifyError(err, { title: "Falha ao alterar coleta" }); }
+    finally { setSavingCollection(false); }
+  };
   const [onTimes, setOnTimes] = useState<
     Record<
       string,
@@ -152,7 +179,8 @@ const SmartThingsPanel: React.FC = () => {
   }, [token, user]);
 
   const fetchDevices = useCallback(async () => {
-    if (!user) return;
+    if (!user || fetchingDevices.current) return;
+    fetchingDevices.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -162,16 +190,17 @@ const SmartThingsPanel: React.FC = () => {
         token || undefined
       );
       setDevices(data.devices);
-      const statusList = await Promise.all(
-        data.devices.map((d) =>
+      const statusList: Array<{ status: DeviceStatus } | null> = [];
+      for (let index = 0; index < data.devices.length; index += 3) {
+        const batch = await Promise.all(data.devices.slice(index, index + 3).map((d) =>
           apiRequest<{ status: DeviceStatus }>(
             `/api/integrations/smartthings/devices/${d.id}/status`,
             { method: "GET", skipErrorToast: true },
             token || undefined
           ).catch(() => null)
-        )
-      );
-      console.log("Fetched SmartThings device statuses:", statusList);
+        ));
+        statusList.push(...batch);
+      }
       const map: Record<string, DeviceStatus> = {};
       statusList.forEach((item, idx) => {
         if (item?.status) {
@@ -187,8 +216,9 @@ const SmartThingsPanel: React.FC = () => {
       setError(message);
     } finally {
       setLoading(false);
+      fetchingDevices.current = false;
     }
-  }, [token, hasToken, user]);
+  }, [token, user]);
 
   useEffect(() => {
     fetchDevices();
@@ -197,7 +227,7 @@ const SmartThingsPanel: React.FC = () => {
   useEffect(() => {
     const id = setInterval(() => {
       fetchDevices();
-    }, 60000);
+    }, 300000);
     return () => clearInterval(id);
   }, [fetchDevices]);
 
@@ -256,7 +286,7 @@ const SmartThingsPanel: React.FC = () => {
     powerW?: number | null
   ) => {
     if (!user) return;
-    if (!energyKWh) {
+    if (!energyKWh || !Number.isFinite(energyKWh) || energyKWh <= 0) {
       notifyError(
         "O dispositivo não retornou consumo. Ligue-o e tente novamente.",
         {
@@ -265,14 +295,27 @@ const SmartThingsPanel: React.FC = () => {
       );
       return;
     }
+    if (!powerW || !Number.isFinite(powerW) || powerW <= 0) {
+      notifyError("Informe a potência do aparelho no cadastro manual antes de importar. O dispositivo não retornou potência válida.", { title: "Potência indisponível" });
+      return;
+    }
+    if (!preferences.tariffState || !preferences.tariffValue) {
+      notifyError("Configure sua tarifa ao cadastrar um aparelho antes de importar dispositivos.", { title: "Tarifa necessária" });
+      return;
+    }
+    if (appliances.some((item) => item.integrationProvider === "smartthings" && item.integrationDeviceId === device.id)) {
+      notifyError("Este dispositivo já foi importado.", { title: "Dispositivo existente" });
+      return;
+    }
     setImporting(device.id);
     try {
       await addAppliance({
         name: device.name || device.id,
-        power: powerW && powerW > 0 ? powerW : 1000,
+        power: powerW,
         usageHours: 1,
         days: 30,
-        tariff: "SP",
+        tariff: preferences.tariffState,
+        tariffValue: preferences.tariffValue,
         createdAt: new Date().toISOString(),
         measuredConsumptionKWh: energyKWh,
         integrationProvider: "smartthings",
@@ -313,9 +356,7 @@ const SmartThingsPanel: React.FC = () => {
       );
       toast({
         title: "Comando enviado",
-        description: `${device.name}: ${
-          nextCommand === "on" ? "Ligado" : "Desligado"
-        }.`,
+        description: `${device.name}: aguardando confirmação do estado pelo dispositivo.`,
       });
       // Aguarda SmartThings aplicar e refaz fetch
       await new Promise((r) => setTimeout(r, 800));
@@ -460,7 +501,7 @@ const SmartThingsPanel: React.FC = () => {
 
   const sendAcCommand = async (
     deviceId: string,
-    payload: { capability: string; command: string; arguments?: any[] }
+    payload: { capability: string; command: string; arguments?: unknown[] }
   ) => {
     if (!token) return;
     await apiRequest(
@@ -515,6 +556,12 @@ const SmartThingsPanel: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
+        <div className="rounded-md border p-3 text-sm">
+          <p>Coleta periÃ³dica dos aparelhos importados com medidor compatÃ­vel. Leituras acumuladas geram intervalos; lacunas nÃ£o sÃ£o preenchidas.</p>
+          <Button className="mt-2" variant="outline" disabled={savingCollection} onClick={toggleCollection}>
+            {collectionEnabled ? "Desativar coleta periÃ³dica" : "Ativar coleta periÃ³dica"}
+          </Button>
+        </div>
         {error && (
           <div className="mb-4 text-sm text-red-600 dark:text-red-400">
             {error}

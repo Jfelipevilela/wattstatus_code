@@ -36,13 +36,22 @@ export class ApplianceService {
       monthlyCost: calc.cost,
       monthlyConsumption: calc.consumptionKWh,
       tariff: input.tariff,
+      tariffValue: input.tariffValue,
       createdAt: this.resolveCreatedAt(input.createdAt),
       measuredConsumptionKWh: input.measuredConsumptionKWh,
       integrationProvider: input.integrationProvider,
       integrationDeviceId: input.integrationDeviceId,
+      ...(input.integrationProvider && input.integrationDeviceId ? { importKey: `${userId}:${input.integrationProvider}:${input.integrationDeviceId}` } : {}),
     };
 
-    await this.db.addAppliance(record);
+    try {
+      await this.db.addAppliance(record);
+    } catch (err) {
+      if (err instanceof Error && (err.message === "DEVICE_ALREADY_IMPORTED" || err.message.includes("E11000"))) {
+        throw new ApiError(409, "Dispositivo já importado");
+      }
+      throw err;
+    }
     return record;
   }
 
@@ -64,6 +73,7 @@ export class ApplianceService {
       usageHours: input.usageHours ?? existing.usageHours,
       days: input.days ?? existing.days,
       tariff: input.tariff || existing.tariff,
+      tariffValue: input.tariffValue ?? (input.tariff && input.tariff !== existing.tariff ? undefined : existing.tariffValue),
       measuredConsumptionKWh:
         input.measuredConsumptionKWh ?? existing.measuredConsumptionKWh ?? undefined,
       integrationProvider: input.integrationProvider ?? existing.integrationProvider ?? undefined,
@@ -77,6 +87,7 @@ export class ApplianceService {
       status: calc.status,
       monthlyCost: calc.cost,
       monthlyConsumption: calc.consumptionKWh,
+      ...(payload.integrationProvider && payload.integrationDeviceId ? { importKey: `${userId}:${payload.integrationProvider}:${payload.integrationDeviceId}` } : {}),
     };
 
     const saved = await this.db.updateAppliance(userId, updated);

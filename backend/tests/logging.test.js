@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const http = require("node:http");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const axios = require("axios");
 
 const { createApp } = require("../dist/app");
 const { IntegrationManager } = require("../dist/modules/integrations/integration-manager");
@@ -83,7 +84,7 @@ test("instrumenta HTTP, autenticação, validação, SmartThings, MongoDB e rela
       if (failAppliances) throw new Error("private database diagnostic");
       return [];
     },
-    getIntegrationToken: async () => null,
+    getIntegrationToken: async () => "NeverLogThisSmartThingsToken",
     saveIntegrationToken: async () => undefined,
     deleteIntegrationToken: async () => undefined,
     getIntegrationUsage: async () => [],
@@ -105,13 +106,20 @@ test("instrumenta HTTP, autenticação, validação, SmartThings, MongoDB e rela
   };
   const manager = new IntegrationManager();
   manager.register(fakeIntegration);
+  const previousAdapter = axios.defaults.adapter;
+  axios.defaults.adapter = async (config) => ({
+    data: config.url === "/devices" ? { items: [{ deviceId: "tv-1", name: "TV" }] } : { ok: true },
+    status: 200, statusText: "OK", headers: {}, config,
+  });
   const server = http.createServer(createApp({ db, integrationManager: manager }));
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   const base = `http://127.0.0.1:${address.port}`;
   const { token: authToken } = await new AuthService(db).login({ email: user.email, password });
 
-  const logs = await captureLogs(async () => {
+  let logs;
+  try {
+    logs = await captureLogs(async () => {
     const csrf = await fetch(`${base}/api/auth/csrf`);
     const { csrfToken } = await csrf.json();
     const csrfHeaders = {
@@ -217,9 +225,12 @@ test("instrumenta HTTP, autenticação, validação, SmartThings, MongoDB e rela
       throw new Error("database failed at mongodb://user:NeverLogThisMongoPassword@localhost/db");
     };
     await assert.rejects(() => mongo.init());
-  });
-
-  await new Promise((resolve) => server.close(resolve));
+    });
+  } finally {
+    axios.defaults.adapter = previousAdapter;
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
 
   for (const event of [
     "http.request_completed",

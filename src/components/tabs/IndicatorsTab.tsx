@@ -28,7 +28,7 @@ interface IndicatorsTabProps {
   efficiencyScore: number;
   monthOverMonthChange: number;
   accumulatedSavings: number;
-  historicalData: any[];
+  historicalData: Array<{ month: string; consumption: number; cost: number }>;
   saveCurrentMonthData: () => void;
   exportData: () => void;
 }

@@ -78,4 +78,8 @@ export class AuthService {
     }
     return { id: user.id, name: user.name, email: user.email };
   }
+
+  logout(userId: string, sessionId: string) {
+    return this.db.revokeSession(userId, sessionId);
+  }
 }

@@ -10,8 +10,13 @@ interface AuthContextValue {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, confirmPassword: string) => Promise<void>;
-  logout: () => Promise<void>;
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    confirmPassword: string
+  ) => Promise<void>;
+  logout: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
 }
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -111,16 +116,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { controller, version } = beginRequest();
     try {
       await apiRequest("/api/auth/logout", { method: "POST", body: "{}", signal: controller.signal });
-      if (version !== generation.current) return;
+      if (version !== generation.current) return false;
       setUser(null);
       queryClient.clear();
       channel.current?.postMessage("session-changed");
       toast({ title: "Logout realizado com sucesso!", description: "Você saiu da sua conta." });
+      return true;
     } catch (error) {
       if (!controller.signal.aborted) {
         notifyError(error, { title: "Não foi possível encerrar a sessão", fallbackMessage: "Tente sair novamente." });
       }
-      throw error;
+      return false;
     } finally {
       activeActions.current--;
       if (version === generation.current) setLoading(false);
