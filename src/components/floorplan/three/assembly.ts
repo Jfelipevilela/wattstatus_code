@@ -49,7 +49,10 @@ const slot = (index: number) => Math.min(index, TIMING.maxStaggered);
 
 export type RoomPhase =
   | { kind: "exit"; start: number; from: number[]; restoreAt: number | null }
-  | { kind: "enter"; start: number }
+  // `from` is where each unit was when the room was chosen and `liftStart`
+  // when the transition began: units rise from there to the drop height and
+  // then fall, so they never vanish or jump.
+  | { kind: "enter"; start: number; liftStart: number; from: number[] }
   | { kind: "restore"; start: number; from: number[] };
 
 export interface UnitState {
@@ -69,7 +72,14 @@ const rawUnitAt = (phase: RoomPhase | null, index: number, now: number, speed: n
   const ms = (value: number) => value / speed;
   if (phase.kind === "enter") {
     const start = phase.start + ms(slot(index) * TIMING.enterStagger);
-    if (now < start) return { offset: TIMING.dropHeight, visible: false, done: false };
+    if (now < start) {
+      const from = phase.from[index] ?? 0;
+      const span = start - phase.liftStart;
+      const t = span > 0 ? clamp01((now - phase.liftStart) / span) : 1;
+      const offset = from + (TIMING.dropHeight - from) * easeInOutCubic(t);
+      // Units rising from below the floor stay hidden until they clear it.
+      return { offset, visible: offset > -TIMING.sinkDepth + 0.01, done: false };
+    }
     const t = clamp01((now - start) / ms(TIMING.enter));
     return { offset: TIMING.dropHeight * (1 - easeOutBack(t)), visible: true, done: t >= 1 };
   }
@@ -121,7 +131,7 @@ export const planTransition = (
     return plan;
   }
   const enterStart = now + TIMING.enterDelay / speed;
-  plan.set(next, { kind: "enter", start: enterStart });
+  plan.set(next, { kind: "enter", start: enterStart, liftStart: now, from: offsets.get(next) ?? [] });
   if (previous) {
     plan.set(previous, {
       kind: "exit",

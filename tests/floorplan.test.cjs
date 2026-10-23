@@ -96,8 +96,13 @@ test('furniture moves as whole units: one car, one sofa, one bed', () => {
 
 test('enter drops from above and settles exactly at rest with a small overshoot', () => {
   const { unitAt, TIMING } = load('components/floorplan/three/assembly.ts');
-  const phase = { kind: 'enter', start: 1000 };
-  assert.deepEqual(unitAt(phase, 0, 900), { offset: TIMING.dropHeight, visible: false, done: false });
+  const phase = { kind: 'enter', start: 1000, liftStart: 780, from: [0, 0, 0] };
+  // Before its turn a unit lifts continuously from where it rests: at the
+  // click it is still on the floor and visible, never hidden.
+  assert.deepEqual(unitAt(phase, 0, 780), { offset: 0, visible: true, done: false });
+  const lifting = unitAt(phase, 0, 900);
+  assert.ok(lifting.visible && lifting.offset > 0 && lifting.offset < TIMING.dropHeight);
+  assert.ok(Math.abs(unitAt(phase, 0, 999.9).offset - TIMING.dropHeight) < 0.01, 'reaches the drop height without a jump');
   let lowest = Infinity;
   for (let t = 1000; t <= 1000 + TIMING.enter; t += 5) lowest = Math.min(lowest, unitAt(phase, 0, t).offset);
   assert.ok(lowest < 0 && lowest > -0.05, `overshoot ${lowest}`);
@@ -106,7 +111,7 @@ test('enter drops from above and settles exactly at rest with a small overshoot'
   assert.equal(end.visible, true);
   assert.equal(end.done, true);
   // Later units wait their turn; staggering is capped.
-  assert.equal(unitAt(phase, 2, 1000 + TIMING.enterStagger).visible, false);
+  assert.ok(unitAt(phase, 2, 1000 + TIMING.enterStagger).offset > 1.9, 'later units are still up, waiting');
   assert.equal(unitAt(phase, 50, 1000 + TIMING.maxStaggered * TIMING.enterStagger + 1).visible, true);
 });
 
@@ -145,4 +150,38 @@ test('fast clicks never leave rooms hidden: everything ends at rest', () => {
   // Back to the overview settles the last room in place.
   const overview = planTransition(phases, offsetsAt(phases, 300), 'bedroom', null, 300, units);
   for (const [, phase] of overview) assert.equal(unitAt(phase, 0, 10000).offset, 0);
+});
+
+test('no unit ever jumps between consecutive frames during a transition', () => {
+  const { planTransition, unitAt, TIMING } = load('components/floorplan/three/assembly.ts');
+  const units = () => 6;
+  const step = 16; // one frame at 60 fps
+  // Garage -> living, then a fast switch to the kitchen mid-flight.
+  let phases = planTransition(new Map(), new Map(), 'garage', 'living', 0, units);
+  const offsetsAt = (map, now) => new Map([...map].map(([id, phase]) => [id, [0, 1, 2, 3, 4, 5].map((i) => unitAt(phase, i, now).offset)]));
+  const track = (map, from, to, previous) => {
+    let last = previous;
+    for (let t = from; t <= to; t += step) {
+      const now = offsetsAt(map, t);
+      for (const [room, values] of now) {
+        values.forEach((value, i) => {
+          const before = last?.get(room)?.[i];
+          const visible = unitAt(map.get(room), i, t).visible;
+          // Below the floor a unit is hidden by the floor and the base.
+          if (before !== undefined && visible && value >= 0 && before >= 0) {
+            assert.ok(Math.abs(value - before) < 0.45, `${room}[${i}] jumped ${before} -> ${value} at ${t} ms`);
+          }
+        });
+      }
+      last = now;
+    }
+    return last;
+  };
+  // The new room starts exactly where it rests: visible, on the floor.
+  assert.deepEqual(unitAt(phases.get('living'), 0, 0), { offset: 0, visible: true, done: false });
+  let last = track(phases, 0, 300, new Map([['garage', [0, 0, 0, 0, 0, 0]], ['living', [0, 0, 0, 0, 0, 0]]]));
+  phases = planTransition(phases, offsetsAt(phases, 300), 'living', 'kitchen', 300, units);
+  last = track(phases, 300, 4000, last);
+  for (const [room, values] of last) values.forEach((value) => assert.equal(value, 0, `${room} rests at 0`));
+  void TIMING;
 });
