@@ -21,18 +21,18 @@ export class SmartThingsIntegration implements DeviceIntegration {
 
   private client: AxiosInstance;
 
-  constructor(private token: string) {
-    this.client = this.buildClient(token);
+  constructor(private token: string, timeoutMs = 10000) {
+    this.client = this.buildClient(token, timeoutMs);
   }
 
   isConfigured() {
     return Boolean(this.token);
   }
 
-  private buildClient(token: string) {
+  private buildClient(token: string, timeoutMs: number) {
     const client = axios.create({
       baseURL: BASE_URL,
-      timeout: 10000,
+      timeout: timeoutMs,
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",

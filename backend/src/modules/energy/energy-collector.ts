@@ -12,10 +12,11 @@ export async function collectEnergy(db: MongoDatabase, options: {
   const result = { claimed: 0, saved: 0, failed: 0, skipped: 0 };
   if (!options.enabled) return result;
   const now = options.now ?? (() => new Date());
-  const integration = options.integration ?? ((token: string) => new SmartThingsIntegration(token));
-  const stopAt = Date.now() + Math.min(options.deadlineMs, 20000);
-  const intervalMs = Math.max(5, options.intervalMinutes) * 60000;
-  for (let i = 0; i < Math.min(options.maxDevices, 3) && Date.now() < stopAt - 1000; i++) {
+  const integration = options.integration ?? ((token: string) => new SmartThingsIntegration(token, 4000));
+  const stopAt = Date.now() + (Number.isFinite(options.deadlineMs) ? Math.max(0, Math.min(options.deadlineMs, 20000)) : 0);
+  const intervalMs = (Number.isFinite(options.intervalMinutes) ? Math.max(5, options.intervalMinutes) : 30) * 60000;
+  const maxDevices = Number.isFinite(options.maxDevices) ? Math.max(0, Math.min(Math.floor(options.maxDevices), 3)) : 0;
+  for (let i = 0; i < maxDevices && Date.now() < stopAt - 1000; i++) {
     const claim = await db.claimEnergyCollection(now(), 60000);
     if (!claim) break;
     result.claimed++;

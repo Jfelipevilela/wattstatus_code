@@ -1,4 +1,4 @@
-import { MongoClient, Collection, Db } from "mongodb";
+import { MongoClient, MongoClientOptions, Collection, Db } from "mongodb";
 import crypto from "crypto";
 import {
   ApplianceRecord,
@@ -37,17 +37,18 @@ export class MongoDatabase {
   private db!: Db;
   private encKey: Buffer;
 
-  constructor(uri?: string, private dbName: string = env.mongoDbName) {
-    this.client = new MongoClient(uri || env.mongoUrl);
+  constructor(uri?: string, private dbName: string = env.mongoDbName, options?: MongoClientOptions) {
+    this.client = new MongoClient(uri || env.mongoUrl, options);
     this.encKey = crypto
       .createHash("sha256")
       .update(env.smartThingsTokenSecret || "wattstatus-dev-secret")
       .digest();
   }
 
-  async init() {
+  async init(createIndexes = true) {
     await this.client.connect();
     this.db = this.client.db(this.dbName);
+    if (!createIndexes) return;
     await this.db.collection("users").createIndex({ email: 1 }, { unique: true });
     await this.db.collection("appliances").createIndex({ userId: 1 });
     await this.db.collection("appliances").createIndex({ importKey: 1 }, { unique: true, partialFilterExpression: { importKey: { $exists: true } } });
