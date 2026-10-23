@@ -33,7 +33,7 @@ export function PropertyScopeBar({ properties, scopeId, onChange, appliances, pr
       active ? "border-foreground bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground",
     );
   return (
-    <nav aria-label="Escopo da análise" className="flex items-center gap-2 overflow-x-auto pb-1">
+    <nav aria-label="Escopo da análise" className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <Building className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <button type="button" aria-pressed={!scopeId} onClick={() => onChange(null)} className={chip(!scopeId)}>
         Todos os imóveis <span className="tabular-nums opacity-70">{formatCurrency(total)}</span>

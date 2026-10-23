@@ -8,20 +8,12 @@ import type { Appliance } from "@/hooks/useAppliances";
 import { formatNumber } from "@/lib/energy";
 import { roomColor, type Room } from "@/types/property";
 import { heatColor, heatScale, metricValue } from "./heat";
+import { MARKER_COLORS, PLAN_TOKENS } from "./tokens";
 import type { FloorPlanProps } from "./FloorPlan2D";
 
 const FLOOR_HEIGHT = 0.16;
 const WALL_HEIGHT = 0.9;
 const WALL = 0.1;
-const MARKER_COLORS: Record<string, string> = {
-  climate: "#0ea5e9",
-  tv: "#8b5cf6",
-  fridge: "#06b6d4",
-  shower: "#f97316",
-  light: "#eab308",
-  other: "#00C853",
-};
-
 const markerColor = (name: string) => {
   const text = name.toLowerCase();
   if (/\bar\b|condicion|split/.test(text)) return MARKER_COLORS.climate;
@@ -96,7 +88,11 @@ function RoomBlock({
     [x + width - WALL / 2, cz, WALL, depth],
   ];
   const lift = selected ? 0.08 : 0;
-  const perRow = Math.max(1, Math.floor((width - 0.6) / 0.8));
+  // Markers sit in a centred grid kept 0.7 m away from the walls.
+  const MARKER_GAP = 0.8;
+  const perRow = Math.max(1, Math.floor((width - 1.4) / MARKER_GAP) + 1);
+  const markers = appliances.slice(0, 8);
+  const rowsUsed = Math.ceil(markers.length / perRow);
   return (
     <group
       onClick={click}
@@ -113,18 +109,20 @@ function RoomBlock({
       <mesh position={[cx, FLOOR_HEIGHT / 2 + lift, cz]}>
         <boxGeometry args={[width - 0.04, FLOOR_HEIGHT, depth - 0.04]} />
         <meshStandardMaterial color={fill} roughness={0.85} transparent opacity={dimmed ? 0.55 : 1} />
-        {(selected || hover) && <Edges color={selected ? "#15803d" : "#71717a"} lineWidth={selected ? 2.5 : 1} />}
+        {(selected || hover) && <Edges color={selected ? PLAN_TOKENS.selection : PLAN_TOKENS.hover} lineWidth={selected ? 2.5 : 1} />}
       </mesh>
       {walls.map(([wx, wz, ww, wd], index) => (
         <mesh key={index} position={[wx, FLOOR_HEIGHT + WALL_HEIGHT / 2 + lift, wz]}>
           <boxGeometry args={[ww, WALL_HEIGHT, wd]} />
-          <meshStandardMaterial color="#fafafa" roughness={0.6} transparent opacity={dimmed ? 0.35 : 0.9} />
+          <meshStandardMaterial color={PLAN_TOKENS.wall} roughness={0.6} transparent opacity={dimmed ? 0.35 : 0.9} />
         </mesh>
       ))}
-      {appliances.slice(0, 8).map((appliance, index) => {
-        const px = x + 0.5 + (index % perRow) * 0.8;
-        const pz = y + depth - 0.55 - Math.floor(index / perRow) * 0.8;
-        if (pz < y + 0.4) return null;
+      {markers.map((appliance, index) => {
+        const row = Math.floor(index / perRow);
+        const inRow = Math.min(perRow, markers.length - row * perRow);
+        const px = cx + ((index % perRow) - (inRow - 1) / 2) * MARKER_GAP;
+        const pz = y + depth - 0.7 - (rowsUsed - 1 - row) * MARKER_GAP;
+        if (pz < y + 0.7) return null;
         const color = markerColor(appliance.name);
         return (
           <group
@@ -138,7 +136,7 @@ function RoomBlock({
           >
             <mesh position={[0, 0.25, 0]}>
               <cylinderGeometry args={[0.04, 0.04, 0.5, 8]} />
-              <meshStandardMaterial color="#a1a1aa" />
+              <meshStandardMaterial color={PLAN_TOKENS.markerStem} />
             </mesh>
             <mesh position={[0, 0.58, 0]}>
               <sphereGeometry args={[0.17, 16, 12]} />
@@ -229,13 +227,13 @@ export default function FloorPlan3D({
         <directionalLight position={[-8, 10, -6]} intensity={0.35} />
         <mesh position={[bounds.center.x, -0.06, bounds.center.z]}>
           <boxGeometry args={[bounds.maxX + 1.6, 0.12, bounds.maxZ + 1.6]} />
-          <meshStandardMaterial color="#e4e4e7" roughness={1} />
+          <meshStandardMaterial color={PLAN_TOKENS.plate} roughness={1} />
         </mesh>
         {placed.map((room) => {
           const bucket = energy.get(room.id);
           const value = heat ? metricValue(bucket, heat) : null;
           const intensity = scale ? scale(value) : null;
-          const fill = heat ? (intensity === null ? "#d4d4d8" : heatColor(intensity)) : roomColor(room);
+          const fill = heat ? (intensity === null ? PLAN_TOKENS.noData : heatColor(intensity)) : roomColor(room);
           const label = heat
             ? value === null
               ? heat === "measured"

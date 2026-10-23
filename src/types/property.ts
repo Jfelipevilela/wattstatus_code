@@ -1,3 +1,5 @@
+import { ROOM_PALETTE } from "@/components/floorplan/tokens";
+
 export type PropertyType = "house" | "apartment" | "commercial" | "other";
 
 export interface Property {
@@ -18,6 +20,8 @@ export interface Property {
   createdAt: string;
   updatedAt: string;
   archivedAt?: string | null;
+  // Present on list responses.
+  roomCount?: number;
 }
 
 export interface Floor {
@@ -69,20 +73,26 @@ export const ROOM_TYPES: Record<string, string> = {
   other: "Outro",
 };
 
-// Soft floor tints per room type, readable in both themes.
-export const ROOM_COLORS: Record<string, string> = {
-  living: "#86efac",
-  kitchen: "#fde68a",
-  bedroom: "#a5b4fc",
-  suite: "#c4b5fd",
-  bathroom: "#99f6e4",
-  office: "#93c5fd",
-  laundry: "#bae6fd",
-  garage: "#d4d4d8",
-  balcony: "#fbcfe8",
-  outdoor: "#bbf7d0",
-  hallway: "#e4e4e7",
-  other: "#e5e7eb",
-};
+// A room's own color, else a palette tint by its order in the property.
+export const roomColor = (room: Pick<Room, "color" | "sortOrder">) =>
+  room.color || ROOM_PALETTE[Math.abs(room.sortOrder) % ROOM_PALETTE.length];
 
-export const roomColor = (room: Pick<Room, "type" | "color">) => room.color || ROOM_COLORS[room.type] || ROOM_COLORS.other;
+const TYPE_HINTS: Array<[RegExp, string]> = [
+  [/su[ií]te/, "suite"],
+  [/quarto|dormit/, "bedroom"],
+  [/cozinha|copa/, "kitchen"],
+  [/banheiro|lavabo|wc/, "bathroom"],
+  [/escrit[oó]rio|home office|estudo/, "office"],
+  [/lavanderia|área de servi[cç]o|area de servi[cç]o/, "laundry"],
+  [/garagem/, "garage"],
+  [/varanda|sacada|terra[cç]o/, "balcony"],
+  [/quintal|piscina|jardim|área externa|area externa|churrasq/, "outdoor"],
+  [/corredor|hall/, "hallway"],
+  [/sala|living|estar/, "living"],
+];
+
+// Room type suggested by a free-form name, e.g. "Quarto do João" -> bedroom.
+export const inferRoomType = (name: string) => {
+  const text = name.toLowerCase();
+  return TYPE_HINTS.find(([pattern]) => pattern.test(text))?.[1] ?? null;
+};

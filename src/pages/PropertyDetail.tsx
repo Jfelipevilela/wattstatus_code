@@ -23,6 +23,7 @@ import { aggregatePropertyEnergy, appliancePropertyId, daysInMonth, UNASSIGNED }
 import { formatCurrency, formatNumber } from "@/lib/energy";
 import { notifyError } from "@/lib/error-toast";
 import { cn } from "@/lib/utils";
+import { zonedMonthRange, zonedParts } from "@/lib/timezone";
 import { PROPERTY_TYPES, type RoomLayout } from "@/types/property";
 
 const TABS = [
@@ -65,12 +66,13 @@ export default function PropertyDetail() {
   const property = api.properties.find((item) => item.id === id) ?? null;
   const primaryId = api.primary?.id ?? null;
 
-  const now = useMemo(() => new Date(), []);
-  const start = useMemo(() => new Date(now.getFullYear(), now.getMonth(), 1), [now]);
-  const end = useMemo(() => new Date(now.getFullYear(), now.getMonth() + 1, 1), [now]);
+  // "This month" and its boundaries are the property's, in its own time zone.
+  const timeZone = property?.timezone ?? null;
+  const today = useMemo(() => zonedParts(new Date(), timeZone), [timeZone]);
+  const { start, end } = useMemo(() => zonedMonthRange(today.year, today.month, timeZone), [today.year, today.month, timeZone]);
   const measured = usePropertyEnergy(id, start, end);
-  const days = daysInMonth(now.getFullYear(), now.getMonth() + 1);
-  const periodLabel = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const days = daysInMonth(today.year, today.month);
+  const periodLabel = new Date(today.year, today.month - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   const ownAppliances = appliances.filter((item) => appliancePropertyId(item, primaryId) === id);
   const energy = aggregatePropertyEnergy(id, primaryId, appliances, layout.rooms, measured.intervals, days);
@@ -151,6 +153,7 @@ export default function PropertyDetail() {
       busy={Boolean(busyId)}
       onMove={move}
       onClose={() => setSelectedRoomId(null)}
+      hideClose={!desktop}
     />
   );
 
@@ -229,6 +232,10 @@ export default function PropertyDetail() {
                     <dd className="text-2xl font-bold tabular-nums">
                       {measured.loading ? (
                         <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : measured.error ? (
+                        <span className="text-base font-medium text-destructive" title={measured.error}>
+                          indisponível
+                        </span>
                       ) : energy.total.measuredIntervals > 0 ? (
                         `${formatNumber(energy.total.measuredKWh, 1)} kWh`
                       ) : (
@@ -254,7 +261,7 @@ export default function PropertyDetail() {
                 </dl>
               </section>
 
-              <div role="tablist" aria-label="Seções do imóvel" className="flex gap-1 overflow-x-auto border-b">
+              <div role="tablist" aria-label="Seções do imóvel" className="flex gap-1 overflow-x-auto border-b [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {TABS.map((item) => (
                   <button
                     key={item.value}
@@ -279,7 +286,7 @@ export default function PropertyDetail() {
                     className="flex h-[min(78dvh,680px)] min-h-[460px] flex-col overflow-hidden rounded-[28px] border bg-gradient-to-b from-zinc-50 to-zinc-100 shadow-sm dark:from-zinc-900 dark:to-zinc-950"
                   >
                     {layout.floors.length > 1 && (
-                      <div role="group" aria-label="Pavimento" className="flex gap-1 overflow-x-auto px-3 pt-3">
+                      <div role="group" aria-label="Pavimento" className="flex gap-1 overflow-x-auto px-3 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                         {layout.floors.map((floor) => (
                           <button
                             key={floor.id}
@@ -424,7 +431,13 @@ export default function PropertyDetail() {
                 />
               )}
               {tab === "consumo" && (
-                <PropertyEnergyTab rooms={layout.rooms} energy={energy} unlocated={measured.unlocated} periodLabel={periodLabel} />
+                <PropertyEnergyTab
+                  rooms={layout.rooms}
+                  energy={energy}
+                  unlocated={measured.unlocated}
+                  periodLabel={periodLabel}
+                  measuredError={measured.error}
+                />
               )}
               {tab === "config" && (
                 <PropertySettingsTab

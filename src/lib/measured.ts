@@ -1,9 +1,8 @@
 import type { EnergyInterval } from "@/hooks/useEnergyHistory";
+import { zonedMonthKey } from "./timezone";
 
-export const localMonthKey = (iso: string) => {
-  const date = new Date(iso);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-};
+// Month of an instant in the given IANA zone; the browser zone when omitted.
+export const localMonthKey = (iso: string, timeZone?: string | null) => zonedMonthKey(iso, timeZone);
 
 export const summarizeMeasured = (intervals: EnergyInterval[]) => ({
   consumptionKWh: intervals.reduce((sum, row) => sum + row.consumptionKWh, 0),
@@ -11,10 +10,11 @@ export const summarizeMeasured = (intervals: EnergyInterval[]) => ({
   costComplete: intervals.every((row) => row.cost !== null),
 });
 
-export const measuredByMonth = (intervals: EnergyInterval[]) => {
+// Intervals are filed in the month their reading ended.
+export const measuredByMonth = (intervals: EnergyInterval[], timeZone?: string | null) => {
   const grouped = new Map<string, number>();
   for (const row of intervals) {
-    const month = localMonthKey(row.endAt);
+    const month = localMonthKey(row.endAt, timeZone);
     grouped.set(month, (grouped.get(month) ?? 0) + row.consumptionKWh);
   }
   return [...grouped].sort(([a], [b]) => a.localeCompare(b)).map(([month, consumptionKWh]) => ({ month, consumptionKWh }));

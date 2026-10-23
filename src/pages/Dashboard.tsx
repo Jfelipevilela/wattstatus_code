@@ -77,12 +77,14 @@ export default function Dashboard() {
       },
       { replace: true },
     );
+  // One extra day on each side so a property in another time zone still gets
+  // its whole months; readings are filed by month key afterwards.
   const historyStart = useMemo(
-    () => new Date(selectedYear, selectedMonth - 6, 1),
+    () => new Date(selectedYear, selectedMonth - 6, 0),
     [selectedYear, selectedMonth],
   );
   const historyEnd = useMemo(
-    () => new Date(selectedYear, selectedMonth, 1),
+    () => new Date(selectedYear, selectedMonth, 2),
     [selectedYear, selectedMonth],
   );
   const energy = useEnergyHistory(historyStart, historyEnd);
@@ -103,6 +105,8 @@ export default function Dashboard() {
   const appliances = scopeId
     ? allAppliances.filter((item) => appliancePropertyId(item, primary?.id ?? null) === scopeId)
     : allAppliances;
+  // A single property is read in its own time zone; "all" uses the browser's.
+  const timeZone = scopeProperty?.timezone ?? null;
   const scopedIntervals = scopeId ? energy.intervals.filter((item) => item.propertyId === scopeId) : energy.intervals;
   const estimate = getMonthlyEstimate(appliances, selectedYear, selectedMonth);
   const history = getEstimateHistory(appliances, selectedYear, selectedMonth);
@@ -111,9 +115,10 @@ export default function Dashboard() {
     appliances,
     selectedYear,
     selectedMonth,
+    timeZone,
   );
   const measuredMonths = new Map(
-    measuredByMonth(scopedIntervals).map((row) => [row.month, row.consumptionKWh]),
+    measuredByMonth(scopedIntervals, timeZone).map((row) => [row.month, row.consumptionKWh]),
   );
   const trend: TrendPoint[] = history.map((point, index) => {
     const date = new Date(selectedYear, selectedMonth - 6 + index, 1);

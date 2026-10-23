@@ -1,3 +1,4 @@
+import { HEAT_STOPS } from "./tokens";
 import type { EnergyBucket } from "@/lib/property-energy";
 
 export type HeatMetric = "estimated" | "measured";
@@ -16,11 +17,7 @@ export const heatScale = (values: Array<number | null>) => {
 
 // Green (low) to amber to orange (high).
 export const heatColor = (intensity: number) => {
-  const stops = [
-    [187, 247, 208],
-    [253, 230, 138],
-    [251, 146, 60],
-  ];
+  const stops = HEAT_STOPS;
   const t = Math.min(1, Math.max(0, intensity)) * 2;
   const [a, b] = t <= 1 ? [stops[0], stops[1]] : [stops[1], stops[2]];
   const k = t <= 1 ? t : t - 1;

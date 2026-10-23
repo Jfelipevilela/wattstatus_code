@@ -9,6 +9,7 @@ interface Props {
   energy: PropertyEnergy;
   unlocated: { count: number; consumptionKWh: number };
   periodLabel: string;
+  measuredError?: string | null;
 }
 
 const config = {
@@ -16,7 +17,7 @@ const config = {
   measured: { label: "Medido (kWh)", color: "#2979FF" },
 };
 
-export function PropertyEnergyTab({ rooms, energy, unlocated, periodLabel }: Props) {
+export function PropertyEnergyTab({ rooms, energy, unlocated, periodLabel, measuredError }: Props) {
   const rows = [
     ...rooms.map((room) => ({ key: room.id, name: room.name, bucket: energy.byRoom.get(room.id)! })),
     { key: UNASSIGNED, name: "Sem ambiente", bucket: energy.byRoom.get(UNASSIGNED)! },
@@ -34,6 +35,12 @@ export function PropertyEnergyTab({ rooms, energy, unlocated, periodLabel }: Pro
 
   return (
     <div className="space-y-6">
+      {measuredError && (
+        <p role="alert" className="rounded-2xl border border-destructive/40 p-4 text-sm">
+          Não foi possível consultar as medições agora ({measuredError}). Os valores medidos abaixo estão incompletos; o estimado
+          continua válido.
+        </p>
+      )}
       <section className="rounded-3xl border bg-card p-5 shadow-sm sm:p-6">
         <h2 className="text-lg font-semibold">Consumo por ambiente</h2>
         <p className="mt-1 text-sm text-muted-foreground">

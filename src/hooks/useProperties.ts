@@ -136,6 +136,8 @@ export const usePropertyEnergy = (propertyId: string | undefined, start: Date, e
   const query = useQuery({
     queryKey: propertyKeys.energy(propertyId ?? "none", startIso, endIso),
     enabled: Boolean(user && propertyId),
+    // One retry, so a failed reading shows as "indisponível" in seconds.
+    retry: 1,
     queryFn: () =>
       api<{ intervals: EnergyInterval[]; unlocated: { count: number; consumptionKWh: number } }>(
         `/api/properties/${propertyId}/energy?${new URLSearchParams({ start: startIso, end: endIso })}`,

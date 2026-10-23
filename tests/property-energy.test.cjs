@@ -16,6 +16,7 @@ const load = (relative) => {
   loaded.paths = Module._nodeModulePaths(path.dirname(filename));
   const parentRequire = loaded.require.bind(loaded);
   loaded.require = (request) => {
+    if (request.startsWith('@/')) return load(`${request.slice(2)}.ts`);
     if (request.startsWith('./')) {
       const target = path.relative(path.resolve(__dirname, '../src'), path.resolve(path.dirname(filename), request));
       return load(`${target}.ts`);
@@ -82,4 +83,17 @@ test('heat map treats missing data as unknown, not as low', () => {
   assert.equal(scale(10), 1);
   assert.equal(scale(5), 0.5);
   assert.equal(scale(null), null);
+});
+
+test('room type is guessed from free-form names', () => {
+  const { inferRoomType, roomColor } = load('types/property.ts');
+  assert.equal(inferRoomType('Quarto do João'), 'bedroom');
+  assert.equal(inferRoomType('Suíte master'), 'suite');
+  assert.equal(inferRoomType('Cozinha gourmet'), 'kitchen');
+  assert.equal(inferRoomType('Área da piscina'), 'outdoor');
+  assert.equal(inferRoomType('Sala de TV'), 'living');
+  assert.equal(inferRoomType('Depósito'), null);
+  // Neighbouring rooms of the same type still get different tints.
+  assert.notEqual(roomColor({ sortOrder: 0 }), roomColor({ sortOrder: 1 }));
+  assert.equal(roomColor({ sortOrder: 3, color: '#123456' }), '#123456');
 });

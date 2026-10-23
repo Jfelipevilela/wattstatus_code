@@ -13,24 +13,27 @@ import { appliancePropertyId } from "@/lib/property-energy";
 import { measuredByMonth } from "@/lib/measured";
 import { estimateAppliance, formatCurrency, formatNumber, getEstimateHistory } from "@/lib/energy";
 import { cn } from "@/lib/utils";
+import { shiftMonth, zonedMonthKey, zonedMonthRange, zonedParts } from "@/lib/timezone";
 import { ROOM_TYPES, roomColor } from "@/types/property";
 
-const monthKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+const monthKey = (year: number, month: number) => `${year}-${String(month).padStart(2, "0")}`;
 
 export default function RoomDetails() {
   const { id = "", roomId = "" } = useParams();
   const api = useProperties();
   const layout = usePropertyLayout(id);
   const { appliances, loading: appliancesLoading } = useAppliances();
-  const now = useMemo(() => new Date(), []);
-  const start = useMemo(() => new Date(now.getFullYear(), now.getMonth() - 5, 1), [now]);
-  const end = useMemo(() => new Date(now.getFullYear(), now.getMonth() + 1, 1), [now]);
+  const property = api.properties.find((item) => item.id === id);
+  const timeZone = property?.timezone ?? null;
+  const today = useMemo(() => zonedParts(new Date(), timeZone), [timeZone]);
+  const first = shiftMonth(today.year, today.month, -5);
+  const start = useMemo(() => zonedMonthRange(first.year, first.month, timeZone).start, [first.year, first.month, timeZone]);
+  const end = useMemo(() => zonedMonthRange(today.year, today.month, timeZone).end, [today.year, today.month, timeZone]);
   const measured = usePropertyEnergy(id, start, end);
 
-  const property = api.properties.find((item) => item.id === id);
   const room = layout.rooms.find((item) => item.id === roomId);
   const primaryId = api.primary?.id ?? null;
-  const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const days = new Date(today.year, today.month, 0).getDate();
   const roomAppliances = appliances.filter((item) => appliancePropertyId(item, primaryId) === id && item.roomId === roomId);
   const ranked = roomAppliances
     .map((appliance) => ({ appliance, ...estimateAppliance(appliance, days) }))
@@ -38,14 +41,15 @@ export default function RoomDetails() {
   const estimatedCost = ranked.reduce((sum, row) => sum + row.cost, 0);
   const estimatedKWh = ranked.reduce((sum, row) => sum + row.consumption, 0);
   const roomIntervals = measured.intervals.filter((item) => item.roomId === roomId && !item.locationChanged);
-  const monthly = new Map(measuredByMonth(roomIntervals).map((row) => [row.month, row.consumptionKWh]));
-  const current = monthly.get(monthKey(now));
+  const monthly = new Map(measuredByMonth(roomIntervals, timeZone).map((row) => [row.month, row.consumptionKWh]));
+  const currentKey = monthKey(today.year, today.month);
+  const current = monthly.get(currentKey);
   const currentCost = roomIntervals
-    .filter((item) => monthKey(new Date(item.endAt)) === monthKey(now))
+    .filter((item) => zonedMonthKey(item.endAt, timeZone) === currentKey)
     .reduce((sum, item) => (sum === null || item.cost === null ? null : sum + item.cost), 0 as number | null);
-  const trend: TrendPoint[] = getEstimateHistory(roomAppliances, now.getFullYear(), now.getMonth() + 1).map((point, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
-    return { label: point.month, estimated: point.consumption, measured: monthly.get(monthKey(date)) ?? null };
+  const trend: TrendPoint[] = getEstimateHistory(roomAppliances, today.year, today.month).map((point, index) => {
+    const month = shiftMonth(today.year, today.month, index - 5);
+    return { label: point.month, estimated: point.consumption, measured: monthly.get(monthKey(month.year, month.month)) ?? null };
   });
   const loading = api.loading || layout.loading || appliancesLoading;
   const max = ranked[0]?.cost ?? 0;
@@ -76,7 +80,7 @@ export default function RoomDetails() {
             </section>
           ) : (
             <>
-              <div className="flex gap-2 overflow-x-auto pb-1" role="navigation" aria-label="Outros ambientes">
+              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="navigation" aria-label="Outros ambientes">
                 {layout.rooms.map((item) => (
                   <Link
                     key={item.id}
@@ -109,7 +113,11 @@ export default function RoomDetails() {
                     <dt className="flex items-center gap-1 text-xs uppercase tracking-widest text-white/50">
                       <Radio className="h-3 w-3" aria-hidden="true" /> Medido no mês
                     </dt>
-                    {current !== undefined ? (
+                    {measured.error ? (
+                      <dd className="mt-1 text-2xl font-semibold text-red-300" title={measured.error}>
+                        Indisponível
+                      </dd>
+                    ) : current !== undefined ? (
                       <>
                         <dd className="mt-1 text-4xl font-bold tabular-nums">{currentCost === null ? "—" : formatCurrency(currentCost)}</dd>
                         <dd className="text-sm text-white/60">{formatNumber(current, 2)} kWh</dd>

@@ -1,6 +1,7 @@
 import type { Appliance } from "@/hooks/useAppliances";
 import type { EnergyInterval } from "@/hooks/useEnergyHistory";
 import { localMonthKey, summarizeMeasured } from "@/lib/measured";
+import { zonedParts } from "@/lib/timezone";
 
 export const GAP_THRESHOLD_MS = 2 * 3600000;
 
@@ -31,9 +32,10 @@ export function summarizeMonth(
   appliances: Appliance[],
   year: number,
   month: number,
+  timeZone?: string | null,
 ): MeasuredSummary | null {
   const key = monthKey(year, month);
-  const current = intervals.filter((row) => localMonthKey(row.endAt) === key);
+  const current = intervals.filter((row) => localMonthKey(row.endAt, timeZone) === key);
   if (current.length === 0) return null;
   const totals = summarizeMeasured(current);
   const byAppliance = new Map<string, number>();
@@ -43,7 +45,7 @@ export function summarizeMonth(
       appliances.find((item) => item.id === row.applianceId)?.name ||
       `Dispositivo ${row.deviceId}`;
     byAppliance.set(name, (byAppliance.get(name) ?? 0) + row.consumptionKWh);
-    const day = new Date(row.endAt).getDate();
+    const day = zonedParts(new Date(row.endAt), timeZone).day;
     daily.set(day, (daily.get(day) ?? 0) + row.consumptionKWh);
   }
   return {
