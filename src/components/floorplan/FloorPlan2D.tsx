@@ -5,6 +5,7 @@ import { formatNumber } from "@/lib/energy";
 import { applianceVisual } from "@/components/appliances/applianceVisual";
 import { roomColor, type Room, type RoomLayout } from "@/types/property";
 import { heatColor, heatScale, metricValue, type HeatMetric } from "./heat";
+import { overlappingRooms, snapMove, snapResize } from "./snap";
 
 const SCALE = 32; // px per metre
 const SNAP = 0.5;
@@ -25,6 +26,7 @@ export interface FloorPlanProps {
   selectedRoomId: string | null;
   onSelectRoom: (roomId: string | null) => void;
   onSelectAppliance?: (appliance: Appliance) => void;
+  highlightedApplianceId?: string | null;
   heat: HeatMetric | null;
   editing?: boolean;
   onLayoutChange?: (roomId: string, layout: RoomLayout) => void;
@@ -46,6 +48,7 @@ export function FloorPlan2D({
   const maxX = Math.max(8, ...placed.map((room) => room.layout!.x + room.layout!.width));
   const maxY = Math.max(6, ...placed.map((room) => room.layout!.y + room.layout!.depth));
   const pad = 1;
+  const overlapping = editing ? overlappingRooms(placed) : new Set<string>();
   const scale = heat ? heatScale(placed.map((room) => metricValue(energy.get(room.id), heat))) : null;
 
   const begin = (event: PointerEvent, room: Room, mode: "move" | "resize") => {
@@ -68,7 +71,10 @@ export function FloorPlan2D({
       current.mode === "move"
         ? { ...current.origin, x: snap(current.origin.x + dx), y: snap(current.origin.y + dy) }
         : { ...current.origin, width: snap(current.origin.width + dx), depth: snap(current.origin.depth + dy) };
-    onLayoutChange(current.id, clampLayout(next));
+    // Edges stick to nearby rooms so separate rooms join into one house.
+    const others = placed.filter((room) => room.id !== current.id).map((room) => room.layout!);
+    const snapped = current.mode === "move" ? snapMove(clampLayout(next), others) : snapResize(clampLayout(next), others);
+    onLayoutChange(current.id, clampLayout(snapped));
   };
   const end = () => {
     drag.current = null;
@@ -133,6 +139,7 @@ export function FloorPlan2D({
         const intensity = scale ? scale(value) : null;
         const fill = heat ? (intensity === null ? "url(#no-data)" : heatColor(intensity)) : roomColor(room);
         const selected = room.id === selectedRoomId;
+        const clash = overlapping.has(room.id);
         const appliances = appliancesByRoom.get(room.id) ?? [];
         const label = heat
           ? value === null
@@ -165,8 +172,11 @@ export function FloorPlan2D({
               height={Math.max(0, h - 4)}
               rx={10}
               fill={fill}
-              className={selected ? "stroke-energy-700 dark:stroke-energy-400" : "stroke-white/70 dark:stroke-zinc-900"}
-              strokeWidth={selected ? 4 : 2}
+              className={
+                clash ? "stroke-red-500" : selected ? "stroke-energy-700 dark:stroke-energy-400" : "stroke-white/70 dark:stroke-zinc-900"
+              }
+              strokeWidth={clash || selected ? 4 : 2}
+              strokeDasharray={clash ? "8 5" : undefined}
               opacity={selected || !selectedRoomId ? 1 : 0.7}
             />
             <text x={x + 12} y={y + 24} className="fill-zinc-800 text-[13px] font-semibold">

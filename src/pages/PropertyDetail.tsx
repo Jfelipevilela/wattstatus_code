@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/use-toast";
 import { DataState } from "@/components/DataState";
 import { FloorPlanViewer } from "@/components/floorplan/FloorPlanViewer";
 import type { HeatMetric } from "@/components/floorplan/heat";
+import { overlappingRooms } from "@/components/floorplan/snap";
 import { RoomPanel } from "@/components/properties/RoomPanel";
 import { AddRoomForm, PropertyRoomsTab } from "@/components/properties/PropertyRoomsTab";
 import { PropertyAppliancesTab } from "@/components/properties/PropertyAppliancesTab";
@@ -89,6 +90,7 @@ export default function PropertyDetail() {
   const desktop = useDesktop();
 
   const roomsForPlan = floorRooms.map((room) => (draft.has(room.id) ? { ...room, layout: draft.get(room.id)! } : room));
+  const overlaps = overlappingRooms(roomsForPlan);
   const appliancesByRoom = useMemo(() => {
     const map = new Map<string, Appliance[]>();
     for (const appliance of ownAppliances) {
@@ -154,6 +156,13 @@ export default function PropertyDetail() {
       onMove={move}
       onClose={() => setSelectedRoomId(null)}
       hideClose={!desktop}
+      onChangeType={(type) =>
+        layout.updateRoom.mutate(
+          { id: selectedRoom.id, type },
+          { onError: (err) => notifyError(err, { title: "Erro ao mudar o tipo" }) },
+        )
+      }
+      floorName={layout.floors.length > 1 ? layout.floors.find((floor) => floor.id === selectedRoom.floorId)?.name : undefined}
     />
   );
 
@@ -330,6 +339,7 @@ export default function PropertyDetail() {
                           setHighlighted(null);
                         }}
                         onSelectAppliance={(appliance) => setHighlighted(appliance.id)}
+                        highlightedApplianceId={highlighted}
                         heat={heat}
                         onHeatChange={setHeat}
                         editing={editing}
@@ -348,7 +358,13 @@ export default function PropertyDetail() {
                               >
                                 <X className="mr-1 h-4 w-4" /> Cancelar
                               </Button>
-                              <Button size="sm" className="rounded-full" disabled={draft.size === 0 || layout.saveLayout.isPending} onClick={saveLayout}>
+                              <Button
+                                size="sm"
+                                className="rounded-full"
+                                disabled={draft.size === 0 || overlaps.size > 0 || layout.saveLayout.isPending}
+                                title={overlaps.size > 0 ? "Há ambientes sobrepostos" : undefined}
+                                onClick={saveLayout}
+                              >
                                 <Check className="mr-1 h-4 w-4" /> Salvar planta
                               </Button>
                             </>
@@ -362,7 +378,9 @@ export default function PropertyDetail() {
                     )}
                     {editing && (
                       <p className="border-t bg-card px-4 py-2 text-xs text-muted-foreground">
-                        Arraste um ambiente para mover e o canto verde para redimensionar. Teclado: setas movem, Shift + setas redimensionam.
+                        {overlaps.size > 0
+                          ? "Ambientes em vermelho estão sobrepostos. Afaste-os ou encoste as bordas para salvar."
+                          : "Arraste um ambiente para mover e o canto verde para redimensionar; perto de outro cômodo, as bordas se encaixam e viram uma parede só. Teclado: setas movem, Shift + setas redimensionam."}
                       </p>
                     )}
                   </section>

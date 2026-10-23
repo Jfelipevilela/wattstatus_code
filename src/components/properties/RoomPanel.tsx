@@ -31,6 +31,8 @@ interface Props {
   onClose: () => void;
   // The mobile sheet brings its own close button.
   hideClose?: boolean;
+  floorName?: string;
+  onChangeType?: (type: string) => void;
 }
 
 export function RoomPanel({
@@ -47,6 +49,8 @@ export function RoomPanel({
   onMove,
   onClose,
   hideClose = false,
+  floorName,
+  onChangeType,
 }: Props) {
   const ranked = [...appliances]
     .map((appliance) => ({
@@ -66,9 +70,7 @@ export function RoomPanel({
           style={{ background: roomColor(room) }}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-muted-foreground">
-            {ROOM_TYPES[room.type] ?? "Ambiente"}
-          </p>
+          <p className="truncate text-xs text-muted-foreground">{[property.name, floorName].filter(Boolean).join(" · ")}</p>
           <h2 id="room-panel-title" className="truncate text-xl font-semibold">
             {room.name}
           </h2>
@@ -85,6 +87,23 @@ export function RoomPanel({
         )}
       </header>
       <div className="flex-1 space-y-5 overflow-y-auto p-5">
+        {onChangeType && (
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-muted-foreground">Tipo do ambiente</span>
+            <select
+              value={room.type}
+              disabled={busy}
+              onChange={(event) => onChangeType(event.target.value)}
+              className="h-9 rounded-full border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {Object.entries(ROOM_TYPES).map(([value, text]) => (
+                <option key={value} value={value}>
+                  {text}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <dl className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl bg-muted/60 p-3">
             <dt className="text-xs text-muted-foreground">Estimado/mês</dt>

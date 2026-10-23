@@ -1,5 +1,5 @@
 import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from "react";
-import { Box, Flame, Loader2, Square } from "lucide-react";
+import { Box, Flame, Home, Loader2, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FloorPlan2D, type FloorPlanProps } from "./FloorPlan2D";
 import { heatColor, supportsWebGL, type HeatMetric } from "./heat";
@@ -72,15 +72,17 @@ export function FloorPlanViewer({ heat, onHeatChange, toolbar, editing, ...plan 
             <Box className="h-3.5 w-3.5" /> 3D
           </button>
         </div>
-        <div role="group" aria-label="Mapa de consumo" className="flex rounded-full border bg-card p-1 shadow-sm">
+        <div role="group" aria-label="Modo da planta" className="flex rounded-full border bg-card p-1 shadow-sm">
           <button type="button" aria-pressed={heat === null} className={segment(heat === null)} onClick={() => onHeatChange(null)}>
-            Ambientes
+            <Home className="h-3.5 w-3.5" /> Casa
           </button>
           <button type="button" aria-pressed={heat === "estimated"} className={segment(heat === "estimated")} onClick={() => onHeatChange("estimated")}>
-            <Flame className="h-3.5 w-3.5" /> Estimado
+            <Flame className="h-3.5 w-3.5" /> <span className="sm:hidden">Estimada</span>
+            <span className="hidden sm:inline">Energia estimada</span>
           </button>
           <button type="button" aria-pressed={heat === "measured"} className={segment(heat === "measured")} onClick={() => onHeatChange("measured")}>
-            <Flame className="h-3.5 w-3.5" /> Medido
+            <Flame className="h-3.5 w-3.5" /> <span className="sm:hidden">Medida</span>
+            <span className="hidden sm:inline">Energia medida</span>
           </button>
         </div>
         <div className="ml-auto flex items-center gap-2">{toolbar}</div>
@@ -131,7 +133,9 @@ export function FloorPlanViewer({ heat, onHeatChange, toolbar, editing, ...plan 
             <span aria-hidden="true" className="h-2.5 w-4 rounded bg-[repeating-linear-gradient(45deg,#d4d4d8_0_3px,transparent_3px_6px)]" />
             {heat === "measured" ? "sem medição (não é consumo zero)" : "sem aparelhos"}
           </span>
-          {heat === "measured" && <span>Cômodos só se comparam quando ambos têm medição.</span>}
+          {heat === "measured" && (
+            <span>"parcial": só parte dos aparelhos do cômodo tem medidor. Cômodos só se comparam quando ambos têm medição.</span>
+          )}
         </div>
       )}
     </div>

@@ -164,10 +164,38 @@ export function PropertyRoomsTab({ propertyId, floors, rooms, energy, layout }: 
                     ) : (
                       <h3 className="truncate font-semibold">{room.name}</h3>
                     )}
-                    <p className="text-xs text-muted-foreground">
-                      {ROOM_TYPES[room.type] ?? "Ambiente"}
-                      {floors.length > 1 && ` · ${floorName(room.floorId)}`}
-                    </p>
+                    <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                      {/* Changing the type changes the floor and furniture in the 3D model. */}
+                      <label className="sr-only" htmlFor={`room-type-${room.id}`}>
+                        Tipo de {room.name}
+                      </label>
+                      <select
+                        id={`room-type-${room.id}`}
+                        value={room.type}
+                        disabled={layout.updateRoom.isPending}
+                        onChange={(event) =>
+                          layout.updateRoom.mutate(
+                            { id: room.id, type: event.target.value },
+                            {
+                              onSuccess: () =>
+                                toast({
+                                  title: "Tipo atualizado",
+                                  description: `${room.name} agora é ${ROOM_TYPES[event.target.value].toLowerCase()}; a maquete já mudou.`,
+                                }),
+                              onError: (err) => notifyError(err, { title: "Erro ao mudar o tipo" }),
+                            },
+                          )
+                        }
+                        className="-ml-1 rounded-md bg-transparent py-0.5 pl-1 pr-5 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {Object.entries(ROOM_TYPES).map(([value, text]) => (
+                          <option key={value} value={value}>
+                            {text}
+                          </option>
+                        ))}
+                      </select>
+                      {floors.length > 1 && <span>· {floorName(room.floorId)}</span>}
+                    </div>
                   </div>
                   <button
                     type="button"
