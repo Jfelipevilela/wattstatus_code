@@ -33,6 +33,8 @@ interface Props {
   hideClose?: boolean;
   floorName?: string;
   onChangeType?: (type: string) => void;
+  // Estimated cost of the whole property, for the room's share.
+  propertyCost?: number;
 }
 
 export function RoomPanel({
@@ -51,7 +53,9 @@ export function RoomPanel({
   hideClose = false,
   floorName,
   onChangeType,
+  propertyCost = 0,
 }: Props) {
+  const share = propertyCost > 0 ? ((bucket?.estimatedCost ?? 0) / propertyCost) * 100 : null;
   const ranked = [...appliances]
     .map((appliance) => ({
       appliance,
@@ -136,6 +140,17 @@ export function RoomPanel({
             )}
           </div>
         </dl>
+        {share !== null && (
+          <div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Participação no imóvel (estimado)</span>
+              <span className="font-semibold tabular-nums text-foreground">{formatNumber(share, 0)}%</span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted" role="presentation">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(share, 100)}%` }} />
+            </div>
+          </div>
+        )}
 
         <div>
           <h3 className="mb-2 text-sm font-semibold">

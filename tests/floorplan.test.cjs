@@ -59,9 +59,9 @@ test('furniture stays inside the walls and pieces on the floor never overlap', (
       }
     }
   }
-  const living = furnitureFor('living', 6, 5).map((p) => p.key);
-  assert.ok(living.includes('sofa-seat') && living.includes('tv'));
-  assert.equal(furnitureFor('bedroom', 1, 1).some((p) => p.key === 'bed'), false, 'a bed is dropped when it does not fit');
+  const living = furnitureFor('living', 6, 5);
+  assert.ok(living.some((p) => p.key.startsWith('living-sofa/')) && living.some((p) => p.anchor === 'tv'));
+  assert.equal(furnitureFor('bedroom', 1, 1).some((p) => p.key.startsWith('bedroom-bed/')), false, 'a bed is dropped when it does not fit');
   assert.ok(furnitureFor('bedroom', 4, 4).some((p) => p.anchor === 'ac'));
 });
 
@@ -80,4 +80,69 @@ test('rooms dragged near each other snap flush and join into one wall', () => {
   // Touching is fine; overlapping is flagged.
   assert.equal(overlappingRooms([{ id: 'a', layout: sala }, { id: 'b', layout: cozinha }]).size, 0);
   assert.deepEqual([...overlappingRooms([{ id: 'a', layout: sala }, { id: 'b', layout: { x: 5, y: 1, width: 3, depth: 3 } }])].sort(), ['a', 'b']);
+});
+
+test('furniture moves as whole units: one car, one sofa, one bed', () => {
+  const { groupUnits } = load('components/floorplan/three/assembly.ts');
+  const garage = groupUnits(furnitureFor('garage', 3.5, 6));
+  const car = garage.find((unit) => unit.id === 'garage-car');
+  assert.ok(car && car.pieces.length > 10, 'all car parts in one unit');
+  assert.equal(garage.filter((unit) => unit.id === 'garage-car').length, 1);
+  const living = groupUnits(furnitureFor('living', 6, 5)).map((unit) => unit.id);
+  assert.equal(new Set(living).size, living.length);
+  assert.ok(living.includes('living-sofa'));
+  assert.ok(groupUnits(furnitureFor('bedroom', 4, 4)).some((unit) => unit.id === 'bedroom-bed' && unit.pieces.length >= 5));
+});
+
+test('enter drops from above and settles exactly at rest with a small overshoot', () => {
+  const { unitAt, TIMING } = load('components/floorplan/three/assembly.ts');
+  const phase = { kind: 'enter', start: 1000 };
+  assert.deepEqual(unitAt(phase, 0, 900), { offset: TIMING.dropHeight, visible: false, done: false });
+  let lowest = Infinity;
+  for (let t = 1000; t <= 1000 + TIMING.enter; t += 5) lowest = Math.min(lowest, unitAt(phase, 0, t).offset);
+  assert.ok(lowest < 0 && lowest > -0.05, `overshoot ${lowest}`);
+  const end = unitAt(phase, 0, 1000 + TIMING.enter + 1);
+  assert.equal(end.offset, 0);
+  assert.equal(end.visible, true);
+  assert.equal(end.done, true);
+  // Later units wait their turn; staggering is capped.
+  assert.equal(unitAt(phase, 2, 1000 + TIMING.enterStagger).visible, false);
+  assert.equal(unitAt(phase, 50, 1000 + TIMING.maxStaggered * TIMING.enterStagger + 1).visible, true);
+});
+
+test('exit sinks below the floor, hides, then re-assembles the room', () => {
+  const { unitAt, TIMING } = load('components/floorplan/three/assembly.ts');
+  const phase = { kind: 'exit', start: 0, from: [0], restoreAt: 2000 };
+  const sunk = unitAt(phase, 0, TIMING.exit + 1);
+  assert.equal(sunk.visible, false);
+  assert.equal(sunk.done, false, 'waits for the restore');
+  const back = unitAt(phase, 0, 2000 + TIMING.restore + 1);
+  assert.deepEqual(back, { offset: 0, visible: true, done: true });
+});
+
+test('fast clicks never leave rooms hidden: everything ends at rest', () => {
+  const { planTransition, unitAt } = load('components/floorplan/three/assembly.ts');
+  const units = () => 3;
+  let phases = planTransition(new Map(), new Map(), 'garage', 'living', 0, units);
+  assert.equal(phases.get('garage').kind, 'exit');
+  assert.equal(phases.get('living').kind, 'enter');
+  // 150 ms later the user picks the kitchen, then the bedroom.
+  const offsetsAt = (map, now) => new Map([...map].map(([id, phase]) => [id, [0, 1, 2].map((i) => unitAt(phase, i, now).offset)]));
+  phases = planTransition(phases, offsetsAt(phases, 150), 'living', 'kitchen', 150, units);
+  assert.equal(phases.get('garage').kind, 'restore');
+  assert.equal(phases.get('living').kind, 'exit');
+  assert.equal(phases.get('kitchen').kind, 'enter');
+  phases = planTransition(phases, offsetsAt(phases, 260), 'kitchen', 'bedroom', 260, units);
+  // Long after, every room is visible at its final position.
+  for (const [, phase] of phases) {
+    for (const index of [0, 1, 2]) {
+      const state = unitAt(phase, index, 10000);
+      assert.equal(state.offset, 0);
+      assert.equal(state.visible, true);
+      assert.equal(state.done, true);
+    }
+  }
+  // Back to the overview settles the last room in place.
+  const overview = planTransition(phases, offsetsAt(phases, 300), 'bedroom', null, 300, units);
+  for (const [, phase] of overview) assert.equal(unitAt(phase, 0, 10000).offset, 0);
 });

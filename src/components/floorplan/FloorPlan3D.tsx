@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { ContactShadows, Edges, Html, OrbitControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { BoxGeometry, CylinderGeometry, Vector3, type OrthographicCamera } from "three";
+import { BoxGeometry, CylinderGeometry, Vector3, type Group, type OrthographicCamera } from "three";
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import type { Appliance } from "@/hooks/useAppliances";
-import { formatNumber } from "@/lib/energy";
+import { formatCurrency, formatNumber } from "@/lib/energy";
+import type { EnergyBucket } from "@/lib/property-energy";
 import { applianceVisual } from "@/components/appliances/applianceVisual";
 import { cn } from "@/lib/utils";
 import type { Room } from "@/types/property";
@@ -14,6 +15,7 @@ import { PLAN_TOKENS } from "./tokens";
 import type { FloorPlanProps } from "./FloorPlan2D";
 import { buildWalls, wallBox, WALL_HEIGHTS, type WallKind } from "./three/walls";
 import { furnitureFor, type FurniturePiece } from "./three/furniture";
+import { easeInOutCubic, groupUnits, planTransition, TIMING, unitAt, type RoomPhase } from "./three/assembly";
 import {
   disposeMaterials,
   FLOOR_FINISH,
@@ -44,6 +46,8 @@ const FLOOR_THICKNESS = 0.06;
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+// Phones get slightly quicker transitions.
+const motionSpeed = () => (typeof window !== "undefined" && window.innerWidth < 640 ? 1.25 : 1);
 
 const useIsDark = () => {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
@@ -53,6 +57,16 @@ const useIsDark = () => {
     return () => observer.disconnect();
   }, []);
   return dark;
+};
+
+const useCompact = () => {
+  const [compact, setCompact] = useState(() => window.innerWidth < 640);
+  useEffect(() => {
+    const update = () => setCompact(window.innerWidth < 640);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return compact;
 };
 
 // Which furniture piece an appliance can sit on, by its name.
@@ -70,6 +84,8 @@ const applianceAnchor = (name: string) => {
 const fitZoom = (spanX: number, spanZ: number, width: number, height: number) =>
   Math.max(6, Math.min(width / ((spanX + spanZ) * 0.72 + 2), height / ((spanX + spanZ) * 0.42 + 2.6)));
 
+// Time-based camera move: target and zoom travel together with ease-in-out,
+// in a fixed duration, independent of frame rate.
 function CameraRig({
   center,
   span,
@@ -83,16 +99,19 @@ function CameraRig({
 }) {
   const { camera, size, invalidate } = useThree();
   const controls = useThree((state) => state.controls) as OrbitControlsImpl | null;
-  const goal = useRef<{ target: Vector3; zoom: number } | null>(null);
+  const tween = useRef<{ from: Vector3; to: Vector3; fromZoom: number; toZoom: number; start: number; duration: number } | null>(null);
   const initialized = useRef(false);
   // Moves the orbit target and the camera together, so the viewing angle
   // stays the same while the view pans to a room.
-  const moveTarget = (target: Vector3) => {
-    if (!controls) return;
-    const delta = target.clone().sub(controls.target);
-    controls.target.add(delta);
-    camera.position.add(delta);
-  };
+  const moveTarget = useCallback(
+    (target: Vector3) => {
+      if (!controls) return;
+      const delta = target.clone().sub(controls.target);
+      controls.target.add(delta);
+      camera.position.add(delta);
+    },
+    [controls, camera],
+  );
   const overview = fitZoom(span.x, span.z, size.width, size.height);
 
   useEffect(() => {
@@ -103,64 +122,134 @@ function CameraRig({
 
   useEffect(() => {
     if (!controls) return;
+    const ortho = camera as OrthographicCamera;
     const next = focus
-      ? { target: focus.center.clone(), zoom: Math.max(overview, Math.min(overview * 1.9, fitZoom(focus.span.x, focus.span.z, size.width, size.height) * 0.55)) }
+      ? {
+          target: focus.center.clone(),
+          zoom: Math.max(overview, Math.min(overview * 1.9, fitZoom(focus.span.x, focus.span.z, size.width, size.height) * 0.55)),
+        }
       : { target: center.clone(), zoom: overview };
-    if (resetToken > 0 && !focus) {
-      // Back to the default angle as well as the default framing.
-      const offset = new Vector3(30, 36, 30);
-      camera.position.copy(controls.target).add(offset);
-    }
+    if (resetToken > 0 && !focus) camera.position.copy(controls.target).add(new Vector3(30, 36, 30));
     if (prefersReducedMotion() || !initialized.current) {
       initialized.current = true;
+      tween.current = null;
       moveTarget(next.target);
-      (camera as OrthographicCamera).zoom = next.zoom;
+      ortho.zoom = next.zoom;
       camera.updateProjectionMatrix();
       controls.update();
       invalidate();
       return;
     }
-    goal.current = next;
+    // A new request redirects from wherever the camera is right now.
+    tween.current = {
+      from: controls.target.clone(),
+      to: next.target,
+      fromZoom: ortho.zoom,
+      toZoom: next.zoom,
+      start: performance.now(),
+      duration: TIMING.camera / motionSpeed(),
+    };
     invalidate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controls, focus, center, overview, size.width, size.height, camera, invalidate, resetToken]);
+  }, [controls, focus, center, overview, size.width, size.height, camera, invalidate, resetToken, moveTarget]);
 
   useFrame(() => {
-    if (!controls || !goal.current) return;
+    const move = tween.current;
+    if (!controls || !move) return;
     const ortho = camera as OrthographicCamera;
-    moveTarget(controls.target.clone().lerp(goal.current.target, 0.16));
-    ortho.zoom += (goal.current.zoom - ortho.zoom) * 0.16;
+    const t = Math.min(1, (performance.now() - move.start) / move.duration);
+    const k = easeInOutCubic(t);
+    moveTarget(move.from.clone().lerp(move.to, k));
+    ortho.zoom = move.fromZoom + (move.toZoom - move.fromZoom) * k;
     ortho.updateProjectionMatrix();
     controls.update();
-    const done = controls.target.distanceTo(goal.current.target) < 0.01 && Math.abs(ortho.zoom - goal.current.zoom) < 0.05;
-    if (done) goal.current = null;
+    if (t >= 1) tween.current = null;
     else invalidate();
   });
   return null;
 }
 
-function Furniture({
+// One room's furniture. Each unit (a whole sofa, bed or car) is a group whose
+// y offset and visibility are driven by refs inside useFrame: no React
+// renders per frame, and frames are requested only while something moves.
+function AnimatedFurniture({
   pieces,
   origin,
   dimmed,
   geometries,
+  phase,
+  offsets,
+  onSettled,
 }: {
   pieces: FurniturePiece[];
   origin: [number, number];
   dimmed: boolean;
   geometries: ReturnType<typeof useUnitGeometries>;
+  phase: RoomPhase | null;
+  offsets: { current: number[] };
+  onSettled: (phase: RoomPhase) => void;
 }) {
+  const units = useMemo(() => groupUnits(pieces), [pieces]);
+  const groups = useRef<Array<Group | null>>([]);
+  const invalidate = useThree((state) => state.invalidate);
+  const settled = useRef<RoomPhase | null>(null);
+  const speed = useMemo(motionSpeed, []);
+
+  useEffect(() => {
+    settled.current = null;
+    if (!phase) {
+      // Safety: no phase means everything rests in place.
+      groups.current.forEach((group) => {
+        if (!group) return;
+        group.position.y = 0;
+        group.visible = true;
+      });
+      offsets.current = units.map(() => 0);
+    }
+    invalidate();
+  }, [phase, units, offsets, invalidate]);
+
+  useFrame(() => {
+    if (!phase || settled.current === phase) return;
+    const now = performance.now();
+    let done = true;
+    const current: number[] = [];
+    units.forEach((_, index) => {
+      const state = unitAt(phase, index, now, speed);
+      const group = groups.current[index];
+      if (group) {
+        group.position.y = state.offset;
+        group.visible = state.visible;
+      }
+      current.push(state.offset);
+      if (!state.done) done = false;
+    });
+    offsets.current = current;
+    if (done) {
+      settled.current = phase;
+      onSettled(phase);
+    } else invalidate();
+  });
+
   return (
     <group position={[origin[0], FLOOR_THICKNESS, origin[1]]}>
-      {pieces.map((piece) => (
-        <mesh
-          key={piece.key}
-          raycast={noRaycast}
-          geometry={piece.shape === "cylinder" ? geometries.cylinder : geometries.box}
-          material={furnitureMaterial(piece.finish, dimmed)}
-          position={[piece.x, piece.y, piece.z]}
-          scale={piece.size}
-        />
+      {units.map((unit, index) => (
+        <group
+          key={unit.id}
+          ref={(node) => {
+            groups.current[index] = node;
+          }}
+        >
+          {unit.pieces.map((piece) => (
+            <mesh
+              key={piece.key}
+              raycast={noRaycast}
+              geometry={piece.shape === "cylinder" ? geometries.cylinder : geometries.box}
+              material={furnitureMaterial(piece.finish, dimmed)}
+              position={[piece.x, piece.y, piece.z]}
+              scale={piece.size}
+            />
+          ))}
+        </group>
       ))}
     </group>
   );
@@ -202,17 +291,57 @@ function ApplianceBadge({
   );
 }
 
+interface RoomInfo {
+  // Level 1: always visible, short.
+  value: string | null;
+  // Level 2: hover preview.
+  estimatedKWh: number;
+  estimatedCost: number;
+  applianceCount: number;
+  measurement: string;
+}
+
+const roomInfo = (bucket: EnergyBucket | undefined, appliances: Appliance[], heat: FloorPlanProps["heat"], heatValue: number | null): RoomInfo => {
+  const metered = appliances.filter((item) => item.integrationProvider).length;
+  const measured = bucket && bucket.measuredIntervals > 0;
+  const partial = measured && metered < appliances.length;
+  const measurement = measured
+    ? `medido ${formatNumber(bucket!.measuredKWh, 1)} kWh${partial ? " (parcial)" : ""}`
+    : metered > 0
+      ? "sem leitura no mês"
+      : "sem medidor";
+  const value = heat
+    ? heatValue === null
+      ? heat === "measured"
+        ? "sem medição"
+        : "sem aparelhos"
+      : `${formatNumber(heatValue, 1)} kWh${heat === "measured" && partial ? " · parcial" : ""}`
+    : bucket && bucket.applianceCount > 0
+      ? `${formatNumber(bucket.estimatedKWh, 0)} kWh est.`
+      : null;
+  return {
+    value,
+    estimatedKWh: bucket?.estimatedKWh ?? 0,
+    estimatedCost: bucket?.estimatedCost ?? 0,
+    applianceCount: bucket?.applianceCount ?? 0,
+    measurement,
+  };
+};
+
 function RoomModel({
   room,
   geometries,
   energyMode,
   heatFill,
-  label,
-  showLabel,
+  info,
+  compact,
   selected,
   dimmed,
   appliances,
   highlightedApplianceId,
+  phase,
+  offsets,
+  onSettled,
   onSelect,
   onSelectAppliance,
 }: {
@@ -220,12 +349,15 @@ function RoomModel({
   geometries: ReturnType<typeof useUnitGeometries>;
   energyMode: boolean;
   heatFill: string | null;
-  label: string;
-  showLabel: boolean;
+  info: RoomInfo;
+  compact: boolean;
   selected: boolean;
   dimmed: boolean;
   appliances: Appliance[];
   highlightedApplianceId: string | null;
+  phase: RoomPhase | null;
+  offsets: { current: number[] };
+  onSettled: (phase: RoomPhase) => void;
   onSelect: () => void;
   onSelectAppliance?: (appliance: Appliance) => void;
 }) {
@@ -284,8 +416,20 @@ function RoomModel({
       >
         {(selected || hover) && <Edges color={selected ? PLAN_TOKENS.selection : PLAN_TOKENS.hover} lineWidth={selected ? 2 : 1} />}
       </mesh>
-      {!energyMode && <Furniture pieces={pieces} origin={[x, y]} dimmed={dimmed} geometries={geometries} />}
+      {!energyMode && (
+        <AnimatedFurniture
+          pieces={pieces}
+          origin={[x, y]}
+          dimmed={dimmed}
+          geometries={geometries}
+          phase={phase}
+          offsets={offsets}
+          onSettled={onSettled}
+        />
+      )}
+      {/* Badges belong to the furniture: they appear once the room has settled. */}
       {!energyMode &&
+        !phase &&
         badges.map(({ appliance, position }) => (
           <ApplianceBadge
             key={appliance.id}
@@ -298,19 +442,31 @@ function RoomModel({
             }}
           />
         ))}
-      {(showLabel || hover || energyMode) && (
-        <Html position={[x + width / 2, WALL_HEIGHTS.exterior + 0.35, y + depth / 2]} center zIndexRange={[30, 20]} style={{ pointerEvents: "none" }}>
+      <Html position={[x + width / 2, WALL_HEIGHTS.exterior + 0.35, y + depth / 2]} center zIndexRange={[30, 20]} style={{ pointerEvents: "none" }}>
+        <div className="relative flex flex-col items-center">
+          {hover && !compact && (
+            <div className="absolute bottom-full mb-1.5 w-max min-w-[11rem] rounded-xl bg-zinc-900/95 px-3 py-2 text-left text-[11px] text-white shadow-xl">
+              <p className="text-xs font-semibold">{room.name}</p>
+              <p className="mt-1 tabular-nums">
+                {formatNumber(info.estimatedKWh, 1)} kWh · {formatCurrency(info.estimatedCost)} <span className="text-white/60">estimado</span>
+              </p>
+              <p className="text-white/70">
+                {info.applianceCount} {info.applianceCount === 1 ? "aparelho" : "aparelhos"} · {info.measurement}
+              </p>
+            </div>
+          )}
           <div
             className={cn(
-              "whitespace-nowrap rounded-full px-2.5 py-1 text-center font-medium shadow-sm",
-              energyMode ? "bg-white/95 text-[10px] text-zinc-800" : "text-[11px]",
-              !energyMode && (selected ? "bg-zinc-900 text-white" : "bg-white/95 text-zinc-800"),
+              "whitespace-nowrap rounded-full px-2 py-0.5 text-center text-[10px] font-medium shadow-sm transition-colors",
+              selected ? "bg-zinc-900 text-white" : "bg-white/90 text-zinc-800",
+              dimmed && !hover && "opacity-70",
             )}
           >
-            {energyMode ? label : `${room.name} · ${label}`}
+            {room.name}
+            {info.value && (!compact || energyMode) && <span className="ml-1 opacity-70">· {info.value}</span>}
           </div>
-        </Html>
-      )}
+        </div>
+      </Html>
     </group>
   );
 }
@@ -330,6 +486,7 @@ export default function FloorPlan3D({
 }: FloorPlanProps & { onContextLost?: () => void }) {
   const geometries = useUnitGeometries();
   const dark = useIsDark();
+  const compact = useCompact();
   const placed = rooms.filter((room) => room.layout);
   const layoutKey = placed.map((room) => `${room.id}:${room.type}:${Object.values(room.layout!).join(",")}`).join("|");
   const bounds = useMemo(() => {
@@ -351,6 +508,53 @@ export default function FloorPlan3D({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [layoutKey],
   );
+  const unitCounts = useMemo(
+    () => new Map(placed.map((room) => [room.id, groupUnits(furnitureFor(room.type, room.layout!.width, room.layout!.depth)).length])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [layoutKey],
+  );
+
+  // Room transitions. Phases change only when the selection changes, so React
+  // renders twice per transition at most; the motion itself runs in useFrame.
+  const [phases, setPhases] = useState<Map<string, RoomPhase>>(new Map());
+  const phasesRef = useRef(phases);
+  phasesRef.current = phases;
+  const offsetsRef = useRef(new Map<string, { current: number[] }>());
+  const offsetsFor = (roomId: string) => {
+    let entry = offsetsRef.current.get(roomId);
+    if (!entry) {
+      entry = { current: [] };
+      offsetsRef.current.set(roomId, entry);
+    }
+    return entry;
+  };
+  const previousSelection = useRef<string | null>(selectedRoomId);
+  useEffect(() => {
+    const previous = previousSelection.current;
+    previousSelection.current = selectedRoomId;
+    if (previous === selectedRoomId) return; // same room: nothing restarts
+    if (heat || prefersReducedMotion()) {
+      setPhases(new Map());
+      return;
+    }
+    const offsets = new Map([...offsetsRef.current].map(([roomId, entry]) => [roomId, entry.current]));
+    setPhases(
+      planTransition(phasesRef.current, offsets, previous, selectedRoomId, performance.now(), (roomId) => unitCounts.get(roomId) ?? 0, motionSpeed()),
+    );
+  }, [selectedRoomId, heat, unitCounts]);
+  useEffect(() => {
+    // Energy mode hides furniture; leaving it starts from a fully built house.
+    setPhases(new Map());
+  }, [heat]);
+  const settle = useCallback((roomId: string, phase: RoomPhase) => {
+    setPhases((current) => {
+      if (current.get(roomId) !== phase) return current; // a newer transition owns this room
+      const next = new Map(current);
+      next.delete(roomId);
+      return next;
+    });
+  }, []);
+
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const [resetToken, setResetToken] = useState(0);
   const scale = heat ? heatScale(placed.map((room) => metricValue(energy.get(room.id), heat))) : null;
@@ -421,17 +625,6 @@ export default function FloorPlan3D({
           const value = heat ? metricValue(bucket, heat) : null;
           const intensity = scale ? scale(value) : null;
           const roomAppliances = appliancesByRoom.get(room.id) ?? [];
-          const metered = roomAppliances.filter((item) => item.integrationProvider).length;
-          const partial = heat === "measured" && value !== null && metered < roomAppliances.length;
-          const label = heat
-            ? value === null
-              ? heat === "measured"
-                ? "sem medição"
-                : "sem aparelhos"
-              : `${formatNumber(value, 1)} kWh${partial ? " · parcial" : ""}`
-            : bucket && bucket.applianceCount > 0
-              ? `${formatNumber(bucket.estimatedKWh, 0)} kWh`
-              : "sem aparelhos";
           return (
             <RoomModel
               key={room.id}
@@ -439,12 +632,15 @@ export default function FloorPlan3D({
               geometries={geometries}
               energyMode={Boolean(heat)}
               heatFill={intensity === null ? null : heatColor(intensity)}
-              label={label}
-              showLabel={room.id === selectedRoomId}
+              info={roomInfo(bucket, roomAppliances, heat, value)}
+              compact={compact}
               selected={room.id === selectedRoomId}
               dimmed={Boolean(selectedRoomId && selectedRoomId !== room.id)}
               appliances={roomAppliances}
               highlightedApplianceId={highlightedApplianceId}
+              phase={phases.get(room.id) ?? null}
+              offsets={offsetsFor(room.id)}
+              onSettled={(phase) => settle(room.id, phase)}
               onSelect={() => onSelectRoom(room.id)}
               onSelectAppliance={onSelectAppliance}
             />

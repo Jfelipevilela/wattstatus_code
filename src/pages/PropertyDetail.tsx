@@ -13,6 +13,7 @@ import { FloorPlanViewer } from "@/components/floorplan/FloorPlanViewer";
 import type { HeatMetric } from "@/components/floorplan/heat";
 import { overlappingRooms } from "@/components/floorplan/snap";
 import { RoomPanel } from "@/components/properties/RoomPanel";
+import { RoomOverviewList } from "@/components/properties/RoomOverviewList";
 import { AddRoomForm, PropertyRoomsTab } from "@/components/properties/PropertyRoomsTab";
 import { PropertyAppliancesTab } from "@/components/properties/PropertyAppliancesTab";
 import { PropertyEnergyTab } from "@/components/properties/PropertyEnergyTab";
@@ -156,6 +157,7 @@ export default function PropertyDetail() {
       onMove={move}
       onClose={() => setSelectedRoomId(null)}
       hideClose={!desktop}
+      propertyCost={energy.total.estimatedCost}
       onChangeType={(type) =>
         layout.updateRoom.mutate(
           { id: selectedRoom.id, type },
@@ -385,32 +387,44 @@ export default function PropertyDetail() {
                     )}
                   </section>
 
+                  {!desktop && layout.rooms.length > 0 && (
+                    <nav aria-label="Escolher ambiente" className="-mt-1 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      {layout.rooms.map((room) => (
+                        <button
+                          key={room.id}
+                          type="button"
+                          aria-pressed={room.id === selectedRoomId}
+                          onClick={() => {
+                            if (room.floorId !== activeFloor?.id) setFloorId(room.floorId);
+                            setSelectedRoomId(room.id);
+                          }}
+                          className={cn(
+                            "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium",
+                            room.id === selectedRoomId ? "border-foreground bg-foreground text-background" : "bg-card text-muted-foreground",
+                          )}
+                        >
+                          {room.name} · {formatCurrency(energy.byRoom.get(room.id)?.estimatedCost ?? 0)}
+                        </button>
+                      ))}
+                    </nav>
+                  )}
                   {desktop ? (
                     <aside className="hidden h-[min(78dvh,680px)] min-h-[460px] overflow-hidden rounded-[28px] border bg-card shadow-sm lg:block">
                       {panel || (
                         <div className="flex h-full flex-col p-5">
                           <h2 className="font-semibold">Ambientes</h2>
                           <p className="mt-1 text-sm text-muted-foreground">Toque num ambiente da planta ou escolha abaixo.</p>
-                          <ul className="mt-4 flex-1 space-y-2 overflow-y-auto">
-                            {layout.rooms.map((room) => {
-                              const bucket = energy.byRoom.get(room.id);
-                              return (
-                                <li key={room.id}>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (room.floorId !== activeFloor?.id) setFloorId(room.floorId);
-                                      setSelectedRoomId(room.id);
-                                    }}
-                                    className="flex w-full items-center justify-between gap-3 rounded-2xl bg-muted/50 px-4 py-3 text-left text-sm hover:bg-muted"
-                                  >
-                                    <span className="truncate font-medium">{room.name}</span>
-                                    <span className="shrink-0 tabular-nums text-muted-foreground">{formatCurrency(bucket?.estimatedCost ?? 0)}</span>
-                                  </button>
-                                </li>
-                              );
-                            })}
-                          </ul>
+                          <div className="mt-4 flex-1 overflow-y-auto">
+                            <RoomOverviewList
+                              rooms={layout.rooms}
+                              energy={energy.byRoom}
+                              totalCost={energy.total.estimatedCost}
+                              onSelect={(room) => {
+                                if (room.floorId !== activeFloor?.id) setFloorId(room.floorId);
+                                setSelectedRoomId(room.id);
+                              }}
+                            />
+                          </div>
                           {(energy.byRoom.get(UNASSIGNED)?.applianceCount ?? 0) > 0 && (
                             <button
                               type="button"
