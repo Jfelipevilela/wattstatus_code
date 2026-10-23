@@ -487,6 +487,16 @@ export default function FloorPlan3D({
   const geometries = useUnitGeometries();
   const dark = useIsDark();
   const compact = useCompact();
+  // Leaving 3D (e.g. switching to the 2D editor) disposes the renderer, which
+  // fires "webglcontextlost" on purpose. Only a loss while the scene is still
+  // mounted is a real failure.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const placed = rooms.filter((room) => room.layout);
   const layoutKey = placed.map((room) => `${room.id}:${room.type}:${Object.values(room.layout!).join(",")}`).join("|");
   const bounds = useMemo(() => {
@@ -592,7 +602,10 @@ export default function FloorPlan3D({
         onCreated={({ gl }) => {
           gl.domElement.addEventListener("webglcontextlost", (event) => {
             event.preventDefault();
-            onContextLost?.();
+            // Checked after the current unmount, if any, has finished.
+            setTimeout(() => {
+              if (mounted.current) onContextLost?.();
+            }, 0);
           });
         }}
         onPointerMissed={() => onSelectRoom(null)}
