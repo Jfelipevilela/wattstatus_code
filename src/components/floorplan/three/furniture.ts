@@ -45,11 +45,22 @@ type Assembly = {
   parts: Primitive[];
   /** Only floor-standing assemblies block neighboring furniture. */
   layer: "floor" | "overlay";
+  /**
+   * Free space kept around a floor object. Two objects keep the smaller of
+   * their pads apart, so companions (nightstands, chairs, plants) can sit
+   * close to what they serve while large pieces keep a walkway between them.
+   */
+  pad?: number;
 };
+
 
 const CLEARANCE = Math.max(0.10, WALL_THICKNESS / 2 + 0.07);
 const GAP = 0.04;
 const MIN_PART = 0.012;
+// Free floor between two large pieces: a narrow but real walkway.
+const WALKWAY = 0.45;
+// Companion pieces that stand right next to another one.
+const SNUG = GAP;
 
 const rect = (
   name: string, x: number, z: number, w: number, d: number,
@@ -61,7 +72,7 @@ const round = (
   h: number, finish: FurnitureFinish, y0 = 0, anchor?: string,
 ): Primitive => ({ ...rect(name, x, z, w, d, h, finish, y0, anchor), shape: "cylinder" });
 
-const floor = (id: string, parts: Primitive[]): Assembly => ({ id, parts, layer: "floor" });
+const floor = (id: string, parts: Primitive[], pad = WALKWAY): Assembly => ({ id, parts, layer: "floor", pad });
 const overlay = (id: string, parts: Primitive[]): Assembly => ({ id, parts, layer: "overlay" });
 
 const boundsOf = (parts: Primitive[]): Area => {
@@ -81,15 +92,15 @@ const inRoom = (a: Area, width: number, depth: number) =>
   a.x + a.w <= width - CLEARANCE + 1e-6 &&
   a.z + a.d <= depth - CLEARANCE + 1e-6;
 
-const touching = (a: Area, b: Area) =>
-  a.x < b.x + b.w + GAP && b.x < a.x + a.w + GAP &&
-  a.z < b.z + b.d + GAP && b.z < a.z + a.d + GAP;
+const touching = (a: Area, b: Area, gap = GAP) =>
+  a.x < b.x + b.w + gap && b.x < a.x + a.w + gap &&
+  a.z < b.z + b.d + gap && b.z < a.z + a.d + gap;
 
 const compile = (assemblies: Assembly[], width: number, depth: number): FurniturePiece[] => {
   if (!finitePositive(width) || !finitePositive(depth) ||
       width <= 2 * CLEARANCE || depth <= 2 * CLEARANCE) return [];
 
-  const reserved: Area[] = [];
+  const reserved: Array<Area & { pad: number }> = [];
   const result: FurniturePiece[] = [];
   const keys = new Set<string>();
 
@@ -102,11 +113,12 @@ const compile = (assemblies: Assembly[], width: number, depth: number): Furnitur
     )) continue;
 
     const area = boundsOf(object.parts);
-    if (object.layer === "floor" && reserved.some((item) => touching(item, area))) continue;
+    const pad = object.pad ?? WALKWAY;
+    if (object.layer === "floor" && reserved.some((item) => touching(item, area, Math.max(GAP, Math.min(pad, item.pad))))) continue;
 
     // An assembly's surfaces, legs, cushions, etc. are intentionally allowed
     // to overlap one another; collision applies between separate floor objects.
-    if (object.layer === "floor") reserved.push(area);
+    if (object.layer === "floor") reserved.push({ ...area, pad });
     for (const p of object.parts) {
       const key = `${object.id}/${p.name}`;
       if (keys.has(key)) continue;
@@ -135,7 +147,7 @@ function pottedPlant(id: string, x: number, z: number, scale = 1): Assembly {
     round("stem", x + 0.202 * s, z + 0.202 * s, 0.028 * s, 0.028 * s, 0.44 * s, "wood", 0.34 * s),
     round("canopy-low", x, z, 0.43 * s, 0.43 * s, 0.36 * s, "plant", 0.61 * s),
     round("canopy-top", x + 0.10 * s, z + 0.10 * s, 0.24 * s, 0.24 * s, 0.28 * s, "plant", 0.87 * s),
-  ]);
+  ], 0.2);
 }
 
 function rug(id: string, x: number, z: number, w: number, d: number): Assembly {
@@ -146,7 +158,7 @@ function rug(id: string, x: number, z: number, w: number, d: number): Assembly {
 }
 
 function table(id: string, x: number, z: number, w: number, d: number, h: number,
-  top: FurnitureFinish = "wood"): Assembly {
+  top: FurnitureFinish = "wood", pad = WALKWAY): Assembly {
   const leg = 0.075;
   return floor(id, [
     rect("top", x, z, w, d, 0.065, top, h - 0.065),
@@ -154,7 +166,7 @@ function table(id: string, x: number, z: number, w: number, d: number, h: number
     rect("leg-fr", x + w - 0.09 - leg, z + 0.07, leg, leg, h - 0.065, "dark"),
     rect("leg-bl", x + 0.09, z + d - 0.07 - leg, leg, leg, h - 0.065, "dark"),
     rect("leg-br", x + w - 0.09 - leg, z + d - 0.07 - leg, leg, leg, h - 0.065, "dark"),
-  ]);
+  ], pad);
 }
 
 // ------------------------- Room-specific layouts -------------------------
@@ -184,7 +196,7 @@ function living(w: number, d: number): Assembly[] {
   ];
   return [
     floor("living-sofa", sofaParts),
-    table("living-coffee-table", w / 2 - 0.48, sz + 1.23, 0.96, 0.55, 0.36),
+    table("living-coffee-table", w / 2 - 0.48, sz + 1.23, 0.96, 0.55, 0.36, "wood", 0.3),
     floor("living-tv-console", tvParts),
     pottedPlant("living-plant", m + 0.04, d - m - 0.48, 0.90),
     rug("living-rug", w / 2 - 1.20, sz + 0.68, 2.40, 1.60),
@@ -194,7 +206,10 @@ function living(w: number, d: number): Assembly[] {
 function bedroom(w: number, d: number, suite: boolean): Assembly[] {
   const m = CLEARANCE;
   const bedW = Math.min(suite ? 1.95 : 1.65, Math.max(0.75, w - 2 * m - 0.30));
-  const x = (w - bedW) / 2;
+  // Centred between two nightstands when they fit; in narrower rooms the bed
+  // moves aside and keeps one nightstand, as in most real bedrooms.
+  const both = w - 2 * m >= bedW + 2 * 0.52;
+  const x = both || m + 0.52 + bedW > w - m ? (w - bedW) / 2 : m + 0.52;
   const z = m + 0.08;
   const head = 0.12;
   const bed: Primitive[] = [
@@ -210,7 +225,7 @@ function bedroom(w: number, d: number, suite: boolean): Assembly[] {
     rect("body", nx, z + 0.06, 0.42, 0.43, 0.43, "wood", 0.06),
     rect("drawer", nx + 0.04, z + 0.42, 0.34, 0.018, 0.13, "white", 0.22),
     round("lamp", nx + 0.15, z + 0.17, 0.12, 0.12, 0.22, "accent", 0.49),
-  ]);
+  ], SNUG);
   const wardrobe: Assembly = floor("bedroom-wardrobe", [
     rect("body", m, d - m - 0.72, 1.25, 0.72, 1.62, "white"),
     rect("door-left", m + 0.04, d - m - 0.05, 0.55, 0.025, 1.44, "wood", 0.10),
@@ -220,8 +235,8 @@ function bedroom(w: number, d: number, suite: boolean): Assembly[] {
   ]);
   return [
     floor("bedroom-bed", bed),
-    nightstand("bedroom-nightstand-left", x - 0.55),
-    nightstand("bedroom-nightstand-right", x + bedW + 0.13),
+    nightstand("bedroom-nightstand-left", x - 0.52),
+    ...(both ? [nightstand("bedroom-nightstand-right", x + bedW + 0.10)] : []),
     wardrobe,
     // Wall split A/C near the top of the wall, on a wall panel that rises
     // above the 1.05 m wall so it never floats.
@@ -246,7 +261,7 @@ function kitchen(w: number, d: number): Assembly[] {
     rect("door-top", fridgeX + 0.035, m + 0.705, 0.61, 0.018, 0.63, "white", 1.08),
     rect("door-bottom", fridgeX + 0.035, m + 0.705, 0.61, 0.018, 0.94, "white", 0.07),
     rect("handle", fridgeX + 0.08, m + 0.728, 0.025, 0.025, 0.55, "dark", 0.72),
-  ]);
+  ], SNUG);
   const counter = floor("kitchen-counter", [
     rect("cabinets", counterX, m + 0.03, counterW, 0.60, 0.87, "white"),
     rect("worktop", counterX - 0.01, m + 0.02, counterW + 0.02, 0.64, 0.065, "wood", 0.87),
@@ -259,34 +274,40 @@ function kitchen(w: number, d: number): Assembly[] {
   return [
     fridge,
     ...(counterW >= 0.9 ? [counter] : []),
-    table("kitchen-island", w / 2 - 0.67, m + 1.45, 1.34, 0.70, 0.87, "wood"),
+    table("kitchen-island", w / 2 - 0.67, m + 1.45, 1.34, 0.70, 0.87, "wood", 0.7),
     pottedPlant("kitchen-plant", w - m - 0.44, d - m - 0.44, 0.65),
   ];
 }
 
 function bathroom(w: number, d: number): Assembly[] {
   const m = CLEARANCE;
-  return [
-    floor("bathroom-vanity", [
-      rect("cabinet", m, m + 0.10, 0.77, 0.48, 0.69, "wood", 0.15),
-      rect("worktop", m, m + 0.09, 0.78, 0.50, 0.055, "white", 0.84),
-      round("basin", m + 0.18, m + 0.18, 0.40, 0.29, 0.055, "white", 0.90),
-      round("tap", m + 0.38, m + 0.12, 0.035, 0.035, 0.16, "metal", 0.90),
-    ]),
-    floor("bathroom-toilet", [
-      round("bowl", m + 1.05, m + 0.15, 0.43, 0.52, 0.39, "white", 0.06),
-      round("seat", m + 1.07, m + 0.16, 0.39, 0.46, 0.045, "white", 0.45),
-      rect("tank", m + 1.08, m + 0.06, 0.37, 0.15, 0.49, "white", 0.40),
-    ]),
-    floor("bathroom-shower", [
-      rect("tray", w - m - 0.96, m + 0.05, 0.96, 0.96, 0.07, "white"),
-      rect("glass", w - m - 0.96, m + 0.99, 0.96, 0.018, 1.56, "glass", 0.07),
-      round("shower-head", w - m - 0.55, m + 0.23, 0.17, 0.17, 0.06, "metal", 1.50),
-    ]),
-    overlay("bathroom-mirror", [
-      rect("mirror", m + 0.13, m + 0.025, 0.50, 0.025, 0.58, "glass", 1.16),
-    ]),
-  ];
+  const vanity = (x: number, z: number) => floor("bathroom-vanity", [
+    rect("cabinet", x, z + 0.10, 0.77, 0.48, 0.69, "wood", 0.15),
+    rect("worktop", x, z + 0.09, 0.78, 0.50, 0.055, "white", 0.84),
+    round("basin", x + 0.18, z + 0.18, 0.40, 0.29, 0.055, "white", 0.90),
+    round("tap", x + 0.38, z + 0.12, 0.035, 0.035, 0.16, "metal", 0.90),
+  ], SNUG);
+  const toilet = (x: number, z: number) => floor("bathroom-toilet", [
+    round("bowl", x, z + 0.09, 0.43, 0.52, 0.39, "white", 0.06),
+    round("seat", x + 0.02, z + 0.10, 0.39, 0.46, 0.045, "white", 0.45),
+    rect("tank", x + 0.03, z, 0.37, 0.15, 0.49, "white", 0.40),
+  ], SNUG);
+  // The shower box takes the far end; its glass faces the rest of the room.
+  const shower = (x: number, z: number, glassZ: number) => floor("bathroom-shower", [
+    rect("tray", x, z, 0.96, 0.96, 0.07, "white"),
+    rect("glass", x, glassZ, 0.96, 0.018, 1.56, "glass", 0.07),
+    round("shower-head", x + 0.41, z + 0.38, 0.17, 0.17, 0.06, "metal", 1.50),
+  ], SNUG);
+  const mirror = (x: number) => overlay("bathroom-mirror", [
+    rect("mirror", x + 0.13, m + 0.025, 0.50, 0.025, 0.58, "glass", 1.16),
+  ]);
+  // Sink and toilet share the back wall; the shower goes beside them when
+  // the room is wide enough, else at the front (the usual layout of the
+  // narrow, ~1.5 m wide Brazilian bathroom). Small half-baths get no shower.
+  const items = [vanity(m, m), toilet(Math.min(m + 0.85, w - m - 0.43), m), mirror(m)];
+  if (w - 2 * m >= 1.28 + 0.05 + 0.96) items.push(shower(w - m - 0.96, m + 0.05, m + 0.99));
+  else if (d - 2 * m >= 0.70 + 0.96) items.push(shower(w - m - 0.96, d - m - 0.96, d - m - 0.96));
+  return items;
 }
 
 function office(w: number, d: number): Assembly[] {
@@ -307,7 +328,7 @@ function office(w: number, d: number): Assembly[] {
       rect("back", w / 2 - 0.24, m + 1.43, 0.48, 0.10, 0.56, "dark", 0.47),
       round("pedestal", w / 2 - 0.045, m + 1.22, 0.09, 0.09, 0.45, "metal"),
       round("base", w / 2 - 0.32, m + 1.08, 0.64, 0.34, 0.055, "dark"),
-    ]),
+    ], SNUG),
     floor("office-bookshelf", [
       rect("body", m, d - m - 0.42, 1.00, 0.42, 1.65, "wood"),
       rect("shelf-1", m + 0.06, d - m - 0.41, 0.88, 0.39, 0.035, "white", 0.55),
@@ -327,11 +348,11 @@ function dining(w: number, d: number): Assembly[] {
     floor("dining-chair-back", [
       rect("seat", w / 2 - 0.22, z - 0.62, 0.44, 0.43, 0.09, "fabric", 0.42),
       rect("back", w / 2 - 0.22, z - 0.64, 0.44, 0.09, 0.45, "wood", 0.45),
-    ]),
+    ], SNUG),
     floor("dining-chair-front", [
       rect("seat", w / 2 - 0.22, z + td + 0.20, 0.44, 0.43, 0.09, "fabric", 0.42),
       rect("back", w / 2 - 0.22, z + td + 0.54, 0.44, 0.09, 0.45, "wood", 0.45),
-    ]),
+    ], SNUG),
   ];
   return [
     table("dining-table", x, z, tw, td, 0.74),
@@ -349,7 +370,7 @@ function laundry(w: number, d: number): Assembly[] {
       rect("body", m + 0.02, m + 0.04, 0.67, 0.65, 0.82, "white", 0.05, "washer"),
       rect("control-strip", m + 0.07, m + 0.66, 0.57, 0.022, 0.11, "dark", 0.73),
       round("drum-door", m + 0.16, m + 0.23, 0.38, 0.38, 0.035, "metal", 0.87),
-    ]),
+    ], SNUG),
     floor("laundry-utility-sink", [
       rect("sink-base", m + 0.82, m + 0.04, 0.63, 0.54, 0.78, "white"),
       rect("basin", m + 0.89, m + 0.08, 0.49, 0.40, 0.10, "metal", 0.78),
@@ -454,9 +475,9 @@ function garage(w: number, d: number): Assembly[] {
   // Prioridade para o carro: mobiliário secundário não pode fazê-lo sumir
   // ao competir pela mesma área da garagem.
   if (availableWidth >= 2.30 && availableDepth >= 4.75) {
-    assemblies.push(garageCar((w - 1.92) / 2, (d - 4.16) / 2, false));
+    assemblies.push(garageCar((w - 1.92) / 2, Math.max((d - 4.16) / 2, d - m - 4.16 - 0.10), false));
   } else if (availableWidth >= 1.88 && availableDepth >= 3.75) {
-    assemblies.push(garageCar((w - 1.62) / 2, (d - 3.40) / 2, true));
+    assemblies.push(garageCar((w - 1.62) / 2, Math.max((d - 3.40) / 2, d - m - 3.40 - 0.10), true));
   } else if (availableWidth >= 0.85 && availableDepth >= 1.55) {
     assemblies.push(garageScooter((w - 0.55) / 2, (d - 1.44) / 2));
   }
