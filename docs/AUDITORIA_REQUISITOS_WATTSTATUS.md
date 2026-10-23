@@ -1,5 +1,7 @@
 # Auditoria de requisitos WattStatus
 
+Roteiro de validação publicado em `docs/CHECKLIST_HOMOLOGACAO_WATTSTATUS.md`. Testes físicos, Netlify publicada e requisito RNF-002 permanecem pendentes até execução nesse ambiente.
+
 Base: `dev_V1` (`d53cb07`). Especificação acadêmica consultada em 22/10/2026. Status indicam comportamento comprovado nesta branch, sem validação em produção ou dispositivo físico.
 
 | ID | Requisito | Status | Evidência no código | Teste e resultado | Limitações |
