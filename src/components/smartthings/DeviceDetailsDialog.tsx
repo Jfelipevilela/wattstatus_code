@@ -1,3 +1,4 @@
+import { Cpu } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -5,6 +6,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogIcon,
 } from "@/components/ui/dialog";
 import { formatNumber } from "@/lib/energy";
 import type { OverviewItem } from "./types";
@@ -52,8 +54,9 @@ export function DeviceDetailsDialog({
     : [];
   return (
     <Dialog open={Boolean(item)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
+          <DialogIcon tone="blue"><Cpu /></DialogIcon>
           <DialogTitle>{item?.device.name}</DialogTitle>
           <DialogDescription>Leituras atuais e recursos que este dispositivo informa.</DialogDescription>
         </DialogHeader>

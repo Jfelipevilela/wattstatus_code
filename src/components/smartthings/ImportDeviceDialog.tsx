@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogIcon,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -105,8 +106,9 @@ export function ImportDeviceDialog({ item, defaultState, defaultTariff, importin
 
   return (
     <Dialog open={Boolean(item)} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
+          <DialogIcon tone="blue"><Download /></DialogIcon>
           <DialogTitle>Importar {item?.device.name}</DialogTitle>
           <DialogDescription>
             Confirme os dados de uso para estimar o consumo. O vínculo com o SmartThings fica salvo.
