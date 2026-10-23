@@ -142,7 +142,7 @@ export default function ApplianceCalculator({
         });
       } else {
         await onAddAppliance(input);
-        await updatePreferences({ tariffState: values.tariff, tariffValue: values.tariffValue });
+        await updatePreferences({ tariffState: values.tariff, tariffValue: values.tariffValue }).catch(() => undefined);
         toast({
           title: initialAppliance
             ? "Aparelho atualizado"

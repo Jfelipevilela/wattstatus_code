@@ -13,6 +13,9 @@ import { STATE_TARIFFS } from "../config/tariffs";
 import { getErrorFields, logger } from "../logging/logger";
 import { normalizeEmail } from "../modules/auth/auth-security";
 import { ApiError } from "../middleware/error-handler";
+import type { CatalogDevice, CatalogQuery } from "../modules/catalog/catalog.types";
+import { catalogTokens } from "../modules/catalog/catalog.schema";
+import { catalogSeed } from "../modules/catalog/catalog.seed";
 
 type IntegrationTokenDoc = { userId: string; provider: string; token: string };
 type IntegrationUsageDoc = {
@@ -85,6 +88,12 @@ export class MongoDatabase {
     await this.db.collection("auth_limits").createIndex({ key: 1 }, { unique: true });
     await this.db.collection("auth_limits").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     await this.db.collection("appliances").createIndex({ userId: 1 });
+    await this.db.collection("device_catalog").createIndex({ id: 1 }, { unique: true });
+    await this.db.collection("device_catalog").createIndex({ category: 1, subcategory: 1, brand: 1, model: 1 });
+    await this.db.collection("device_catalog").createIndex({ searchTokens: 1, category: 1 });
+    await this.db.collection("device_catalog").createIndex({ brand: 1 });
+    await this.db.collection("device_catalog").createIndex({ subcategory: 1 });
+    await this.db.collection("device_catalog").createIndex({ displayName: 1, id: 1 });
     await this.db.collection("appliances").createIndex({ importKey: 1 }, { unique: true, partialFilterExpression: { importKey: { $exists: true } } });
     await this.db.collection("integration_tokens").createIndex({ userId: 1, provider: 1 }, { unique: true });
     await this.db.collection("integration_usage").createIndex(
@@ -113,6 +122,60 @@ export class MongoDatabase {
 
   async close() {
     await this.client.close();
+  }
+
+  async seedCatalog(updateExisting = false) {
+    const operations = catalogSeed.devices.map(device => {
+      const row = { ...device, searchTokens: catalogTokens([
+        device.displayName, device.category, catalogSeed.categories.find(category => category.id === device.category)?.name,
+        device.subcategory, device.brand, device.model, ...device.aliases,
+      ].filter(Boolean).join(" ")) };
+      return { updateOne: { filter: { id: device.id }, update: updateExisting ? { $set: row } : { $setOnInsert: row }, upsert: true } };
+    });
+    return this.db.collection("device_catalog").bulkWrite(operations, { ordered: true });
+  }
+
+  async upsertCatalogRecord(record: CatalogDevice): Promise<"inserted" | "updated" | "unchanged"> {
+    const { retrievedAt: _retrieved, lastSeenAt: _seen, ...source } = record.source;
+    const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ ...record, source })).digest("hex");
+    const collection = this.db.collection("device_catalog");
+    const previous = await collection.findOne({ id: record.id }, { projection: { importFingerprint: 1 }, maxTimeMS: 3000 });
+    if (previous?.importFingerprint === fingerprint) {
+      await collection.updateOne({ id: record.id }, { $set: { "source.lastSeenAt": record.source.lastSeenAt } });
+      return "unchanged";
+    }
+    const searchTokens = catalogTokens([record.displayName, record.category,
+      catalogSeed.categories.find(category => category.id === record.category)?.name,
+      record.subcategory, record.brand, record.model, ...record.aliases].filter(Boolean).join(" "));
+    const result = await collection.updateOne({ id: record.id }, { $set: { ...record, searchTokens, importFingerprint: fingerprint } }, { upsert: true });
+    return result.upsertedCount ? "inserted" : "updated";
+  }
+
+  async getCatalogDevice(id: string): Promise<CatalogDevice | null> {
+    return this.db.collection<CatalogDevice>("device_catalog").findOne({ id, active: { $ne: false } }, {
+      projection: { _id: 0, searchTokens: 0, importFingerprint: 0 }, maxTimeMS: 3000,
+    });
+  }
+
+  async searchCatalog(query: CatalogQuery) {
+    const { search, category, subcategory, brand, model, page, limit } = query;
+    const tokens = search ? catalogTokens(search) : [];
+    const filter = {
+      active: { $ne: false },
+      ...(category ? { category } : {}), ...(subcategory ? { subcategory } : {}),
+      ...(brand ? { brand } : {}), ...(model ? { model } : {}),
+      ...(search?.trim() ? { searchTokens: { $all: tokens.length ? tokens : ["__no_match__"] } } : {}),
+    };
+    const collection = this.db.collection<CatalogDevice>("device_catalog");
+    const facets = { active: { $ne: false }, ...(category ? { category } : {}) };
+    const [devices, total, brands, subcategories] = await Promise.all([
+      collection.find(filter, { projection: { _id: 0, searchTokens: 0, importFingerprint: 0 }, maxTimeMS: 3000 })
+        .sort({ displayName: 1, id: 1 }).skip((page - 1) * limit).limit(limit).toArray(),
+      collection.countDocuments(filter, { maxTimeMS: 3000 }),
+      collection.distinct("brand", facets, { maxTimeMS: 3000 }),
+      collection.distinct("subcategory", facets, { maxTimeMS: 3000 }),
+    ]);
+    return { devices, total, page, limit, brands: brands.sort(), subcategories: subcategories.sort() };
   }
 
   private users(): Collection<UserRecord> {

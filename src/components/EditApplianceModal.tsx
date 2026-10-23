@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Appliance, ApplianceInput } from "@/hooks/useAppliances";
 import ApplianceCalculator from "@/components/ApplianceCalculator";
+import DeviceConfigurationPanel from "@/components/DeviceConfigurationPanel";
 import {
   Dialog,
   DialogContent,
@@ -35,17 +36,31 @@ export default function EditApplianceModal({
             Ajuste os dados e salve suas alterações.
           </DialogDescription>
         </DialogHeader>
-        {appliance && (
-          <ApplianceCalculator
-            key={appliance.id}
-            initialAppliance={appliance}
-            onSaved={onClose}
-            onBusyChange={setBusy}
-            onAddAppliance={async (input) => {
-              await onSave(appliance.id, input);
-            }}
-          />
-        )}
+        {appliance &&
+          (appliance.catalogDeviceId ||
+          appliance.room !== undefined ||
+          (appliance.energyProfile &&
+            appliance.energyProfile.method !== "POWER_TIME") ? (
+            <DeviceConfigurationPanel
+              key={appliance.id}
+              initialAppliance={appliance}
+              onSaved={onClose}
+              onBusyChange={setBusy}
+              onAddAppliance={async (input) => {
+                await onSave(appliance.id, input);
+              }}
+            />
+          ) : (
+            <ApplianceCalculator
+              key={appliance.id}
+              initialAppliance={appliance}
+              onSaved={onClose}
+              onBusyChange={setBusy}
+              onAddAppliance={async (input) => {
+                await onSave(appliance.id, input);
+              }}
+            />
+          ))}
       </DialogContent>
     </Dialog>
   );

@@ -7,9 +7,13 @@ const source = await readFile(
   new URL("../src/lib/energy.ts", import.meta.url),
   "utf8",
 );
-const compiled = ts.transpileModule(source, {
+const reference = ts.transpileModule(await readFile(new URL("../backend/src/modules/catalog/reference.ts", import.meta.url), "utf8"), {
   compilerOptions: { module: ts.ModuleKind.ESNext },
 }).outputText;
+const referenceUrl = `data:text/javascript;base64,${Buffer.from(reference).toString("base64")}`;
+const compiled = ts.transpileModule(source, {
+  compilerOptions: { module: ts.ModuleKind.ESNext },
+}).outputText.replace('"../../backend/src/modules/catalog/reference"', JSON.stringify(referenceUrl));
 const {
   getMonthlyEstimate,
   getEstimateHistory,
@@ -32,6 +36,14 @@ const appliance = {
   createdAt: new Date(2025, 7, 15).toISOString(),
   status: "normal",
 };
+
+test("catálogo usa snapshot mensal e ciclos sem converter contador em consumo mensal", () => {
+  const monthly = { ...appliance, power: 0, energyProfile: { method: "REFERENCE_MONTHLY", referenceMonthlyKwh: 40.5 }, tariffValue: 1 };
+  assert.equal(estimateAppliance(monthly, 28).consumption, 40.5);
+  assert.equal(estimateAppliance(monthly, 28).cost, 40.5);
+  assert.equal(estimateAppliance({ ...monthly, energyProfile: { method: "PER_CYCLE", energyPerCycleKwh: 0.143 }, cyclesPerMonth: 12 }).consumption, 0.143 * 12);
+  assert.equal(estimateAppliance({ ...monthly, measuredConsumptionKWh: 999, consumptionType: "METERED" }).consumption, 40.5);
+});
 
 test("aparelhos continuam nas estimativas após o mês de cadastro e na virada do ano", () => {
   assert.equal(getMonthlyEstimate([appliance], 2025, 7).rows.length, 0);

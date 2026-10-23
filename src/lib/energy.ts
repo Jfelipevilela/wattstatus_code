@@ -1,4 +1,5 @@
 import type { Appliance } from "../hooks/useAppliances";
+import { normalizeEnergyProfile, referenceMonthly } from "../../backend/src/modules/catalog/reference";
 
 // Reference values already used by the calculation API; these are not live tariffs.
 export const STATE_TARIFFS: Record<string, number> = {
@@ -49,7 +50,9 @@ export const normalizeSearch = (value: string) =>
     .trim();
 
 export function estimateAppliance(appliance: Appliance, daysInMonth = 31) {
-  const consumption =
+  const profile = appliance.energyProfile && normalizeEnergyProfile(appliance.energyProfile);
+  const consumption = profile?.method === "REFERENCE_PERIOD" ? referenceMonthly(profile)
+    : profile?.method === "PER_CYCLE" ? profile.energyPerCycleKwh * (appliance.cyclesPerMonth ?? 0) :
     (appliance.power *
       appliance.usageHours *
       Math.min(appliance.days, daysInMonth)) /
@@ -60,6 +63,24 @@ export function estimateAppliance(appliance: Appliance, daysInMonth = 31) {
       : STATE_TARIFFS[appliance.tariff] || 0);
   return { consumption, cost: consumption * rate };
 }
+
+export const applianceSourceLabel = (appliance: Partial<Appliance>): string => {
+  const profile = appliance.energyProfile;
+  if (profile?.method === "POWER_TIME" && appliance.source?.metrics?.typicalPowerW &&
+      appliance.source.metrics.typicalPowerW !== appliance.source.reference) {
+    return "Potência operacional: fonte complementar por métrica; não atribuída à fonte de standby";
+  }
+  if (appliance.source && profile?.method === "POWER_TIME" && appliance.power !== undefined &&
+      (profile.typicalPowerW === undefined || appliance.power !== profile.typicalPowerW)) {
+    return "Potência informada/ajustada pelo usuário; consulte a origem das demais métricas";
+  }
+  return appliance.source?.type === "PBE" ? "PBE / Inmetro"
+  : appliance.source?.type === "MANUFACTURER" ? "Fabricante"
+  : appliance.source?.type === "ENERGY_STAR" ? "ENERGY STAR (referência internacional)"
+  : appliance.source?.type === "WATTSTATUS_GENERIC" ? "Perfil genérico WattStatus"
+  : appliance.integrationProvider === "smartthings" ? "Samsung SmartThings"
+  : appliance.integrationProvider ? `Integração: ${appliance.integrationProvider}` : "Dados informados pelo usuário";
+};
 export function getMonthlyEstimate(
   appliances: Appliance[],
   year: number,

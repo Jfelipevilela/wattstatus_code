@@ -31,9 +31,12 @@ import {
   formatDuration,
   formatNumber,
   getMonthlyEstimate,
+  applianceSourceLabel,
+  STATE_TARIFFS,
 } from "@/lib/energy";
 import { applianceVisual } from "@/components/appliances/applianceVisual";
 import { cn } from "@/lib/utils";
+import { normalizeEnergyProfile, referenceLabel } from "../../../backend/src/modules/catalog/reference";
 
 interface ReportsTabProps {
   appliances: Appliance[];
@@ -41,6 +44,10 @@ interface ReportsTabProps {
 
 interface ReportRow {
   id: string;
+  calculationMethod: string;
+  source: string;
+  cyclesPerMonth: number;
+  reference: string;
   applianceName: string;
   power: number;
   usageHours: number;
@@ -83,14 +90,19 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }) => {
     .filter((appliance) => availableIds.has(appliance.id) && (selectedAppliance === "all" || appliance.id === selectedAppliance))
     .map((appliance) => {
       const { consumption, cost } = estimateAppliance(appliance, daysInMonth);
+      const tariffValue = appliance.tariffValue ?? (consumption > 0 ? cost / consumption : STATE_TARIFFS[appliance.tariff] || 0);
       return {
         id: appliance.id,
+        source: applianceSourceLabel(appliance),
+        calculationMethod: appliance.energyProfile ? normalizeEnergyProfile(appliance.energyProfile).method : "POWER_TIME",
+        reference: appliance.energyProfile ? referenceLabel(appliance.energyProfile) : "",
+        cyclesPerMonth: appliance.cyclesPerMonth ?? 0,
         applianceName: appliance.name,
         power: appliance.power,
         usageHours: appliance.usageHours,
         daysInMonth: Math.min(appliance.days, daysInMonth),
         tariff: appliance.tariff,
-        tariffValue: consumption > 0 ? cost / consumption : 0,
+        tariffValue,
         consumption,
         cost,
       };
@@ -143,7 +155,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }) => {
         issuedAt: new Date().toLocaleString("pt-BR"),
         estimated: rows.map((item) => ({
           applianceName: item.applianceName,
-          source: "Estimativa",
+          source: `Estimativa · ${item.source}${item.reference ? ` · ${item.reference}` : ""}`,
           tariffValue: item.tariffValue,
           consumptionKWh: item.consumption,
           cost: item.cost,
@@ -336,7 +348,10 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }) => {
                           </div>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
-                          {formatNumber(item.power, 0)} W · {formatDuration(item.usageHours)}/dia · {item.daysInMonth} dias
+                          {item.calculationMethod === "PER_CYCLE" ? `${item.cyclesPerMonth} ciclos/mês`
+                            : item.calculationMethod === "REFERENCE_PERIOD" ? item.reference
+                            : `${formatNumber(item.power, 0)} W · ${formatDuration(item.usageHours)}/dia · ${item.daysInMonth} dias`}
+                          <span className="block text-xs">Estimativa · {item.source}</span>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {item.tariff} · {formatCurrency(item.tariffValue)}

@@ -5,6 +5,9 @@
   "description": "Backend Node.js/Express for WattStatus with auth, calculations, and pluggable IoT integrations.",
   "main": "dist/server.js",
   "scripts": {
+    "catalog:import": "npm run build && node scripts/import-catalog.cjs",
+    "catalog:validate": "npm run build && node scripts/import-catalog.cjs --dry-run",
+    "catalog:seed": "npm run build && node scripts/seed-catalog.cjs",
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.functions.json",
     "test": "npm run build && node --test tests/*.test.cjs tests/*.test.js",

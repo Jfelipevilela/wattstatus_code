@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "./useAuth";
+import type { ApplianceCatalogFields } from "../../backend/src/types";
 
-export interface Appliance {
+export interface Appliance extends ApplianceCatalogFields {
   id: string;
   name: string;
   power: number;
@@ -19,7 +20,7 @@ export interface Appliance {
   integrationDeviceId?: string | null;
 }
 
-export interface ApplianceInput {
+export interface ApplianceInput extends Pick<ApplianceCatalogFields, "catalogDeviceId" | "energyProfile" | "cyclesPerMonth" | "room"> {
   name: string;
   power: number;
   usageHours: number;
@@ -82,7 +83,7 @@ export const useAppliances = () => {
     };
     const data = await apiRequest<{ appliance: Appliance }>(
       "/api/appliances",
-      { method: "POST", body: JSON.stringify(payload) },
+      { method: "POST", body: JSON.stringify(payload), headers: { "X-Wattstatus-User": user.id } },
       token || undefined
     );
     setAppliances((prev) => [data.appliance, ...prev]);
@@ -93,7 +94,7 @@ export const useAppliances = () => {
     if (!user) throw new Error("N\u00e3o autenticado");
     const data = await apiRequest<{ appliance: Appliance }>(
       `/api/appliances/${id}`,
-      { method: "PUT", body: JSON.stringify(input) },
+      { method: "PUT", body: JSON.stringify(input), headers: { "X-Wattstatus-User": user.id } },
       token || undefined
     );
     setAppliances((prev) =>
@@ -106,7 +107,7 @@ export const useAppliances = () => {
 
   const deleteAppliance = async (id: string) => {
     if (!user) throw new Error("N\u00e3o autenticado");
-    await apiRequest(`/api/appliances/${id}`, { method: "DELETE" }, token || undefined);
+    await apiRequest(`/api/appliances/${id}`, { method: "DELETE", headers: { "X-Wattstatus-User": user.id } }, token || undefined);
     setAppliances((prev) => prev.filter((appliance) => appliance.id !== id));
   };
 

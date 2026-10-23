@@ -20,6 +20,7 @@ import { ApiError } from "./middleware/error-handler";
 import { env } from "./config/env";
 import { createReportRouter } from "./modules/reports/report.routes";
 import { createRequestLimiter, protectMutation } from "./middleware/security";
+import { createCatalogRouter } from "./modules/catalog/catalog.routes";
 
 export interface AppDependencies {
   db: MongoDatabase;
@@ -58,6 +59,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
   });
 
   app.use("/api/auth", createAuthRouter(authService, db));
+  app.use("/api/device-catalog", authenticate, createRequestLimiter(db, "catalog", 90, 60000), createCatalogRouter(db));
   app.use(
     "/api/appliances",
     authenticate,

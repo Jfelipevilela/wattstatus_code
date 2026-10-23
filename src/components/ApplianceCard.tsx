@@ -5,10 +5,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatCurrency, formatDuration, formatNumber } from "@/lib/energy";
+import { applianceSourceLabel, formatCurrency, formatDuration, formatNumber } from "@/lib/energy";
 import { cn } from "@/lib/utils";
 import type { Appliance } from "@/hooks/useAppliances";
-import { applianceVisual, providerLabel } from "@/components/appliances/applianceVisual";
+import { normalizeEnergyProfile, referenceLabel } from "../../backend/src/modules/catalog/reference";
+import { applianceVisual } from "@/components/appliances/applianceVisual";
 
 interface Props {
   appliance: Appliance;
@@ -23,7 +24,17 @@ interface Props {
 export default function ApplianceCard({ appliance, consumption, cost, share, rank, onEdit, onDelete }: Props) {
   const { icon: Icon, tone, bar } = applianceVisual(appliance.name);
   const connected = Boolean(appliance.integrationProvider);
-  const measured = (appliance.measuredConsumptionKWh ?? 0) > 0;
+  const measured = typeof appliance.measuredConsumptionKWh === "number" && appliance.measuredConsumptionKWh >= 0;
+  const method = appliance.energyProfile ? normalizeEnergyProfile(appliance.energyProfile).method : "POWER_TIME";
+  const stats = method === "PER_CYCLE"
+    ? [{ icon: CalendarDays, label: "Ciclos/mês", value: String(appliance.cyclesPerMonth ?? 0) }]
+    : method === "REFERENCE_PERIOD"
+      ? [{ icon: Zap, label: "Método", value: "Referência de período" }]
+      : [
+          { icon: Zap, label: "Potência", value: `${formatNumber(appliance.power, 0)} W` },
+          { icon: Clock, label: "Uso/dia", value: formatDuration(appliance.usageHours) },
+          { icon: CalendarDays, label: "Dias/mês", value: String(appliance.days || 30) },
+        ];
   return (
     <article className="group relative flex h-full min-w-0 flex-col rounded-3xl border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
       {rank === 1 && (
@@ -48,7 +59,7 @@ export default function ApplianceCard({ appliance, consumption, cost, share, ran
             )}
           >
             {connected && <Radio className="h-3 w-3" aria-hidden="true" />}
-            {providerLabel(appliance.integrationProvider)}
+            {appliance.catalogDeviceId ? "Biblioteca de aparelhos" : connected ? `Integração: ${appliance.integrationProvider}` : "Cadastro manual"}
           </span>
         </div>
         {(onEdit || onDelete) && (
@@ -74,6 +85,16 @@ export default function ApplianceCard({ appliance, consumption, cost, share, ran
           </DropdownMenu>
         )}
       </header>
+      {appliance.energyProfile && referenceLabel(appliance.energyProfile) && <p className="mt-2 text-xs text-muted-foreground">{referenceLabel(appliance.energyProfile)}</p>}
+      {appliance.source?.metrics && <details className="mt-2 text-xs text-muted-foreground"><summary>Fontes por métrica</summary>
+        {Object.entries(appliance.source.metrics).map(([metric, url]) => <a key={metric} href={url} target="_blank" rel="noreferrer" className="block underline">{metric}: consultar origem</a>)}
+      </details>}
+      <p className="mt-2 text-xs text-muted-foreground">
+        Fonte da estimativa: {applianceSourceLabel(appliance)}
+        {appliance.room && <span className="block">Ambiente: {appliance.room}</span>}
+        {appliance.energyProfile?.method === "POWER_TIME" && appliance.energyProfile.typicalPowerW !== undefined &&
+          appliance.energyProfile.typicalPowerW !== appliance.power && <span className="block">Potência ajustada pelo usuário.</span>}
+      </p>
 
       <div className="mt-5 flex items-end justify-between gap-3">
         <div>
@@ -97,11 +118,7 @@ export default function ApplianceCard({ appliance, consumption, cost, share, ran
       </div>
 
       <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
-        {[
-          { icon: Zap, label: "Potência", value: `${formatNumber(appliance.power, 0)} W` },
-          { icon: Clock, label: "Uso/dia", value: formatDuration(appliance.usageHours) },
-          { icon: CalendarDays, label: "Dias/mês", value: String(appliance.days || 30) },
-        ].map(({ icon: StatIcon, label, value }) => (
+        {stats.map(({ icon: StatIcon, label, value }) => (
           <div key={label} className="rounded-2xl bg-muted/50 px-2 py-2.5">
             <dt className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
               <StatIcon className="h-3 w-3" aria-hidden="true" />
@@ -117,7 +134,9 @@ export default function ApplianceCard({ appliance, consumption, cost, share, ran
           <Radio className="h-3.5 w-3.5 shrink-0 text-energy-blue-light" aria-hidden="true" />
           <span>
             Medidor: <strong>{formatNumber(appliance.measuredConsumptionKWh!, 1)} kWh</strong>
-            <span className="text-muted-foreground"> acumulados (sem período)</span>
+            <span className="text-muted-foreground">{appliance.measurement
+              ? ` acumulados, consultados em ${new Date(appliance.measurement.capturedAt).toLocaleString("pt-BR")}. Consulte o histórico para os intervalos medidos.`
+              : " acumulados (sem período)"}. Não representa necessariamente o consumo do mês.</span>
           </span>
         </p>
       )}

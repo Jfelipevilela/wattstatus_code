@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import ApplianceCard from "@/components/ApplianceCard";
-import ApplianceCalculator from "@/components/ApplianceCalculator";
+import AddApplianceFlow from "@/components/AddApplianceFlow";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,19 +31,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Appliance, ApplianceInput } from "@/hooks/useAppliances";
-import { applianceVisual, providerLabel } from "@/components/appliances/applianceVisual";
+import { applianceVisual } from "@/components/appliances/applianceVisual";
 import {
   estimateAppliance,
   formatNumber,
   formatCurrency,
   normalizeSearch,
+  applianceSourceLabel,
 } from "@/lib/energy";
 import { cn } from "@/lib/utils";
+import { referenceLabel } from "../../../backend/src/modules/catalog/reference";
 
 const PAGE_SIZE = 9;
 const SOURCES = [
   { value: "all", label: "Todos" },
   { value: "manual", label: "Manuais" },
+  { value: "catalog", label: "Biblioteca" },
   { value: "connected", label: "Conectados" },
 ] as const;
 const SORTS = [
@@ -89,7 +92,11 @@ export default function AppliancesTab({
       ({ appliance }) =>
         normalizeSearch(appliance.name).includes(normalizeSearch(search)) &&
         (source === "all" ||
-          (source === "connected" ? Boolean(appliance.integrationProvider) : !appliance.integrationProvider)),
+          (source === "catalog"
+            ? Boolean(appliance.catalogDeviceId)
+            : source === "connected"
+              ? Boolean(appliance.integrationProvider)
+              : !appliance.integrationProvider && !appliance.catalogDeviceId)),
     )
     .sort((a, b) =>
       sort === "name"
@@ -117,12 +124,12 @@ export default function AppliancesTab({
 
   const addDialog = (
     <Dialog open={adding} onOpenChange={(open) => !busy && setAdding(open)}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="max-h-[90dvh] w-[calc(100%_-_1rem)] overflow-y-auto sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle>Adicionar aparelho</DialogTitle>
           <DialogDescription>Escolha um modelo ou preencha os dados do seu equipamento.</DialogDescription>
         </DialogHeader>
-        <ApplianceCalculator onAddAppliance={onAddAppliance} onSaved={() => setAdding(false)} onBusyChange={setBusy} />
+        <AddApplianceFlow onAddAppliance={onAddAppliance} onSaved={() => setAdding(false)} onBusyChange={setBusy} />
       </DialogContent>
     </Dialog>
   );
@@ -339,7 +346,11 @@ export default function AppliancesTab({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{appliance.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {providerLabel(appliance.integrationProvider)} · {formatNumber(appliance.power, 0)} W
+                    {applianceSourceLabel(appliance)} · {appliance.energyProfile?.method === "PER_CYCLE"
+                      ? `${appliance.cyclesPerMonth ?? 0} ciclos/mês`
+                      : appliance.energyProfile && referenceLabel(appliance.energyProfile)
+                        ? referenceLabel(appliance.energyProfile)
+                        : `${formatNumber(appliance.power, 0)} W`}
                   </p>
                 </div>
                 <div className="hidden w-40 md:block">

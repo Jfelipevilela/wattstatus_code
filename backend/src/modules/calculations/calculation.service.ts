@@ -5,6 +5,7 @@ import {
   CalculationResult,
   ApplianceStatus,
 } from "../../types";
+import { calculateConsumption } from "./consumption";
 
 export const calculateAppliance = (
   input: CalculationInput
@@ -15,10 +16,8 @@ export const calculateAppliance = (
     throw new ApiError(400, "Estado n\u00e3o selecionado ou tarifa n\u00e3o encontrada");
   }
 
-  const baseConsumption =
-    (input.power * input.usageHours * input.days) / 1000;
-  // A device counter snapshot is not a monthly interval measurement.
-  const consumptionKWh = baseConsumption;
+  const { consumptionKWh } = calculateConsumption({ profile: input.energyProfile || { method: "POWER_TIME" },
+    power: input.power, usageHours: input.usageHours, days: input.days, cyclesPerMonth: input.cyclesPerMonth });
   const cost = consumptionKWh * tariff;
 
   let status: ApplianceStatus = "normal";

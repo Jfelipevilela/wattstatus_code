@@ -1,4 +1,16 @@
 export type ApplianceStatus = "normal" | "warning" | "critical";
+import type { CatalogSource, EnergyProfile } from "./modules/catalog/catalog.types";
+
+export interface ApplianceCatalogFields {
+  catalogDeviceId?: string;
+  origin?: "CATALOG" | "MANUAL" | "SMARTTHINGS" | "INTEGRATION";
+  energyProfile?: EnergyProfile;
+  source?: CatalogSource;
+  cyclesPerMonth?: number;
+  room?: string;
+  consumptionType?: "ESTIMATED" | "METERED";
+  measurement?: { method: "LIVE_MEASUREMENT"; readingType: "cumulative"; counterKWh: number; capturedAt: string };
+}
 
 export interface UserRecord {
   id: string;
@@ -16,7 +28,7 @@ export interface AuthSession {
   expiresAt: Date;
 }
 
-export interface ApplianceRecord {
+export interface ApplianceRecord extends ApplianceCatalogFields {
   id: string;
   userId: string;
   name: string;
@@ -35,7 +47,7 @@ export interface ApplianceRecord {
   importKey?: string;
 }
 
-export interface CalculationInput {
+export interface CalculationInput extends Pick<ApplianceCatalogFields, "catalogDeviceId" | "energyProfile" | "cyclesPerMonth" | "room"> {
   name?: string;
   power: number;
   usageHours: number;

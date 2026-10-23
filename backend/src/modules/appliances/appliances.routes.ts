@@ -9,6 +9,14 @@ import { ApplianceService } from "./appliances.service";
 
 export const createApplianceRouter = (service: ApplianceService) => {
   const router = Router();
+  // Optional intent binding: a pending form from another tab/account must not mutate the new session.
+  router.use((req: AuthenticatedRequest, _res, next) => {
+    const expectedUser = req.header("x-wattstatus-user");
+    if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && expectedUser && expectedUser !== req.userId) {
+      return next(new ApiError(409, "A sessão mudou. Reabra o formulário antes de continuar."));
+    }
+    next();
+  });
 
   router.get("/", async (req: AuthenticatedRequest, res, next) => {
     try {
