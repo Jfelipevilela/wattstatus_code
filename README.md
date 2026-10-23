@@ -372,3 +372,8 @@ Na raiz, execute `npm ci`, `npm test`, `npm run build`, `npm run lint` e `npx ts
 ### Dependências e desempenho
 
 As páginas agora usam carregamento sob demanda. No build local, o chunk principal caiu de cerca de 1,12 MB para 346 KB antes de gzip; isso não comprova RNF-002. jsPDF e React Router foram atualizados e passaram build/testes. `npm audit` backend mostrou 0 vulnerabilidades. No frontend, restaram 5 altas e 2 moderadas ligadas à cadeia Tailwind CSS 3; a correção automática exige migração major para Tailwind 4 e revisão visual, ainda pendente.
+# Homologação de energia
+
+A coleta periódica SmartThings usa função agendada Netlify, desativada por padrão. Configure `ENERGY_COLLECTION_ENABLED=true` e habilite individualmente no painel SmartThings. Consulte `docs/HARDENING_PRODUCAO.md` para auditoria de dependências, medições, rotação de credenciais, testes físicos e decisão de produção.
+
+\n

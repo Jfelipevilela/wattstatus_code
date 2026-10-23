@@ -13,6 +13,8 @@ dist-ssr
 *.local
 .env
 **/.env
+tmp/
+audit-before.json
 
 # Editor directories and files
 .vscode/*

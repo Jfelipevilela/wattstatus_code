@@ -38,3 +38,8 @@ Node.js/Express API com JWT, calculos de consumo e integracoes plugaveis. Agora 
 JWTs carregam `jti`; a coleção `sessions` confirma cada requisição e logout remove a sessão. Cookies HTTP-only duram 12 horas. Mutações por cookie exigem `Origin` aceito. Configure `FRONTEND_ORIGIN` para frontend em outra origem. Frontend na mesma origem Netlify funciona sem CORS adicional. Rate limiting adicional protege cadastro e login, mas é local à instância Express; em funções serverless, a aplicação precisa de limitador compartilhado para garantia global.
 
 Para testar com MongoDB 7 isolado: inicie uma instância local de teste, defina `TEST_MONGO_URL=mongodb://127.0.0.1:<porta>` e execute `npm test`. A suíte cria banco com nome aleatório e remove apenas esse banco ao terminar. Sem a variável, teste MongoDB aparece como `SKIP`. Não use URL de produção. Testes SmartThings usam respostas simuladas; nenhum dispositivo físico foi validado.
+# Coleta agendada de energia
+
+Defina `ENERGY_COLLECTION_ENABLED=true` no ambiente Netlify publicado para habilitar o job interno `collect-energy` (cron a cada 5 minutos UTC). Por padrão, o job fica inativo. Cada usuário também deve ativar a coleta no painel SmartThings. `ENERGY_COLLECTION_INTERVAL_MINUTES` define intervalo mínimo por dispositivo (padrão 30, mínimo 5); `ENERGY_COLLECTION_BATCH_SIZE` define lote por execução (padrão 2, máximo 3). O job só lê aparelhos SmartThings importados que anunciem `energyMeter` e usam token próprio da conta. A função não possui rota HTTP pública. Consulte `docs/HARDENING_PRODUCAO.md` para limites, testes e homologação.
+
+\n

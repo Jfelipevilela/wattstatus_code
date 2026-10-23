@@ -11,12 +11,12 @@ Base: `dev_V1` (`d53cb07`). Especificação acadêmica consultada em 22/10/2026.
 | RF-005 | Tarifa estadual ou manual | Parcial | `ApplianceCalculator.tsx`, `user-settings.routes.ts`, `mongo-db.ts` | Cálculo em `tariff.test.cjs`; tarifa congelada em `mongo-energy.test.cjs` passaram | Cadastro antigo usa referência estadual até edição. |
 | RF-006 | Relatórios | Parcial | `ReportsTab.tsx`, `measured.ts` | Agrupamento em `measured.test.mjs` passou | Medição representa apenas intervalos coletados. |
 | RF-007 | Dashboard | Parcial | `Dashboard.tsx`, `EnergyHistoryPanel.tsx` | Build, tipos e agrupamento passaram | UX não validada com usuários; tendência medida depende de coleta. |
-| RF-008 | Histórico energético | Parcial | `energy-history.ts`, `energy.routes.ts`, `mongo-db.ts` | MongoDB isolado, duplicatas, reinício, usuário, aparelho e tarifa passaram | Coleta por consulta de status; não cobre intervalos sem consultas. |
+| RF-008 | Histórico energético | Parcial | `energy-history.ts`, `energy.routes.ts`, `energy-collector.ts`, `mongo-db.ts` | MongoDB isolado, duplicatas, concorrência do coletor, reinício, usuário, aparelho e tarifa passaram | Coleta agendada exige ativação global e individual e validação em Netlify publicada com dispositivo físico; lacunas continuam possíveis. |
 | RF-009 | Exportar PDF | Parcial | `report-pdf.ts`, `ReportsTab.tsx` | `report-pdf.test.cjs` passou; páginas renderizadas e inspecionadas | Não houve revisão visual com dados reais ou todos os navegadores. |
 | RF-010 | Autenticação | Implementado | `auth.service.ts`, `auth.routes.ts`, `auth-middleware.ts` | Registro, revogação e acesso negado após logout no MongoDB isolado passaram | JWTs antigos sem `jti` exigem novo login. |
 | RNF-001 | Interface simples | Não comprovado | Componentes React | Build passou | Falta teste de usabilidade. |
 | RNF-002 | Telas em menos de 3 s | Não comprovado | Build Vite | Sem medição representativa | Rotas passaram a carregar sob demanda; tamanho do chunk principal caiu de cerca de 1,12 MB para 346 KB antes de gzip. Falta medição de tempo real. |
-| RNF-003 | Segurança e controle de acesso | Parcial | Sessões MongoDB, CSRF, CORS e rotas autenticadas | Testes com duas contas e MongoDB isolado passaram | Rate limit em memória não é distribuído entre instâncias Netlify. Auditoria npm do frontend ainda aponta 5 vulnerabilidades altas e 2 moderadas na cadeia Tailwind 3; migração para Tailwind 4 requer revisão visual. |
+| RNF-003 | Segurança e controle de acesso | Parcial | Sessões MongoDB, CSRF, CORS, rotas autenticadas e coletor interno Netlify | Testes com duas contas e MongoDB isolado passaram | Rate limit em memória não é distribuído entre instâncias Netlify. Auditoria npm do frontend ainda aponta 5 vulnerabilidades altas e 3 moderadas na cadeia Tailwind 3; migração para Tailwind 4 requer revisão visual. |
 | RNF-004 | Navegadores modernos | Não comprovado | Vite/React | Build passou | Falta matriz Chrome, Firefox, Edge e Safari. |
 | RNF-005 | Arquitetura para crescimento | Parcial | Módulos backend e índices MongoDB | Build backend e teste MongoDB passaram | Adaptadores PostgreSQL/locais legados permanecem. |
 
@@ -24,7 +24,7 @@ Base: `dev_V1` (`d53cb07`). Especificação acadêmica consultada em 22/10/2026.
 
 `energy_samples` guarda amostras imutáveis de `energyMeter.energy` somente quando SmartThings retorna unidade `Wh` ou `kWh` e o usuário consulta status. `Wh` é dividido por 1000. Uma amostra isolada não gera consumo de intervalo. Diferenças entre contadores consecutivos geram intervalos; contador reduzido indica reinicialização e não produz consumo negativo. Amostras repetidas no mesmo minuto com mesmo valor são deduplicadas por `sampleKey`. Leituras iguais posteriores representam intervalo medido de zero. O custo usa tarifa copiada para a amostra final. Alterar potência ou tarifa atual não reescreve amostras.
 
-O agrupamento mensal e diário da interface usa fuso local do navegador. API armazena instantes UTC e recebe limites ISO com offset do navegador. Intervalos sem consulta não são preenchidos. Um intervalo que atravessa competências é atribuído ao mês de sua segunda leitura; isso não equivale a medição completa daquele mês. Não há agendador serverless contínuo. Para maior cobertura, será necessário definir estratégia de coleta periódica de baixo custo, com consentimento e validação operacional.
+O agrupamento mensal e diário da interface usa fuso local do navegador. API armazena instantes UTC e recebe limites ISO com offset do navegador. Intervalos sem duas leituras não são preenchidos. Um intervalo que atravessa competências é atribuído ao mês de sua segunda leitura; isso não equivale a medição completa daquele mês. A função agendada Netlify faz coleta por lotes quando ativada globalmente e por usuário. Sua execução em produção e cobertura real ainda exigem homologação.
 
 Os índices novos são criados por `MongoDatabase.init()` sem apagar dados. `energy_samples`: `sampleKey` único, período por usuário/aparelho e série por usuário/provedor/dispositivo. `sessions`: `id` único e TTL por `expiresAt`. `appliances.importKey` único apenas quando presente, preservando registros legados.
 
@@ -38,7 +38,7 @@ Os índices novos são criados por `MongoDatabase.init()` sem apagar dados. `ene
 ## Validação executada
 
 - Backend: 8 testes passaram com MongoDB `mongo:7` isolado em Docker. `npm audit` backend: 0 vulnerabilidades após atualização de dependências. Incluem isolamento entre usuários, deduplicação, contador, reinício, tarifa, sessão e API SmartThings simulada.
-- Frontend: 9 testes passaram. PDF longo gerou páginas com orientação consistente; amostra foi renderizada e inspecionada. jsPDF e React Router foram atualizados. Auditoria npm frontend: 0 críticas, 5 altas e 2 moderadas remanescentes na cadeia Tailwind 3.
+- Frontend: 9 testes passaram. PDF longo gerou páginas com orientação consistente; amostra foi renderizada e inspecionada. jsPDF, React Router e Vite foram atualizados. Auditoria npm frontend: 0 críticas, 5 altas e 3 moderadas remanescentes na cadeia Tailwind 3.
 - Build frontend/backend, tipos frontend e lint passaram. Lint manteve 11 avisos de Fast Refresh em componentes compartilhados; não são falhas de produção.
 - Dispositivo físico, latência de produção, navegadores e deploy não foram validados.
 
