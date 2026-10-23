@@ -5,6 +5,20 @@ import { MongoDatabase } from "../../storage/mongo-db";
 import { IntegrationManager } from "./integration-manager";
 import { SmartThingsIntegration } from "./providers/smartthings";
 import { extractCumulativeKWh } from "../energy/energy-history";
+import { z } from "zod";
+
+const commandSchema = z.object({
+  capability: z.string().min(1).max(100),
+  command: z.string().min(1).max(100),
+  component: z.string().min(1).max(100).optional(),
+  arguments: z.array(z.union([z.string(), z.number().finite(), z.boolean()])).max(10).optional(),
+});
+const usageSchema = z.object({ usage: z.array(z.object({
+  deviceId: z.string().min(1).max(200),
+  accumulatedMs: z.number().finite().nonnegative(),
+  lastOn: z.string().datetime({ offset: true }).nullable().optional(),
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+})).max(200) });
 
 export const createIntegrationRouter = (
   manager: IntegrationManager,
@@ -106,15 +120,10 @@ export const createIntegrationRouter = (
           req.params.provider
         );
         await ensureOwnedDevice(integration, req.params.deviceId);
-        if (!req.body?.capability || !req.body?.command) {
-          throw new ApiError(
-            400,
-            "capability e command s\u00e3o obrigat\u00f3rios"
-          );
-        }
+        const command = commandSchema.parse(req.body);
         const result = await integration.executeCommand(
           req.params.deviceId,
-          req.body
+          command
         );
         res.json({ provider: integration.id, result });
       } catch (err) {
@@ -136,10 +145,7 @@ export const createIntegrationRouter = (
   router.post("/:provider/usage", async (req: AuthenticatedRequest, res, next) => {
     try {
       if (!req.userId) throw new ApiError(401, "N\u00e3o autenticado");
-      const body = req.body;
-      if (!Array.isArray(body?.usage)) {
-        throw new ApiError(400, "usage deve ser um array");
-      }
+      const body = usageSchema.parse(req.body);
       await db.saveIntegrationUsage(req.userId, req.params.provider, body.usage);
       res.json({ ok: true });
     } catch (err) {

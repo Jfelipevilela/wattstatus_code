@@ -24,6 +24,7 @@ export interface ApplianceRecord {
   measuredConsumptionKWh?: number | null;
   integrationProvider?: string | null;
   integrationDeviceId?: string | null;
+  importKey?: string;
 }
 
 export interface CalculationInput {

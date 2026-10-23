@@ -49,6 +49,7 @@ export class MongoDatabase {
     this.db = this.client.db(this.dbName);
     await this.db.collection("users").createIndex({ email: 1 }, { unique: true });
     await this.db.collection("appliances").createIndex({ userId: 1 });
+    await this.db.collection("appliances").createIndex({ importKey: 1 }, { unique: true, partialFilterExpression: { importKey: { $exists: true } } });
     await this.db.collection("integration_tokens").createIndex({ userId: 1, provider: 1 }, { unique: true });
     await this.db.collection("integration_usage").createIndex(
       { userId: 1, provider: 1, deviceId: 1 },
@@ -62,6 +63,8 @@ export class MongoDatabase {
     await this.db.collection("energy_samples").createIndex({ sampleKey: 1 }, { unique: true });
     await this.db.collection("energy_samples").createIndex({ userId: 1, capturedAt: 1, applianceId: 1 });
     await this.db.collection("energy_samples").createIndex({ userId: 1, provider: 1, deviceId: 1, capturedAt: -1 });
+    await this.db.collection("sessions").createIndex({ id: 1 }, { unique: true });
+    await this.db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
   }
 
   async close() {
@@ -88,6 +91,15 @@ export class MongoDatabase {
   }
   private energySamples(): Collection<EnergySample> {
     return this.db.collection<EnergySample>("energy_samples");
+  }
+  async createSession(userId: string, id: string, expiresAt: Date) {
+    await this.db.collection("sessions").insertOne({ userId, id, expiresAt, createdAt: new Date() });
+  }
+  async hasSession(userId: string, id: string) {
+    return Boolean(await this.db.collection("sessions").findOne({ userId, id, expiresAt: { $gt: new Date() } }, { projection: { _id: 1 } }));
+  }
+  async revokeSession(userId: string, id: string) {
+    await this.db.collection("sessions").deleteOne({ userId, id });
   }
 
   async saveEnergySample(userId: string, provider: string, deviceId: string, counterKWh: number, capturedAt = new Date()) {
@@ -121,7 +133,8 @@ export class MongoDatabase {
   }
 
   async getUserByEmail(email: string) {
-    return this.users().findOne({ email: { $regex: new RegExp(`^${email}$`, "i") } });
+    const escaped = email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return this.users().findOne({ email: { $regex: new RegExp(`^${escaped}$`, "i") } });
   }
 
   async getUserById(id: string) {
@@ -138,6 +151,10 @@ export class MongoDatabase {
   }
 
   async addAppliance(record: ApplianceRecord) {
+    if (record.integrationProvider && record.integrationDeviceId) {
+      const existing = await this.appliances().findOne({ userId: record.userId, integrationProvider: record.integrationProvider, integrationDeviceId: record.integrationDeviceId });
+      if (existing) throw new Error("DEVICE_ALREADY_IMPORTED");
+    }
     await this.appliances().insertOne(record);
     return record;
   }

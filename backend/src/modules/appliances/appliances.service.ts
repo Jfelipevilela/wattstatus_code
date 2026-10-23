@@ -41,9 +41,17 @@ export class ApplianceService {
       measuredConsumptionKWh: input.measuredConsumptionKWh,
       integrationProvider: input.integrationProvider,
       integrationDeviceId: input.integrationDeviceId,
+      ...(input.integrationProvider && input.integrationDeviceId ? { importKey: `${userId}:${input.integrationProvider}:${input.integrationDeviceId}` } : {}),
     };
 
-    await this.db.addAppliance(record);
+    try {
+      await this.db.addAppliance(record);
+    } catch (err) {
+      if (err instanceof Error && (err.message === "DEVICE_ALREADY_IMPORTED" || err.message.includes("E11000"))) {
+        throw new ApiError(409, "Dispositivo já importado");
+      }
+      throw err;
+    }
     return record;
   }
 
@@ -79,6 +87,7 @@ export class ApplianceService {
       status: calc.status,
       monthlyCost: calc.cost,
       monthlyConsumption: calc.consumptionKWh,
+      ...(payload.integrationProvider && payload.integrationDeviceId ? { importKey: `${userId}:${payload.integrationProvider}:${payload.integrationDeviceId}` } : {}),
     };
 
     const saved = await this.db.updateAppliance(userId, updated);

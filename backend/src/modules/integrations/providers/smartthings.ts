@@ -30,13 +30,23 @@ export class SmartThingsIntegration implements DeviceIntegration {
   }
 
   private buildClient(token: string) {
-    return axios.create({
+    const client = axios.create({
       baseURL: BASE_URL,
+      timeout: 10000,
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
     });
+    client.interceptors.response.use((response) => response, (error: unknown) => {
+      if (!axios.isAxiosError(error)) throw new ApiError(503, "SmartThings indisponível");
+      const status = error.response?.status;
+      if (status === 401 || status === 403) throw new ApiError(401, "Token SmartThings inválido ou sem permissão");
+      if (status === 404) throw new ApiError(404, "Dispositivo SmartThings não encontrado");
+      if (status === 429) throw new ApiError(429, "Limite de chamadas SmartThings atingido");
+      throw new ApiError(503, "SmartThings indisponível. Tente novamente.");
+    });
+    return client;
   }
 
   private ensureConfigured() {

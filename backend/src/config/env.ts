@@ -21,4 +21,5 @@ export const env = {
   tariffsApiUrl: process.env.TARIFFS_API_URL || "",
   mongoUrl: process.env.MONGO_URL || "mongodb://localhost:27017",
   mongoDbName: process.env.MONGO_DB_NAME || "wattstatus",
+  frontendOrigin: process.env.FRONTEND_ORIGIN || "https://wattstatus.netlify.app",
 };

@@ -10,8 +10,11 @@ import { LoginInput, RegisterInput } from "./auth.schema";
 export class AuthService {
   constructor(private db: MongoDatabase) {}
 
-  private signToken(userId: string) {
-    return jwt.sign({ sub: userId }, env.jwtSecret, { expiresIn: "12h" });
+  private async signToken(userId: string) {
+    const sessionId = randomUUID();
+    const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
+    await this.db.createSession(userId, sessionId, expiresAt);
+    return jwt.sign({ sub: userId }, env.jwtSecret, { expiresIn: "12h", jwtid: sessionId });
   }
 
   async register(input: RegisterInput) {
@@ -32,7 +35,7 @@ export class AuthService {
     await this.db.addUser(user);
 
     return {
-      token: this.signToken(user.id),
+      token: await this.signToken(user.id),
       user: { id: user.id, name: user.name, email: user.email },
     };
   }
@@ -49,7 +52,7 @@ export class AuthService {
     }
 
     return {
-      token: this.signToken(user.id),
+      token: await this.signToken(user.id),
       user: { id: user.id, name: user.name, email: user.email },
     };
   }
@@ -60,5 +63,9 @@ export class AuthService {
       throw new ApiError(404, "Usu\u00e1rio n\u00e3o encontrado");
     }
     return { id: user.id, name: user.name, email: user.email };
+  }
+
+  logout(userId: string, sessionId: string) {
+    return this.db.revokeSession(userId, sessionId);
   }
 }

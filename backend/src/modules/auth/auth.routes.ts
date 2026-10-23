@@ -1,23 +1,25 @@
-import { Router, Response } from "express";
-import { AuthenticatedRequest, authenticate } from "../../middleware/auth-middleware";
+import { Router, Response, RequestHandler } from "express";
+import { AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { ApiError } from "../../middleware/error-handler";
 import { loginSchema, registerSchema } from "./auth.schema";
 import { AuthService } from "./auth.service";
 import { AUTH_COOKIE_NAME } from "../../middleware/auth-middleware";
+import rateLimit from "express-rate-limit";
 
-export const createAuthRouter = (service: AuthService) => {
+export const createAuthRouter = (service: AuthService, authenticate: RequestHandler) => {
   const router = Router();
+  const loginLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, standardHeaders: true, legacyHeaders: false });
 
   const setAuthCookie = (res: Response, token: string) => {
     res.cookie(AUTH_COOKIE_NAME, token, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
+      maxAge: 1000 * 60 * 60 * 12,
     });
   };
 
-  router.post("/register", async (req, res, next) => {
+  router.post("/register", loginLimit, async (req, res, next) => {
     try {
       const parsed = registerSchema.parse(req.body);
       const result = await service.register(parsed);
@@ -28,7 +30,7 @@ export const createAuthRouter = (service: AuthService) => {
     }
   });
 
-  router.post("/login", async (req, res, next) => {
+  router.post("/login", loginLimit, async (req, res, next) => {
     try {
       const parsed = loginSchema.parse(req.body);
       const result = await service.login(parsed);
@@ -49,13 +51,16 @@ export const createAuthRouter = (service: AuthService) => {
     }
   });
 
-  router.post("/logout", authenticate, async (_req, res) => {
+  router.post("/logout", authenticate, async (req: AuthenticatedRequest, res, next) => {
+    try {
+      if (req.userId && req.sessionId) await service.logout(req.userId, req.sessionId);
     res.clearCookie(AUTH_COOKIE_NAME, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     });
     res.json({ ok: true });
+    } catch (err) { next(err); }
   });
 
   return router;
