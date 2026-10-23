@@ -1,6 +1,7 @@
-import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from "react";
-import { Box, Flame, Home, Loader2, Square } from "lucide-react";
+import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Box, Flame, Home, Loader2, Maximize2, Minimize2, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { notifyError } from "@/lib/error-toast";
 import { FloorPlan2D, type FloorPlanProps } from "./FloorPlan2D";
 import { heatColor, supportsWebGL, type HeatMetric } from "./heat";
 
@@ -29,6 +30,8 @@ interface Props extends Omit<FloorPlanProps, "heat"> {
 }
 
 export function FloorPlanViewer({ heat, onHeatChange, toolbar, editing, ...plan }: Props) {
+  const viewerRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const [webgl] = useState(supportsWebGL);
   const [view, setView] = useState<"2d" | "3d">(() => {
     try {
@@ -48,6 +51,24 @@ export function FloorPlanViewer({ heat, onHeatChange, toolbar, editing, ...plan 
     }
   }, [view]);
 
+  useEffect(() => {
+    const syncFullscreen = () => setFullscreen(document.fullscreenElement === viewerRef.current);
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement === viewerRef.current) {
+        await document.exitFullscreen();
+      } else {
+        await viewerRef.current?.requestFullscreen();
+      }
+    } catch (error) {
+      notifyError(error, { title: "Não foi possível abrir o mapa em tela cheia" });
+    }
+  };
+
   const segment = (active: boolean) =>
     cn(
       "flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -55,7 +76,11 @@ export function FloorPlanViewer({ heat, onHeatChange, toolbar, editing, ...plan 
     );
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      ref={viewerRef}
+      className="flex h-full flex-col bg-background"
+      style={fullscreen ? { width: "100vw", height: "100vh" } : undefined}
+    >
       <div className="flex flex-wrap items-center gap-2 p-3">
         <div role="group" aria-label="Modo de visualização" className="flex rounded-full border bg-card p-1 shadow-sm">
           <button type="button" aria-pressed={!use3D} className={segment(!use3D)} onClick={() => setView("2d")}>
@@ -85,7 +110,20 @@ export function FloorPlanViewer({ heat, onHeatChange, toolbar, editing, ...plan 
             <span className="hidden sm:inline">Energia medida</span>
           </button>
         </div>
-        <div className="ml-auto flex items-center gap-2">{toolbar}</div>
+        <div className="ml-auto flex items-center gap-2">
+          {toolbar}
+          <button
+            type="button"
+            disabled={!fullscreen && (!use3D || typeof document === "undefined" || !document.fullscreenEnabled)}
+            onClick={() => void toggleFullscreen()}
+            aria-label={fullscreen ? "Sair da tela cheia" : "Ver mapa 3D em tela cheia"}
+            title={fullscreen ? "Sair da tela cheia (Esc)" : "Tela cheia"}
+            className="flex h-9 items-center gap-2 rounded-full border bg-card px-3 text-sm font-medium text-foreground shadow-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            <span className="hidden sm:inline">{fullscreen ? "Sair da tela cheia" : "Tela cheia"}</span>
+          </button>
+        </div>
       </div>
 
       {(!webgl || failed) && view === "3d" && (
