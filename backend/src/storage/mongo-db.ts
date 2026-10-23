@@ -308,70 +308,41 @@ export class MongoDatabase {
   }
 
   async getUserSettings(userId: string): Promise<UserSettingsRecord> {
-    const row = await this.settings().findOne({ userId });
-    if (row) {
-      return {
-        userId,
-        theme: row.theme === "light" || row.theme === "dark" ? row.theme : "system",
-        apps: Array.isArray(row.apps) ? row.apps : [],
-        historicalData: row.historicalData || [],
-        tariffState: row.tariffState,
-        tariffValue: row.tariffValue,
-        energyCollectionEnabled: row.energyCollectionEnabled === true,
-        createdAt: row.createdAt?.toISOString?.() || new Date().toISOString(),
-        updatedAt: row.updatedAt?.toISOString?.() || new Date().toISOString(),
-      };
-    }
     const now = new Date();
-    await this.settings().insertOne({
-      userId,
-      theme: "system",
-      apps: [],
-      historicalData: [],
-      createdAt: now,
-      updatedAt: now,
-    });
+    const row = await this.settings().findOneAndUpdate(
+      { userId },
+      { $setOnInsert: { userId, theme: "system", apps: [], historicalData: [], createdAt: now, updatedAt: now } },
+      { upsert: true, returnDocument: "after" }
+    );
     return {
       userId,
-      theme: "system",
-      apps: [],
-      historicalData: [],
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
+      theme: row?.theme === "light" || row?.theme === "dark" ? row.theme : "system",
+      apps: Array.isArray(row?.apps) ? row.apps : [],
+      historicalData: row?.historicalData || [],
+      tariffState: row?.tariffState,
+      tariffValue: row?.tariffValue,
+      energyCollectionEnabled: row?.energyCollectionEnabled === true,
+      createdAt: row?.createdAt?.toISOString?.() || now.toISOString(),
+      updatedAt: row?.updatedAt?.toISOString?.() || now.toISOString(),
     };
   }
 
   async updateUserSettings(userId: string, input: Partial<UserSettingsRecord>) {
-    const existing = await this.getUserSettings(userId);
     const now = new Date();
-    const merged: UserSettingsRecord = {
-      ...existing,
-      ...input,
-      userId,
-      apps: input.apps ?? existing.apps ?? [],
-      historicalData: input.historicalData ?? existing.historicalData ?? [],
-      tariffState: input.tariffState ?? existing.tariffState,
-      tariffValue: input.tariffValue ?? existing.tariffValue,
-      energyCollectionEnabled: input.energyCollectionEnabled ?? existing.energyCollectionEnabled,
-      updatedAt: now.toISOString(),
-    };
+    const fields = ["theme", "apps", "historicalData", "tariffState", "tariffValue", "energyCollectionEnabled"] as const;
+    const updates: Partial<SettingsDoc> = { updatedAt: now };
+    for (const field of fields) {
+      if (input[field] !== undefined) (updates as Record<string, unknown>)[field] = input[field];
+    }
     await this.settings().updateOne(
       { userId },
       {
-        $set: {
-          theme: merged.theme,
-          apps: merged.apps,
-          historicalData: merged.historicalData,
-          tariffState: merged.tariffState,
-          tariffValue: merged.tariffValue,
-          energyCollectionEnabled: merged.energyCollectionEnabled,
-          updatedAt: now,
-        },
-        $setOnInsert: { createdAt: now },
+        $set: updates,
+        $setOnInsert: { userId, createdAt: now },
       },
       { upsert: true }
     );
-    return merged;
+    return this.getUserSettings(userId);
   }
 
   private encrypt(plain: string) {

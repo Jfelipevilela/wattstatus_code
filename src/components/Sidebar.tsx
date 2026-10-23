@@ -68,7 +68,7 @@ export function AppSidebar() {
   const { apps } = useApps();
 
   const handleLogout = async () => {
-    await logout();
+    if (!await logout()) return;
     navigate("/login");
   };
 

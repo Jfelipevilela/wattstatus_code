@@ -14,6 +14,16 @@ test('scheduled collection is opt-in, concurrent-safe and idempotent', { skip: !
   const admin = new MongoClient(uri);
   await db.init();
   try {
+    const initial = await Promise.all(Array.from({ length: 8 }, () => db.getUserSettings('owner')));
+    assert.equal(initial.every(settings => settings.energyCollectionEnabled !== true), true);
+    await Promise.all([
+      db.updateUserSettings('owner', { theme: 'dark' }),
+      db.updateUserSettings('owner', { energyCollectionEnabled: true }),
+    ]);
+    const combined = await db.getUserSettings('owner');
+    assert.equal(combined.theme, 'dark');
+    assert.equal(combined.energyCollectionEnabled, true);
+    await db.updateUserSettings('owner', { energyCollectionEnabled: false });
     await db.addAppliance({ id: 'meter', userId: 'owner', name: 'Meter', power: 100, status: 'normal', usageHours: 1,
       days: 30, monthlyCost: 1, monthlyConsumption: 1, tariff: 'SP', tariffValue: 1,
       createdAt: new Date().toISOString(), integrationProvider: 'smartthings', integrationDeviceId: 'device-1' });

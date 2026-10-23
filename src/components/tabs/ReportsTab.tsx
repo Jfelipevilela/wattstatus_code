@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +64,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
   const [hasGeneratedReport, setHasGeneratedReport] = useState(false);
   const [measuredIntervals, setMeasuredIntervals] = useState<EnergyInterval[]>([]);
   const [measurementError, setMeasurementError] = useState<string | null>(null);
+  const reportRequest = useRef(0);
 
   const { user, token } = useAuth();
 
@@ -76,9 +77,11 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
 
   // A result and its export must correspond to the currently selected filters.
   useEffect(() => {
+    reportRequest.current++;
     setReportData([]);
     setMeasuredIntervals([]);
     setHasGeneratedReport(false);
+    setIsGenerating(false);
   }, [selectedMonth, selectedYear, selectedAppliance, appliances]);
 
   const getDaysInMonth = (month: number, year: number): number => {
@@ -95,6 +98,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
       return;
     }
 
+    const requestId = ++reportRequest.current;
     setIsGenerating(true);
 
 
@@ -134,10 +138,12 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
       const params = new URLSearchParams({ start, end });
       if (selectedAppliance !== "all") params.set("applianceId", selectedAppliance);
       const measured = await apiRequest<{ intervals: EnergyInterval[] }>(`/api/energy/history?${params}`, { skipErrorToast: true }, token || undefined);
+      if (requestId !== reportRequest.current) return;
       setMeasuredIntervals(measured.intervals);
       measuredCount = measured.intervals.length;
       setMeasurementError(null);
     } catch (err) {
+      if (requestId !== reportRequest.current) return;
       setMeasuredIntervals([]);
       setMeasurementError(err instanceof Error ? err.message : "Falha ao consultar medições");
     }

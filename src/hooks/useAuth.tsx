@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   createContext,
   useCallback,
   useContext,
@@ -26,7 +26,7 @@ interface AuthContextValue {
     password: string,
     confirmPassword: string
   ) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
 }
 
@@ -110,25 +110,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     const shouldNotifyLogout = Boolean(user || token);
     setLoading(true);
+    let succeeded = false;
     try {
       await apiRequest(
         "/api/auth/logout",
         { method: "POST", skipErrorToast: true },
         token || undefined
       );
-    } catch {
-      // ignore logout errors to avoid trapping user
+      succeeded = true;
+    } catch (err) {
+      notifyError(err, { title: "Falha ao sair", fallbackMessage: "N\u00e3o foi poss\u00edvel encerrar a sess\u00e3o. Tente novamente." });
     } finally {
-      setUser(null);
-      setToken(null);
-      setLoading(false);
-      if (shouldNotifyLogout) {
-        toast({
-          title: "Logout realizado com sucesso!",
-          description: "Você saiu da sua conta.",
-        });
+      if (succeeded) {
+        setUser(null);
+        setToken(null);
+        if (shouldNotifyLogout) {
+          toast({
+            title: "Logout realizado com sucesso!",
+            description: "Você saiu da sua conta.",
+          });
+        }
       }
+      setLoading(false);
     }
+    return succeeded;
   };
 
   const refreshUser = async () => {
