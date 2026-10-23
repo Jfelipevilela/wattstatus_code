@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Building, Check, ChevronDown, Crown, DoorOpen, Loader2, MapPin, Pencil, Plug, Plus, Radio, X } from "lucide-react";
+import { Building, Check, ChevronDown, Crown, DoorOpen, Loader2, LayoutTemplate, MapPin, Pencil, Plug, Plus, Radio, X } from "lucide-react";
 import { AppSidebar, SidebarProvider, SidebarTrigger } from "@/components/Sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { overlappingRooms } from "@/components/floorplan/snap";
 import { RoomPanel } from "@/components/properties/RoomPanel";
 import { RoomOverviewList } from "@/components/properties/RoomOverviewList";
 import { AddRoomForm, PropertyRoomsTab } from "@/components/properties/PropertyRoomsTab";
+import { PlanTemplatePicker } from "@/components/properties/PlanTemplatePicker";
 import { PropertyAppliancesTab } from "@/components/properties/PropertyAppliancesTab";
 import { PropertyEnergyTab } from "@/components/properties/PropertyEnergyTab";
 import { PropertySettingsTab } from "@/components/properties/PropertySettingsTab";
@@ -328,6 +329,17 @@ export default function PropertyDetail() {
                             Adicione ambientes e eles aparecem aqui automaticamente, prontos para ajustar.
                           </p>
                         </div>
+                        <PlanTemplatePicker
+                          layout={layout}
+                          floors={layout.floors}
+                          activeFloor={activeFloor}
+                          trigger={
+                            <Button className="rounded-full">
+                              <LayoutTemplate className="mr-2 h-4 w-4" /> Usar planta pronta
+                            </Button>
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">ou adicione um ambiente por vez</p>
                         <div className="w-full max-w-xl">
                           <AddRoomForm floors={layout.floors} layout={layout} defaultFloorId={activeFloor?.id} />
                         </div>
@@ -349,7 +361,18 @@ export default function PropertyDetail() {
                         editing={editing}
                         onLayoutChange={(roomId, value) => setDraft((current) => new Map(current).set(roomId, value))}
                         toolbar2D={
-                          <Popover open={addingRoom} onOpenChange={setAddingRoom}>
+                          <>
+                            <PlanTemplatePicker
+                              layout={layout}
+                              floors={layout.floors}
+                              activeFloor={activeFloor}
+                              trigger={
+                                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full bg-card" aria-label="Usar planta pronta" title="Usar planta pronta">
+                                  <LayoutTemplate className="h-4 w-4" />
+                                </Button>
+                              }
+                            />
+                            <Popover open={addingRoom} onOpenChange={setAddingRoom}>
                             <PopoverTrigger asChild>
                               <Button variant="outline" size="icon" className="h-9 w-9 rounded-full bg-card" aria-label="Adicionar ambiente" title="Adicionar ambiente">
                                 <Plus className="h-4 w-4" />
@@ -367,7 +390,8 @@ export default function PropertyDetail() {
                                 }}
                               />
                             </PopoverContent>
-                          </Popover>
+                            </Popover>
+                          </>
                         }
                         toolbar={
                           editing ? (

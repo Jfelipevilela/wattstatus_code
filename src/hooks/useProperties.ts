@@ -82,7 +82,7 @@ export const usePropertyLayout = (propertyId: string | undefined) => {
   const invalidate = () => client.invalidateQueries({ queryKey: key });
   const base = `/api/properties/${propertyId}`;
   const addRoom = useMutation({
-    mutationFn: (input: { name: string; type: string; floorId?: string }) =>
+    mutationFn: (input: { name: string; type: string; floorId?: string; layout?: RoomLayout }) =>
       api<{ room: Room }>(`${base}/rooms`, { method: "POST", body: JSON.stringify(input) }).then((data) => data.room),
     onSuccess: invalidate,
   });

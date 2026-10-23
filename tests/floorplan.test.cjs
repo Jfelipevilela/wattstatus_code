@@ -298,3 +298,26 @@ test('no model or furniture ends up inside another, in any room size', () => {
     );
   }
 });
+
+test('ready-made plans: valid, side by side, no room on top of another', () => {
+  const { PLAN_TEMPLATES, templateArea } = load('components/properties/planTemplates.ts');
+  const { ROOM_TYPES } = load('types/property.ts');
+  assert.ok(PLAN_TEMPLATES.length >= 6);
+  for (const template of PLAN_TEMPLATES) {
+    for (const floor of template.floors) {
+      const list = floor.rooms.map((room) => room.layout);
+      for (const room of floor.rooms) {
+        assert.ok(ROOM_TYPES[room.type], `${template.id}: type ${room.type}`);
+        const { x, y, width, depth } = room.layout;
+        assert.ok(x >= 0 && y >= 0 && width >= 1 && depth >= 1 && width <= 40 && depth <= 40 && x + width <= 150, `${template.id} ${room.name} within limits`);
+      }
+      list.forEach((a, i) => list.slice(i + 1).forEach((b) => {
+        const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 1e-6 && Math.min(a.y + a.depth, b.y + b.depth) - Math.max(a.y, b.y) > 1e-6;
+        assert.ok(!overlap, `${template.id}: rooms overlap`);
+      }));
+    }
+    const area = templateArea(template);
+    const stated = Number(/Cerca de (\d+) m²/.exec(template.description)[1]);
+    assert.ok(Math.abs(area - stated) / stated < 0.15, `${template.id}: ${area.toFixed(0)} m² vs ${stated}`);
+  }
+});
