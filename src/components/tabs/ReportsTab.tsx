@@ -166,59 +166,18 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances }): JSX.Element => {
   const exportToPDF = async () => {
     if (measurementError || (reportData.length === 0 && measuredIntervals.length === 0)) return;
     try {
-      const jsPDF = (await import("jspdf")).default;
-      const pdf = new jsPDF({ orientation: "landscape" });
-      const width = pdf.internal.pageSize.getWidth();
-      const height = pdf.internal.pageSize.getHeight();
-      const margin = 15;
-      let y = 20;
-      const ensureSpace = (needed: number) => {
-        if (y + needed > height - margin) {
-          pdf.addPage();
-          y = 20;
-        }
-      };
-      const line = (text: string, size = 10) => {
-        pdf.setFontSize(size);
-        const lines = pdf.splitTextToSize(text, width - 2 * margin) as string[];
-        ensureSpace(lines.length * 5 + 2);
-        pdf.text(lines, margin, y);
-        y += lines.length * 5 + 2;
-      };
-      const row = (cells: string[]) => {
-        const columns = [15, 105, 160, 205, 250];
-        const limits = [85, 50, 40, 40, 30];
-        const wrapped = cells.map((cell, index) => pdf.splitTextToSize(cell, limits[index]) as string[]);
-        const rowHeight = Math.max(1, ...wrapped.map((cell) => cell.length)) * 5 + 3;
-        ensureSpace(rowHeight);
-        pdf.setFontSize(9);
-        wrapped.forEach((cell, index) => pdf.text(cell, columns[index], y));
-        y += rowHeight;
-      };
-      line("WattStatus — relatório mensal de energia", 17);
-      line(`Cliente: ${user?.name || "Usuário"} | Período: ${selectedMonth}/${selectedYear} | Emissão: ${generationTime}`);
-      line("Estimativas usam cadastro atual; medições usam intervalos persistidos da API SmartThings.", 9);
-      y += 4;
-      line("Consumo estimado", 13);
-      if (reportData.length === 0) line("Sem estimativas para este filtro.");
-      else {
-        row(["Aparelho", "Origem", "Tarifa R$/kWh", "kWh", "Custo R$"]);
-        reportData.forEach((item) => row([item.applianceName, "Estimativa", formatNumber(item.tariffValue, 4), formatNumber(item.consumption), formatNumber(item.cost)]));
-        line(`Total estimado: ${formatNumber(totalConsumption)} kWh | R$ ${formatNumber(totalCost)}`);
-      }
-      y += 4;
-      line("Consumo medido", 13);
-      if (measuredRows.length === 0) line("Sem duas leituras válidas para formar intervalo medido nesta competência.");
-      else {
-        row(["Aparelho", "Origem", "Tarifa R$/kWh", "kWh", "Custo R$"]);
-        measuredRows.forEach((item) => row([
-          appliances.find((appliance) => appliance.id === item.applianceId)?.name || `Dispositivo ${item.deviceId}`,
-          "SmartThings", item.tariffValue === null ? "Indisponível" : formatNumber(item.tariffValue, 4),
-          formatNumber(item.consumptionKWh), item.cost === null ? "Indisponível" : formatNumber(item.cost)
-        ]));
-        line(`Total medido: ${formatNumber(measuredTotals.consumptionKWh)} kWh | Custo: ${measuredTotals.costComplete ? `R$ ${formatNumber(measuredTotals.knownCost)}` : "tarifa incompleta"}`);
-      }
-      line("Intervalos sem coleta não representam consumo medido zero. A medição pode cobrir apenas parte do mês.", 9);
+      const { createReportPdf } = await import("@/lib/report-pdf");
+      const pdf = createReportPdf({
+        userName: user?.name || "Usuário",
+        month: selectedMonth,
+        year: selectedYear,
+        issuedAt: generationTime,
+        estimated: reportData.map((item) => ({ applianceName: item.applianceName, source: "Estimativa", tariffValue: item.tariffValue, consumptionKWh: item.consumption, cost: item.cost })),
+        measured: measuredRows.map((item) => ({
+          applianceName: appliances.find((appliance) => appliance.id === item.applianceId)?.name || `Dispositivo ${item.deviceId}`,
+          source: "SmartThings", tariffValue: item.tariffValue, consumptionKWh: item.consumptionKWh, cost: item.cost,
+        })),
+      });
       pdf.save(`wattstatus_${selectedMonth}_${selectedYear}.pdf`);
     } catch {
       toast({ title: "Erro na exportação", description: "Não foi possível exportar o PDF.", variant: "destructive" });
