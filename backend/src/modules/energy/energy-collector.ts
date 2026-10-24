@@ -17,7 +17,9 @@ export async function collectEnergy(db: MongoDatabase, options: {
   const stopAt = Date.now() + (Number.isFinite(options.deadlineMs) ? Math.max(0, Math.min(options.deadlineMs, 20000)) : 0);
   const intervalMs = (Number.isFinite(options.intervalMinutes) ? Math.max(5, options.intervalMinutes) : 30) * 60000;
   const maxDevices = Number.isFinite(options.maxDevices) ? Math.max(0, Math.min(Math.floor(options.maxDevices), 3)) : 0;
-  for (let i = 0; i < maxDevices && Date.now() < stopAt - 1000; i++) {
+  // Register new or re-enabled devices (bounded page) before serving the queue.
+  if (maxDevices > 0) await db.syncEnergyCollection(now());
+    for (let i = 0; i < maxDevices && Date.now() < stopAt - 1000; i++) {
     const claim = await db.claimEnergyCollection(now(), 60000);
     if (!claim) break;
     result.claimed++;

@@ -25,6 +25,7 @@ test('coleta agendada não é bloqueada por usuários sem opt-in', { skip: !uri 
     await admin.db(dbName).collection('appliances').insertMany(docs);
     await db.updateUserSettings('on-user', { energyCollectionEnabled: true });
     const settingsBefore = await admin.db(dbName).collection(SETTINGS).countDocuments();
+    await db.syncEnergyCollection(new Date());
     const claim = await db.claimEnergyCollection(new Date(), 60000);
     assert.equal(claim?.appliance.id, 'on-1');
     assert.equal(await admin.db(dbName).collection(SETTINGS).countDocuments(), settingsBefore, 'no settings created for other users');

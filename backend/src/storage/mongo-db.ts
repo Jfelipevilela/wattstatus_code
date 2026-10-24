@@ -115,6 +115,10 @@ export class MongoDatabase {
       ["sessions", () => this.db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })],
       ["appliances", () => this.db.collection("appliances").createIndex({ integrationProvider: 1, id: 1 })],
       ["energy_collection", () => this.db.collection("energy_collection").createIndex({ key: 1 }, { unique: true })],
+      // Queue order for claimEnergyCollection: most overdue first.
+      ["energy_collection", () => this.db.collection("energy_collection").createIndex({ nextAt: 1, key: 1 })],
+      // Opted-in users for syncEnergyCollection.
+      ["user_settings", () => this.db.collection("user_settings").createIndex({ energyCollectionEnabled: 1, userId: 1 }, { partialFilterExpression: { energyCollectionEnabled: true } })],
       ["properties", () => this.db.collection("properties").createIndex({ id: 1 }, { unique: true })],
       ["properties", () => this.db.collection("properties").createIndex({ userId: 1, archivedAt: 1 })],
       // At most one default property per user, even under concurrent first access.
@@ -366,34 +370,74 @@ export class MongoDatabase {
     return res.modifiedCount;
   }
 
-  async claimEnergyCollection(now: Date, leaseMs: number) {
-    // Opted-in users first: one query instead of a settings upsert per
-    // appliance, and appliances of users who did not opt in never fill the
-    // candidate window.
+  // Scheduled collection is a queue in `energy_collection`: one row per
+  // opted-in SmartThings device, served oldest `nextAt` first. Rows are
+  // registered by syncEnergyCollection; a claim is one atomic
+  // findOneAndUpdate, so concurrent runs never take the same device, and a
+  // failing device only pushes its own `nextAt` back.
+  //
+  // Registers devices that have no queue row yet, a page per call. The page
+  // cursor (by appliance `_id`) wraps around, so every eligible device is
+  // registered within ceil(devices / pageSize) runs, however many there are.
+  async syncEnergyCollection(now: Date, pageSize = 500) {
     const enabled = await this.settings().find({ energyCollectionEnabled: true })
       .project<{ userId: string }>({ userId: 1, _id: 0 }).toArray();
-    if (!enabled.length) return null;
-    const candidates = await this.appliances().find({
+    if (!enabled.length) return { scanned: 0, registered: 0 };
+    const meta = this.db.collection<{ _id: string; after: unknown }>("energy_collection_meta");
+    const cursor = await meta.findOne({ _id: "sync" });
+    const filter = {
       userId: { $in: enabled.map((row) => row.userId) },
       integrationProvider: "smartthings", integrationDeviceId: { $type: "string" },
-    })
-      .project<Pick<ApplianceRecord, "id" | "userId" | "integrationDeviceId">>({ id: 1, userId: 1, integrationDeviceId: 1, _id: 0 })
-      .limit(200).toArray();
-    for (const appliance of candidates) {
-      const key = `${appliance.userId}:smartthings:${appliance.integrationDeviceId}`;
-      const collection = this.db.collection("energy_collection");
-      try {
-        const row = await collection.findOneAndUpdate(
-          { key, nextAt: { $lte: now }, leaseUntil: { $lte: now } },
-          { $set: { leaseUntil: new Date(now.getTime() + leaseMs) } },
-          { returnDocument: "after" }
-        );
-        if (row) return { appliance, key };
-        await collection.insertOne({ key, nextAt: new Date(0), leaseUntil: new Date(now.getTime() + leaseMs), failures: 0 });
-        return { appliance, key };
-      } catch (error) {
-        if (!(error && typeof error === "object" && "code" in error && error.code === 11000)) throw error;
+    };
+    const page = await this.appliances().find({ ...filter, ...(cursor?.after ? { _id: { $gt: cursor.after } } : {}) } as never)
+      .project<{ _id: unknown; userId: string; integrationDeviceId: string }>({ _id: 1, userId: 1, integrationDeviceId: 1 })
+      .sort({ _id: 1 }).limit(pageSize).toArray();
+    let registered = 0;
+    if (page.length) {
+      const result = await this.db.collection("energy_collection").bulkWrite(page.map((row) => {
+        const key = `${row.userId}:smartthings:${row.integrationDeviceId}`;
+        return {
+          updateOne: {
+            filter: { key },
+            // New devices are due at once; existing rows keep their schedule.
+            update: { $setOnInsert: { key, userId: row.userId, deviceId: row.integrationDeviceId, nextAt: new Date(0), leaseUntil: new Date(0), failures: 0, createdAt: now } },
+            upsert: true,
+          },
+        };
+      }), { ordered: false });
+      registered = result.upsertedCount;
+    }
+    // A short page means the end was reached: start over next time.
+    await meta.updateOne({ _id: "sync" }, { $set: { after: page.length === pageSize ? page[page.length - 1]._id : null, at: now } }, { upsert: true });
+    return { scanned: page.length, registered };
+  }
+
+  // Takes the most overdue device whose lease is free. Rows whose device was
+  // removed or whose owner turned collection off are dropped on the way (a
+  // later sync re-registers them if collection is turned back on).
+  async claimEnergyCollection(now: Date, leaseMs: number, maxSkips = 20) {
+    const queue = this.db.collection<{ key: string; userId?: string; deviceId?: string; nextAt: Date; leaseUntil: Date; failures?: number }>("energy_collection");
+    for (let skipped = 0; skipped <= maxSkips; skipped++) {
+      const row = await queue.findOneAndUpdate(
+        { nextAt: { $lte: now }, leaseUntil: { $lte: now } },
+        { $set: { leaseUntil: new Date(now.getTime() + leaseMs) } },
+        { sort: { nextAt: 1, key: 1 }, returnDocument: "after", projection: { _id: 0 } },
+      );
+      if (!row) return null;
+      // Rows written before the queue fields existed only have `key`.
+      const [userId, , ...rest] = row.key.split(":");
+      const deviceId = row.deviceId ?? rest.join(":");
+      const [settings, appliance] = await Promise.all([
+        this.settings().findOne({ userId: row.userId ?? userId }, { projection: { energyCollectionEnabled: 1, _id: 0 } }),
+        this.appliances().findOne(
+          { userId: row.userId ?? userId, integrationProvider: "smartthings", integrationDeviceId: deviceId },
+          { projection: { id: 1, userId: 1, integrationDeviceId: 1, _id: 0 } },
+        ),
+      ]);
+      if (settings?.energyCollectionEnabled === true && appliance) {
+        return { appliance: appliance as Pick<ApplianceRecord, "id" | "userId" | "integrationDeviceId">, key: row.key };
       }
+      await queue.deleteOne({ key: row.key, leaseUntil: { $gt: now } });
     }
     return null;
   }
