@@ -205,49 +205,60 @@ function living(w: number, d: number): Assembly[] {
 
 function bedroom(w: number, d: number, suite: boolean): Assembly[] {
   const m = CLEARANCE;
-  const bedW = Math.min(suite ? 1.95 : 1.65, Math.max(0.75, w - 2 * m - 0.30));
-  // Centred between two nightstands when they fit; in narrower rooms the bed
-  // moves aside and keeps one nightstand, as in most real bedrooms.
-  const both = w - 2 * m >= bedW + 2 * 0.52;
-  const x = both || m + 0.52 + bedW > w - m ? (w - bedW) / 2 : m + 0.52;
-  const z = m + 0.08;
+  // The headboard rests on the side (west) wall, so the back wall, usually
+  // shared with the hallway, stays free for the door. Brazilian sizes: a
+  // queen bed in suites, a standard double elsewhere, a single when the room
+  // is too narrow for either.
+  const length = 2.03;
+  const fits = (bed: number) => d - 2 * m >= bed + 2 * 0.47;
+  const bedW = [suite ? 1.58 : 1.38, 1.38, 0.88].find(fits) ?? Math.max(0.6, d - 2 * m - 0.1);
+  const nightstands = fits(bedW);
+  // Bed and nightstands sit towards the front, leaving the back for the door.
+  const group = bedW + (nightstands ? 2 * 0.47 : 0);
+  const z = Math.max(m, d - m - group) + (nightstands ? 0.47 : 0);
+  const x = m + 0.06; // clear of the A/C wall panel
   const head = 0.12;
   const bed: Primitive[] = [
-    rect("frame", x, z + 0.08, bedW, 1.95, 0.30, "wood", 0.13),
-    rect("headboard", x - 0.05, z, bedW + 0.10, head, 0.96, "wood"),
-    rect("mattress", x + 0.04, z + 0.14, bedW - 0.08, 1.84, 0.16, "white", 0.43),
-    rect("pillow-left", x + 0.12, z + 0.22, (bedW - 0.34) / 2, 0.40, 0.09, "fabric", 0.59),
-    rect("pillow-right", x + 0.22 + (bedW - 0.34) / 2, z + 0.22, (bedW - 0.34) / 2, 0.40, 0.09, "fabric", 0.59),
-    rect("duvet", x + 0.05, z + 0.92, bedW - 0.10, 1.05, 0.075, "accent", 0.59),
-    rect("duvet-fold", x + 0.05, z + 0.90, bedW - 0.10, 0.13, 0.03, "fabric", 0.665),
+    rect("headboard", x, z - 0.05, head, bedW + 0.10, 0.96, "wood"),
+    rect("frame", x + 0.08, z, 1.95, bedW, 0.30, "wood", 0.13),
+    rect("mattress", x + 0.14, z + 0.04, 1.84, bedW - 0.08, 0.16, "white", 0.43),
+    ...(bedW > 1
+      ? [
+          rect("pillow-left", x + 0.22, z + 0.12, 0.40, (bedW - 0.34) / 2, 0.09, "fabric", 0.59),
+          rect("pillow-right", x + 0.22, z + 0.22 + (bedW - 0.34) / 2, 0.40, (bedW - 0.34) / 2, 0.09, "fabric", 0.59),
+        ]
+      : [rect("pillow", x + 0.22, z + 0.12, 0.40, bedW - 0.24, 0.09, "fabric", 0.59)]),
+    rect("duvet", x + 0.92, z + 0.05, 1.05, bedW - 0.10, 0.075, "accent", 0.59),
+    rect("duvet-fold", x + 0.90, z + 0.05, 0.13, bedW - 0.10, 0.03, "fabric", 0.665),
   ];
-  const nightstand = (id: string, nx: number): Assembly => floor(id, [
-    rect("body", nx, z + 0.06, 0.42, 0.43, 0.43, "wood", 0.06),
-    rect("drawer", nx + 0.04, z + 0.42, 0.34, 0.018, 0.13, "white", 0.22),
-    round("lamp", nx + 0.15, z + 0.17, 0.12, 0.12, 0.22, "accent", 0.49),
+  const nightstand = (id: string, nz: number): Assembly => floor(id, [
+    rect("body", x + 0.02, nz, 0.43, 0.42, 0.43, "wood", 0.06),
+    rect("drawer", x + 0.43, nz + 0.04, 0.018, 0.34, 0.13, "white", 0.22),
+    round("lamp", x + 0.13, nz + 0.15, 0.12, 0.12, 0.22, "accent", 0.49),
   ], SNUG);
   const wardrobe: Assembly = floor("bedroom-wardrobe", [
-    rect("body", m, d - m - 0.72, 1.25, 0.72, 1.62, "white"),
-    rect("door-left", m + 0.04, d - m - 0.05, 0.55, 0.025, 1.44, "wood", 0.10),
-    rect("door-right", m + 0.66, d - m - 0.05, 0.55, 0.025, 1.44, "wood", 0.10),
-    rect("handle-left", m + 0.52, d - m - 0.024, 0.028, 0.018, 0.18, "metal", 0.72),
-    rect("handle-right", m + 0.70, d - m - 0.024, 0.028, 0.018, 0.18, "metal", 0.72),
+    rect("body", w - m - 1.25, m, 1.25, 0.6, 1.62, "white"),
+    rect("door-left", w - m - 1.21, m + 0.6, 0.55, 0.025, 1.44, "wood", 0.10),
+    rect("door-right", w - m - 0.59, m + 0.6, 0.55, 0.025, 1.44, "wood", 0.10),
   ]);
   return [
     floor("bedroom-bed", bed),
-    nightstand("bedroom-nightstand-left", x - 0.52),
-    ...(both ? [nightstand("bedroom-nightstand-right", x + bedW + 0.10)] : []),
-    wardrobe,
-    // Wall split A/C near the top of the wall, on a wall panel that rises
-    // above the 1.05 m wall so it never floats.
-    // Left out when the room is too shallow to keep it clear of the wardrobe.
-    ...(d - m - 0.72 > m + 0.3 ? [overlay("bedroom-wall-ac", [
-      rect("wall-panel", w / 2 - 0.56, m, 1.12, 0.05, 1.36, "white"),
-      rect("unit", w / 2 - 0.46, m + 0.05, 0.92, 0.22, 0.26, "white", 1.02, "ac"),
-      rect("louver", w / 2 - 0.40, m + 0.265, 0.80, 0.02, 0.04, "dark", 1.04),
-      rect("display", w / 2 + 0.26, m + 0.265, 0.10, 0.012, 0.03, "accent", 1.18),
-    ])] : []),
-    rug("bedroom-rug", w / 2 - 1.0, z + 1.25, 2.0, 1.35),
+    ...(nightstands
+      ? [nightstand("bedroom-nightstand-left", z - 0.47), nightstand("bedroom-nightstand-right", z + bedW + 0.05)]
+      : []),
+    // Wardrobe in the back corner opposite the bed, only when it leaves room
+    // for the door beside it.
+    ...(w - 2 * m >= length + 0.6 + 1.25 + 1.0 ? [wardrobe] : []),
+    // Split A/C above the headboard, on a wall panel that rises above the
+    // 1.05 m wall so it never floats.
+    ...(bedW >= 1.2
+      ? [overlay("bedroom-wall-ac", [
+          rect("wall-panel", m, z + bedW / 2 - 0.56, 0.05, 1.12, 1.36, "white"),
+          rect("unit", m + 0.05, z + bedW / 2 - 0.46, 0.22, 0.92, 0.26, "white", 1.02, "ac"),
+          rect("louver", m + 0.265, z + bedW / 2 - 0.40, 0.02, 0.80, 0.04, "dark", 1.04),
+          rect("display", m + 0.265, z + bedW / 2 + 0.26, 0.012, 0.10, 0.03, "accent", 1.18),
+        ])]
+      : []),
   ];
 }
 

@@ -53,7 +53,8 @@ const preference = (room: DoorRoom, next: DoorRoom): number | null => {
     bathroom: ["hallway", "living", "dining", "laundry", "bedroom"],
     laundry: ["kitchen", "outdoor", "hallway", "garage", "balcony", "living"],
     garage: ["living", "outdoor", "kitchen", "hallway", "laundry", "balcony"],
-    kitchen: ["living", "dining", "hallway", "laundry", "balcony"],
+    // A studio kitchen opens straight into the bedroom-living room.
+    kitchen: ["living", "dining", "hallway", "laundry", "balcony", "bedroom"],
     balcony: ["living", "dining", "kitchen"],
     outdoor: ["living", "kitchen", "laundry", "garage"],
     hallway: ["living", "dining", "kitchen", "hallway"],
