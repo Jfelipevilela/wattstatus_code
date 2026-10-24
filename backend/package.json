@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.functions.json",
-    "test": "npm run build && node --test tests/*.test.cjs tests/*.test.js",
+    "test": "npm run build && node --test --test-concurrency=2 tests/*.test.cjs tests/*.test.js",
     "start": "node dist/server.js",
     "migrate:properties": "npm run build && node scripts/migrate-properties.cjs"
   },
