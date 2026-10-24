@@ -46,6 +46,7 @@ const ENDPOINTS = [
   "/api/appliances",
   "/api/user-settings",
   () => `/api/energy/history?${month()}`,
+  () => `/api/energy/history?${month()}&format=columns`,
   () => `/api/properties/${propertyId}/floors`,
   () => `/api/properties/${propertyId}/rooms`,
   () => `/api/properties/${propertyId}/energy?${month()}`,
@@ -68,7 +69,7 @@ const main = async () => {
   // Sequential: latency distribution + Mongo commands per request.
   for (const endpoint of ENDPOINTS) {
     const path = typeof endpoint === "function" ? endpoint() : endpoint;
-    const key = path.split("?")[0].replace(/[0-9a-f-]{36}/g, ":id");
+    const key = path.split("?")[0].replace(/[0-9a-f-]{36}/g, ":id") + (path.includes("format=columns") ? "?format=columns" : "");
     await fetch(`${base}/__perf/commands?reset=1`);
     await get(cookie, path);
     const commands = await fetch(`${base}/__perf/commands?reset=1`).then((res) => res.json());

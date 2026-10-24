@@ -37,7 +37,10 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const OBSERVERS = `(() => {
   const m = window.__perf = { lcp: 0, cls: 0, longTasks: [], fcp: 0, draws: 0, frames: 0, triangles: 0 };
   try {
-    new PerformanceObserver((l) => { for (const e of l.getEntries()) m.lcp = e.startTime; })
+    new PerformanceObserver((l) => { for (const e of l.getEntries()) {
+      m.lcp = e.startTime;
+      m.lcpElement = e.element ? e.element.nodeName + "." + String(e.element.className || "").slice(0, 50) + " " + String(e.element.textContent || "").trim().slice(0, 40) : e.url || "?";
+    } })
       .observe({ type: "largest-contentful-paint", buffered: true });
     new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) {
       m.cls += e.value;
@@ -189,7 +192,7 @@ const pageMetrics = async (page) => {
     const fcp = m.fcp || 0;
     // TBT approximation: long-task time over 50 ms after FCP.
     const tbt = m.longTasks.filter(([s]) => s >= fcp).reduce((sum, [, d]) => sum + Math.max(0, d - 50), 0);
-    return { ttfb: nav ? nav.responseStart : 0, fcp, lcp: m.lcp, cls: +m.cls.toFixed(4), shifts: m.shifts, tbt: Math.round(tbt),
+    return { ttfb: nav ? nav.responseStart : 0, fcp, lcp: m.lcp, lcpElement: m.lcpElement, cls: +m.cls.toFixed(4), shifts: m.shifts, tbt: Math.round(tbt),
       domContentLoaded: nav ? nav.domContentLoadedEventEnd : 0, heapMB: performance.memory ? +(performance.memory.usedJSHeapSize / 1048576).toFixed(1) : null };
   })()`);
   for (const key of ["ttfb", "fcp", "lcp", "domContentLoaded"]) perf[key] = Math.round(perf[key]);
@@ -349,6 +352,14 @@ const main = async () => {
           const key = `${route.name}:${cold ? "cold" : "warm"}`;
           (report.loads[key] ||= []).push(await measureLoad(page, route, cold));
         }
+      }
+      // --three-only: skip the SPA walk, keep the 3D and memory measurements.
+      if (run === 0 && only && process.argv.includes("--three-only") && propertyId) {
+        await page.send("Network.setCacheDisabled", { cacheDisabled: false });
+        await page.send("Page.navigate", { url: `${base}/dashboard` });
+        await page.settle(800);
+        report.three = await measure3D(page);
+        report.memory = await measureMemory(page, Number(arg("cycles", 20)));
       }
       if (run === 0 && !only) {
         await page.send("Network.setCacheDisabled", { cacheDisabled: false });

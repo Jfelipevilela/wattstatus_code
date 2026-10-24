@@ -1,0 +1,644 @@
+{
+  "profile": "mobile",
+  "base": "http://127.0.0.1:4512",
+  "runs": 3,
+  "at": "2026-10-24T14:39:00.818Z",
+  "loads": {
+    "home:cold": {
+      "ttfb": 6,
+      "fcp": 3152,
+      "lcp": 4588,
+      "cls": 0,
+      "tbt": 67,
+      "domContentLoaded": 2821,
+      "heapMB": 3.6,
+      "usableMs": 4816,
+      "requests": 33,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 693.9,
+      "jsKB": 422.6,
+      "jsFiles": 27,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "home:warm": {
+      "ttfb": 4,
+      "fcp": 432,
+      "lcp": 596,
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 266,
+      "heapMB": 5.3,
+      "usableMs": 640,
+      "requests": 33,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 2.3,
+      "jsKB": 0,
+      "jsFiles": 27,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "login:cold": {
+      "ttfb": 5,
+      "fcp": 2872,
+      "lcp": 3364,
+      "cls": 0,
+      "tbt": 12,
+      "domContentLoaded": 2785,
+      "heapMB": 7.2,
+      "usableMs": 3994,
+      "requests": 23,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 611.3,
+      "jsKB": 356.5,
+      "jsFiles": 18,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "login:warm": {
+      "ttfb": 4,
+      "fcp": 424,
+      "lcp": 492,
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 271,
+      "heapMB": 7.5,
+      "usableMs": 706,
+      "requests": 23,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 2.3,
+      "jsKB": 0,
+      "jsFiles": 18,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "signup:cold": {
+      "ttfb": 5,
+      "fcp": 2872,
+      "lcp": 3588,
+      "cls": 0,
+      "tbt": 16,
+      "domContentLoaded": 2774,
+      "heapMB": 9.4,
+      "usableMs": 4136,
+      "requests": 27,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 619.6,
+      "jsKB": 364.8,
+      "jsFiles": 22,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "signup:warm": {
+      "ttfb": 4,
+      "fcp": 352,
+      "lcp": 540,
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 266,
+      "heapMB": 10.6,
+      "usableMs": 669,
+      "requests": 27,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 2.3,
+      "jsKB": 0,
+      "jsFiles": 22,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "dashboard:cold": {
+      "ttfb": 4,
+      "fcp": 2860,
+      "lcp": 7444,
+      "cls": 0,
+      "tbt": 1512,
+      "domContentLoaded": 2771,
+      "heapMB": 22.2,
+      "usableMs": 9060,
+      "requests": 63,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 1388.6,
+      "jsKB": 942,
+      "jsFiles": 53,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "dashboard:warm": {
+      "ttfb": 4,
+      "fcp": 372,
+      "lcp": 856,
+      "cls": 0,
+      "tbt": 698,
+      "domContentLoaded": 280,
+      "heapMB": 27.3,
+      "usableMs": 1589,
+      "requests": 63,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 8,
+      "jsKB": 0,
+      "jsFiles": 53,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "properties:cold": {
+      "ttfb": 4,
+      "fcp": 2868,
+      "lcp": 4400,
+      "cls": 0.0004,
+      "shifts": [
+        {
+          "value": 0.0003,
+          "at": 4804,
+          "nodes": [
+            "#text. y 527→527 h 16→16",
+            "#text. y 567→567 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0002,
+          "at": 5808,
+          "nodes": [
+            "#text. y 527→527 h 16→16"
+          ]
+        }
+      ],
+      "tbt": 23,
+      "domContentLoaded": 2784,
+      "heapMB": 18.9,
+      "usableMs": 5708,
+      "requests": 43,
+      "apiRequests": 5,
+      "api429": 0,
+      "transferKB": 847.4,
+      "jsKB": 470.4,
+      "jsFiles": 36,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/appliances": 1,
+        "GET /api/energy/history": 1
+      }
+    },
+    "properties:warm": {
+      "ttfb": 2,
+      "fcp": 332,
+      "lcp": 676,
+      "cls": 0.0002,
+      "shifts": [
+        {
+          "value": 0.0002,
+          "at": 871,
+          "nodes": [
+            "#text. y 527→527 h 16→16"
+          ]
+        }
+      ],
+      "tbt": 75,
+      "domContentLoaded": 248,
+      "heapMB": 25.2,
+      "usableMs": 861,
+      "requests": 43,
+      "apiRequests": 5,
+      "api429": 0,
+      "transferKB": 5.2,
+      "jsKB": 0,
+      "jsFiles": 36,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/appliances": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "property-3d:cold": {
+      "ttfb": 5,
+      "fcp": 2820,
+      "lcp": 5352,
+      "cls": 0.0001,
+      "shifts": [
+        {
+          "value": 0.0001,
+          "at": 4929,
+          "nodes": [
+            "svg.[object SVGAnimatedString] y 23.5→23.5 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0001,
+          "at": 6944,
+          "nodes": [
+            "DD.text-2xl font-bold tabular-nums y 184→180 h 20→32"
+          ]
+        }
+      ],
+      "tbt": 655,
+      "domContentLoaded": 2763,
+      "heapMB": 29.7,
+      "usableMs": 10584,
+      "requests": 56,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 1804.9,
+      "jsKB": 1417.9,
+      "jsFiles": 47,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties/:id/energy": 1
+      },
+      "canvas": true,
+      "drawCallsTotal": 723
+    },
+    "property-3d:warm": {
+      "ttfb": 4,
+      "fcp": 384,
+      "lcp": 1000,
+      "cls": 0.0001,
+      "shifts": [
+        {
+          "value": 0.0001,
+          "at": 837,
+          "nodes": [
+            "svg.[object SVGAnimatedString] y 23.5→23.5 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0001,
+          "at": 1013,
+          "nodes": [
+            "DD.text-2xl font-bold tabular-nums y 184→180 h 20→32"
+          ]
+        }
+      ],
+      "tbt": 405,
+      "domContentLoaded": 298,
+      "heapMB": 26,
+      "usableMs": 931,
+      "requests": 56,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 7.1,
+      "jsKB": 0,
+      "jsFiles": 47,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties/:id/energy": 1,
+        "GET /api/user-settings": 1
+      },
+      "canvas": true,
+      "drawCallsTotal": 723
+    },
+    "appliances:cold": {
+      "ttfb": 4,
+      "fcp": 2828,
+      "lcp": 5060,
+      "cls": 0,
+      "tbt": 44,
+      "domContentLoaded": 2766,
+      "heapMB": 25.6,
+      "usableMs": 4863,
+      "requests": 43,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 729.9,
+      "jsKB": 567.2,
+      "jsFiles": 38,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1
+      }
+    },
+    "appliances:warm": {
+      "ttfb": 2,
+      "fcp": 328,
+      "lcp": 980,
+      "cls": 0,
+      "tbt": 45,
+      "domContentLoaded": 242,
+      "heapMB": 29.9,
+      "usableMs": 847,
+      "requests": 43,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 3.3,
+      "jsKB": 0,
+      "jsFiles": 38,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "reports:cold": {
+      "ttfb": 5,
+      "fcp": 2828,
+      "lcp": 5344,
+      "cls": 0.2076,
+      "shifts": [
+        {
+          "value": 0.2076,
+          "at": 5282,
+          "nodes": [
+            "ARTICLE.overflow-hidden rounded-[32px] border bg-card shadow-sm y 417→788 h 427→56"
+          ]
+        }
+      ],
+      "tbt": 102,
+      "domContentLoaded": 2748,
+      "heapMB": 24,
+      "usableMs": 6556,
+      "requests": 51,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 862.5,
+      "jsKB": 482.2,
+      "jsFiles": 41,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/ai/report-summary": 1,
+        "GET /api/auth/csrf": 1,
+        "POST /api/reports/events": 1
+      }
+    },
+    "reports:warm": {
+      "ttfb": 3,
+      "fcp": 324,
+      "lcp": 1492,
+      "cls": 0.2076,
+      "shifts": [
+        {
+          "value": 0.2076,
+          "at": 1396,
+          "nodes": [
+            "ARTICLE.overflow-hidden rounded-[32px] border bg-card shadow-sm y 417→788 h 427→56"
+          ]
+        }
+      ],
+      "tbt": 140,
+      "domContentLoaded": 252,
+      "heapMB": 29.6,
+      "usableMs": 1693,
+      "requests": 51,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 8,
+      "jsKB": 0,
+      "jsFiles": 41,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/ai/report-summary": 1,
+        "GET /api/auth/csrf": 1,
+        "POST /api/reports/events": 1
+      }
+    },
+    "calculator:cold": {
+      "ttfb": 6,
+      "fcp": 2860,
+      "lcp": 4360,
+      "cls": 0,
+      "tbt": 40,
+      "domContentLoaded": 2767,
+      "heapMB": 27,
+      "usableMs": 4576,
+      "requests": 36,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 629.2,
+      "jsKB": 466.5,
+      "jsFiles": 31,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1
+      }
+    },
+    "calculator:warm": {
+      "ttfb": 3,
+      "fcp": 348,
+      "lcp": 632,
+      "cls": 0,
+      "tbt": 57,
+      "domContentLoaded": 256,
+      "heapMB": 31.3,
+      "usableMs": 781,
+      "requests": 36,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 3.3,
+      "jsKB": 0,
+      "jsFiles": 31,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "smartthings:cold": {
+      "ttfb": 5,
+      "fcp": 2824,
+      "lcp": 4992,
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 2765,
+      "heapMB": 27.3,
+      "usableMs": 4911,
+      "requests": 50,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 667.2,
+      "jsKB": 525.1,
+      "jsFiles": 45,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/integrations/smartthings/token": 1
+      }
+    },
+    "smartthings:warm": {
+      "ttfb": 3,
+      "fcp": 328,
+      "lcp": 812,
+      "cls": 0,
+      "tbt": 36,
+      "domContentLoaded": 240,
+      "heapMB": 28.8,
+      "usableMs": 781,
+      "requests": 50,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 3.3,
+      "jsKB": 0,
+      "jsFiles": 45,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/integrations/smartthings/token": 1,
+        "GET /api/user-settings": 1
+      }
+    }
+  },
+  "spa": [
+    {
+      "path": "/imoveis",
+      "settledMs": 457,
+      "requests": 7,
+      "apiRequests": 1,
+      "api429": 0,
+      "transferKB": 1,
+      "jsKB": 0,
+      "jsFiles": 6,
+      "apiPaths": {
+        "GET /api/energy/history": 1
+      }
+    },
+    {
+      "path": "/imoveis/047a9e0a-f213-4b87-969c-73e134cbf5ce",
+      "settledMs": 382,
+      "requests": 11,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 2.9,
+      "jsKB": 0,
+      "jsFiles": 8,
+      "apiPaths": {
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/properties/:id/energy": 1
+      }
+    },
+    {
+      "path": "/aparelhos",
+      "settledMs": 223,
+      "requests": 3,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 3,
+      "apiPaths": {}
+    },
+    {
+      "path": "/dashboard",
+      "settledMs": 34,
+      "requests": 0,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 0,
+      "apiPaths": {}
+    },
+    {
+      "path": "/imoveis",
+      "settledMs": 92,
+      "requests": 0,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 0,
+      "apiPaths": {}
+    },
+    {
+      "path": "/relatorios",
+      "settledMs": 531,
+      "requests": 6,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 2.8,
+      "jsKB": 0,
+      "jsFiles": 3,
+      "apiPaths": {
+        "GET /api/auth/csrf": 1,
+        "GET /api/ai/report-summary": 1,
+        "POST /api/reports/events": 1
+      }
+    },
+    {
+      "path": "/dashboard",
+      "settledMs": 60,
+      "requests": 0,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 0,
+      "apiPaths": {}
+    }
+  ],
+  "three": {
+    "canvasMs": 878,
+    "frameMsP50": 16.7,
+    "frameMsP95": 50,
+    "fpsDuringOrbit": 59.9,
+    "drawCallsPerFrame": 83,
+    "trianglesPerFrame": 3431,
+    "idleDrawCalls2s": 0,
+    "heapMB": 35,
+    "nodes": 7394
+  },
+  "memory": {
+    "cycles": 20,
+    "heapMBAfterGc": [
+      32.35,
+      33.66,
+      24.27,
+      24.47,
+      24.54
+    ]
+  }
+}

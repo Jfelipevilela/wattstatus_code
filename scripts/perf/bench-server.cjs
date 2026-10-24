@@ -106,7 +106,8 @@ const start = async () => {
     res.json(commands);
     if (req.query.reset) { commands.total = 0; commands.byName = {}; }
   });
-  const dist = path.resolve(__dirname, "../../dist");
+  // PERF_DIST serves another build (A/B against the same data and backend).
+  const dist = process.env.PERF_DIST ? path.resolve(process.env.PERF_DIST) : path.resolve(__dirname, "../../dist");
   app.use(express.static(dist, { maxAge: "1y", index: false, setHeaders: (res, file) => {
     if (file.endsWith("index.html")) res.setHeader("Cache-Control", "no-cache");
   } }));
