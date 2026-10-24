@@ -101,3 +101,17 @@ test("respostas comuns do app atravessam o adaptador sem mudança (401, cabeçal
   assert.equal(response.status, 403, "mutation without CSRF token is refused as before");
   assert.ok((await response.json()).error);
 });
+
+test("vários Set-Cookie chegam separados e corpo acima do limite é recusado", async () => {
+  const app = express();
+  app.post("/api/ai/chat/stream", (req, res) => {
+    res.cookie("a", "1", { httpOnly: true }).cookie("b", "2", { httpOnly: true }).json({ ok: true });
+  });
+  const response = await runStreaming(app, { request: request() });
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.headers.getSetCookie().map((c) => c.split(";")[0]), ["a=1", "b=2"]);
+  assert.deepEqual(await response.json(), { ok: true });
+
+  const big = await runStreaming(app, { request: request({ body: "x".repeat(256 * 1024 + 1) }) });
+  assert.equal(big.status, 413);
+});
