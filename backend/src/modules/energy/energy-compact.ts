@@ -28,13 +28,24 @@ export const compactIntervals = (intervals: EnergyInterval[]): CompactIntervals 
     if (at === undefined) { at = strings.length; strings.push(value); index.set(value, at); }
     return at;
   };
+  // Instants repeat across devices; parse and check each one once. NaN marks
+  // a date the decoder could not rebuild exactly.
+  const instants = new Map<string, number>();
+  const instant = (value: string) => {
+    let ms = instants.get(value);
+    if (ms === undefined) {
+      ms = Date.parse(value);
+      if (Number.isNaN(ms) || new Date(ms).toISOString() !== value) ms = NaN;
+      instants.set(value, ms);
+    }
+    return ms;
+  };
   const rows: CompactIntervals["rows"] = [];
   for (const item of intervals) {
-    const start = Date.parse(item.startAt);
-    const end = Date.parse(item.endAt);
+    const start = instant(item.startAt);
+    const end = instant(item.endAt);
     // Anything the decoder could not rebuild exactly keeps the plain format.
-    if (item.source !== "iot" || item.readingType !== "interval" ||
-        new Date(start).toISOString() !== item.startAt || new Date(end).toISOString() !== item.endAt) return null;
+    if (item.source !== "iot" || item.readingType !== "interval" || Number.isNaN(start) || Number.isNaN(end)) return null;
     if (Object.keys(item).some((key) => !KNOWN.has(key))) return null;
     rows.push([
       ref(item.applianceId), ref(item.provider), ref(item.deviceId), start, end - start,
