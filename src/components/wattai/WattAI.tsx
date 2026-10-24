@@ -2,7 +2,7 @@ import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useSta
 import { useLocation, useNavigate } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import type { WattAIAction, WattAIContext } from "@/lib/wattai";
+import type { ChartRequest, WattAIAction, WattAIContext } from "@/lib/wattai";
 
 // The panel and simulator are loaded only when first opened, so the AI adds
 // nothing to the main bundle.
@@ -10,10 +10,10 @@ const WattAIPanel = lazy(() => import("./WattAIPanel"));
 const WattAISimulator = lazy(() => import("./WattAISimulator"));
 
 export interface SimulatorTarget { propertyId: string; applianceId: string; proposedHours?: number }
-interface AssistantRequest { message?: string; context?: WattAIContext; nonce: number }
+interface AssistantRequest { message?: string; context?: WattAIContext; chart?: ChartRequest; nonce: number }
 
 interface WattAIApi {
-  openAssistant: (request?: { message?: string; context?: WattAIContext }) => void;
+  openAssistant: (request?: { message?: string; context?: WattAIContext; chart?: ChartRequest }) => void;
   openSimulator: (target: SimulatorTarget) => void;
   runAction: (action: WattAIAction) => void;
 }
@@ -35,7 +35,7 @@ export function WattAIProvider({ children }: { children: ReactNode }) {
   const [request, setRequest] = useState<AssistantRequest | null>(null);
   const [simulator, setSimulator] = useState<SimulatorTarget | null>(null);
 
-  const openAssistant = useCallback((next?: { message?: string; context?: WattAIContext }) => {
+  const openAssistant = useCallback((next?: { message?: string; context?: WattAIContext; chart?: ChartRequest }) => {
     setLoaded(true);
     setOpen(true);
     if (next) setRequest({ ...next, nonce: Date.now() });

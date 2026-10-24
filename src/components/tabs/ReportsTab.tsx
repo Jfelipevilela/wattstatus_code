@@ -26,6 +26,8 @@ import { useEnergyHistory } from "@/hooks/useEnergyHistory";
 import { useProperties, usePropertyLayout } from "@/hooks/useProperties";
 import { appliancePropertyId } from "@/lib/property-energy";
 import { apiRequest } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { wattAIAccount } from "@/lib/wattai";
 import { measuredByDevice, summarizeMeasured } from "@/lib/measured";
 import {
   estimateAppliance,
@@ -176,6 +178,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
           consumptionKWh: item.consumptionKWh,
           cost: item.cost,
         })),
+        summary: summary.data ?? null,
       });
       pdf.save(`wattstatus_${month}_${period.year}.pdf`);
       recordReportEvent("export_completed", { itemCount, durationMs: Date.now() - startedAt });
@@ -198,6 +201,16 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
   const selectedName =
     selectedAppliance === "all" ? "Todos os aparelhos" : appliances.find((item) => item.id === selectedAppliance)?.name ?? "Aparelho";
   const canExport = !measured.loading && !measured.error && (rows.length > 0 || hasMeasured);
+  // Deterministic summary from the AI engine. Optional: the report and the
+  // PDF work the same when it is unavailable.
+  const summaryProperty = propertyId === "all" ? primary?.id : propertyId;
+  const summary = useQuery({
+    queryKey: ["wattai", "report-summary", summaryProperty, period.year, period.month],
+    queryFn: () => wattAIAccount.reportSummary(period.year, period.month, summaryProperty),
+    enabled: Boolean(summaryProperty),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
   // Connected appliances usually bring readings: hold the space for the bar.
   const expectsMeasured = totalConsumption > 0 && appliances.some((item) => item.integrationDeviceId);
   const measuredShare = totalConsumption > 0 && hasMeasured ? (measuredTotals.consumptionKWh / totalConsumption) * 100 : null;
@@ -298,6 +311,18 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
           </Button>
         </div>
       </header>
+
+      {summary.data && summary.data.lines.length > 0 && (
+        <section className="rounded-2xl border bg-card p-5" aria-label="Resumo do período">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Resumo do período{propertyId === "all" && properties.length > 1 ? ` · ${summary.data.property.name}` : ""}</h3>
+            <span className="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{summary.data.quality}</span>
+          </div>
+          <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+            {summary.data.lines.map((line) => <li key={line}>{line}</li>)}
+          </ul>
+        </section>
+      )}
 
       <article className="overflow-hidden rounded-[32px] border bg-card shadow-sm">
         <div className="relative overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-900 to-emerald-950 p-6 text-white sm:p-8">

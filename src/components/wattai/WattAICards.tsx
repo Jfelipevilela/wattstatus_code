@@ -130,6 +130,41 @@ function Card({ card, onAsk }: { card: WattAICard; onAsk: (text: string) => void
           ))}
         </ul>
       );
+    case "trend": {
+      const max = Math.max(1, ...card.points.map((point) => Math.max(point.estimatedKWh, point.measuredKWh ?? 0)));
+      return (
+        <div className="space-y-2">
+          <p className="text-xs font-medium">{card.title}</p>
+          <ul className="space-y-1.5" aria-label="Consumo por mês">
+            {card.points.map((point) => (
+              <li key={point.month} className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-2 text-[11px]">
+                <span className="text-muted-foreground">{point.month}</span>
+                <span className="space-y-0.5">
+                  <span className="block h-1.5 rounded-full bg-primary/70" style={{ width: `${Math.max(2, (point.estimatedKWh / max) * 100)}%` }} title="Estimado" />
+                  {point.measuredKWh !== null && <span className="block h-1.5 rounded-full bg-[#2979FF]" style={{ width: `${Math.max(2, (point.measuredKWh / max) * 100)}%` }} title="Medido" />}
+                </span>
+                <span className="tabular-nums">{kwh(point.estimatedKWh)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[10px] text-muted-foreground"><span className="mr-1 inline-block h-1.5 w-3 rounded-full bg-primary/70 align-middle" />Estimado <span className="ml-2 mr-1 inline-block h-1.5 w-3 rounded-full bg-[#2979FF] align-middle" />Medido</p>
+        </div>
+      );
+    }
+    case "comparison": {
+      const max = Math.max(1, ...card.items.map((item) => item.value));
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between"><p className="text-xs font-medium">{card.title}</p><SourceBadge source={card.source} /></div>
+          {card.items.map((item) => (
+            <div key={item.label} className="space-y-1">
+              <div className="flex justify-between text-xs"><span>{item.label}</span><span className="tabular-nums">{item.unit === "R$" ? brl(item.value) : `${item.value.toLocaleString("pt-BR")} ${item.unit}`}</span></div>
+              <div className="h-1.5 rounded-full bg-muted"><div className="h-1.5 rounded-full bg-primary/70" style={{ width: `${Math.max(2, (item.value / max) * 100)}%` }} /></div>
+            </div>
+          ))}
+        </div>
+      );
+    }
     case "choices":
       return (
         <div className="flex flex-wrap gap-2">

@@ -1,7 +1,7 @@
 import { notifyError } from "@/lib/error-toast";
 
 // Requests already include "/api/..."; use same-origin as fallback (Netlify rewrite handles /api).
-const API_BASE =
+export const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
   (typeof window !== "undefined"
     ? window.location.origin
@@ -33,7 +33,7 @@ let csrfToken: string | null = null;
 let csrfRequest: Promise<string> | null = null;
 let csrfGeneration = 0;
 export const invalidateCsrfToken = () => { csrfGeneration++; csrfToken = null; csrfRequest = null; };
-const getCsrfToken = async () => {
+export const getCsrfToken = async () => {
   if (csrfToken) return csrfToken;
   if (!csrfRequest) {
     const version = csrfGeneration;

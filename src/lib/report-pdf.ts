@@ -17,6 +17,8 @@ export interface PdfReportInput {
   scope?: string;
   estimated: PdfReportRow[];
   measured: PdfReportRow[];
+  // Deterministic WattStatus AI summary; the PDF is complete without it.
+  summary?: { lines: string[]; quality: string } | null;
 }
 
 type RGB = [number, number, number];
@@ -257,6 +259,29 @@ export const createReportPdf = (input: PdfReportInput) => {
     pdf.text(sum.cost === null ? "Tarifa incompleta" : money(sum.cost), width - margin - 3, y, { align: "right" });
     y += 12;
   };
+
+  if (input.summary?.lines.length) {
+    font(9);
+    const wrapped = input.summary.lines.map((line) => pdf.splitTextToSize(`• ${line}`, content - 10) as string[]);
+    const boxHeight = 12 + wrapped.reduce((sum, lines) => sum + lines.length * 4.4, 0);
+    ensure(boxHeight + 6);
+    stroke(LINE);
+    pdf.roundedRect(margin, y, content, boxHeight, 3, 3, "S");
+    font(10, "bold");
+    ink(INK);
+    pdf.text("Resumo do período", margin + 5, y + 7);
+    font(8);
+    ink(MUTED);
+    pdf.text(`Calculado pelo WattStatus · ${input.summary.quality}`, width - margin - 5, y + 7, { align: "right" });
+    let line = y + 13;
+    font(9);
+    ink(INK);
+    for (const lines of wrapped) {
+      pdf.text(lines, margin + 5, line);
+      line += lines.length * 4.4;
+    }
+    y += boxHeight + 8;
+  }
 
   section("Consumo estimado", GREEN, input.estimated, "Nenhum aparelho no período selecionado.");
   section("Consumo medido", BLUE, input.measured, "Sem medições suficientes neste período.");

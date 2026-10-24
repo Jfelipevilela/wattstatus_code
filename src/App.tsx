@@ -29,6 +29,8 @@ const Properties = lazy(() => import("./pages/Properties"));
 const PropertyDetail = lazy(() => import("./pages/PropertyDetail"));
 const RoomDetails = lazy(() => import("./pages/RoomDetails"));
 const Apps = lazy(() => import("./pages/Apps"));
+const AIPreferences = lazy(() => import("./pages/AIPreferences"));
+const AIAdmin = lazy(() => import("./pages/AIAdmin"));
 
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -136,6 +138,8 @@ const App = () => (
                   <Route path="/imoveis" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
                   <Route path="/imoveis/:id" element={<ProtectedRoute><PropertyDetail /></ProtectedRoute>} />
                   <Route path="/imoveis/:id/ambientes/:roomId" element={<ProtectedRoute><RoomDetails /></ProtectedRoute>} />
+                  <Route path="/ia/preferencias" element={<ProtectedRoute><AIPreferences /></ProtectedRoute>} />
+                  <Route path="/ia/admin" element={<ProtectedRoute><AIAdmin /></ProtectedRoute>} />
                   <Route
                     path="/apps"
                     element={
