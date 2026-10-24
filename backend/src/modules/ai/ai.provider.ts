@@ -21,6 +21,8 @@ export const aiConfig = () => ({
   dailyUserBudget: number(process.env.AI_DAILY_USER_BUDGET, 60),
   monthlyGlobalBudget: number(process.env.AI_MONTHLY_GLOBAL_BUDGET, 20000),
   maxConcurrent: number(process.env.AI_MAX_CONCURRENT_REQUESTS, 4),
+  // Optional hard cap on estimated spend per calendar month (USD); 0 = off.
+  monthlyCostLimitUsd: Number(process.env.AI_MONTHLY_COST_LIMIT_USD) > 0 ? Number(process.env.AI_MONTHLY_COST_LIMIT_USD) : 0,
   // USD per million tokens, for the cost estimate only.
   // Claude Haiku 5.5 list price (USD per million tokens), for the estimate only.
   priceInput: number(process.env.AI_PRICE_INPUT_PER_MTOK, 0.1),
@@ -94,6 +96,8 @@ export class AnthropicProvider implements ModelProvider {
       if (error instanceof Anthropic.APIUserAbortError) throw new ProviderError("Solicitação cancelada", null, false);
       if (error instanceof Anthropic.APIConnectionTimeoutError) throw new ProviderError("Tempo esgotado no provedor", null, false);
       if (error instanceof Anthropic.RateLimitError) throw new ProviderError("Provedor respondeu 429", 429, true);
+      // Connection failures extend APIError without a status: retryable.
+      if (error instanceof Anthropic.APIConnectionError) throw new ProviderError("Falha de conexão com o provedor", null, true);
       if (error instanceof Anthropic.APIError) {
         const status = typeof error.status === "number" ? error.status : null;
         throw new ProviderError(`Provedor respondeu ${status ?? "erro"}`, status, status !== null && status >= 500);

@@ -4,7 +4,8 @@
 import { randomUUID } from "crypto";
 import type { Collection, Document } from "mongodb";
 import type { AIPreferences, UsageRecord } from "./ai.orchestrator";
-import type { AlertCandidate } from "./ai.engine";
+import type { AlertV2 } from "./ai.alerts";
+import type { SavingsPlan, ActionStatus } from "./ai.plans";
 
 export type RecommendationState = "new" | "viewed" | "saved" | "tracking" | "applied" | "dismissed";
 export interface RecommendationStateRecord {
@@ -14,6 +15,7 @@ export interface RecommendationStateRecord {
   propertyId?: string | null;
   expectedMonthlyKWh?: number | null;
   appliedAt?: Date | null;
+  feedback?: "useful" | "not_useful" | null;
   updatedAt: Date;
 }
 
@@ -29,10 +31,22 @@ export interface ConversationRecord {
   expiresAt: Date;
 }
 
-export interface AlertRecord extends AlertCandidate {
+export type AlertState = "new" | "read" | "dismissed";
+export interface AlertRecord extends AlertV2 {
   userId: string;
   createdAt: Date;
+  state?: AlertState;
   readAt?: Date | null;
+  deliveredAt?: Date | null;
+  channel?: string | null;
+}
+
+export interface SavedPlan extends Omit<SavingsPlan, "actions"> {
+  id: string;
+  userId: string;
+  actions: Array<SavingsPlan["actions"][number] & { status: ActionStatus; updatedAt?: Date }>;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Settings an admin can change at runtime. Secrets never live here.
@@ -58,8 +72,19 @@ export interface AIStore {
   listConversations(userId: string): Promise<Array<Pick<ConversationRecord, "id" | "title" | "updatedAt" | "propertyId">>>;
   getConversation(userId: string, id: string): Promise<ConversationRecord | null>;
   deleteConversation(userId: string, id: string): Promise<boolean>;
-  saveAlerts(userId: string, alerts: AlertCandidate[], minIntervalMs: number): Promise<AlertRecord[]>;
+  saveAlerts(userId: string, alerts: AlertV2[], minIntervalMs: number): Promise<AlertRecord[]>;
   listAlerts(userId: string): Promise<AlertRecord[]>;
+  setAlertState(userId: string, key: string, state: AlertState): Promise<boolean>;
+  markDelivered(userId: string, key: string, channel: string): Promise<void>;
+  listAlertRecipients(after: string | null, limit: number): Promise<Array<{ userId: string; preferences: AIPreferences }>>;
+  dismissedRecommendations(userId: string): Promise<string[]>;
+  setRecommendationFeedback(userId: string, recommendationId: string, feedback: "useful" | "not_useful"): Promise<void>;
+  savePlan(userId: string, plan: SavingsPlan): Promise<SavedPlan>;
+  listPlans(userId: string): Promise<SavedPlan[]>;
+  getPlan(userId: string, id: string): Promise<SavedPlan | null>;
+  setPlanAction(userId: string, id: string, applianceId: string, status: ActionStatus): Promise<SavedPlan | null>;
+  deletePlan(userId: string, id: string): Promise<boolean>;
+  costSince(since: Date): Promise<number>;
   getSettings(): Promise<AISettings>;
   saveSettings(patch: AISettings, updatedBy: string): Promise<AISettings>;
   deleteUserData(userId: string): Promise<void>;
@@ -85,6 +110,8 @@ export class MongoAIStore implements AIStore {
   private conversations() { return this.db.aiCollection<ConversationRecord>("ai_conversations"); }
   private alerts() { return this.db.aiCollection<AlertRecord>("ai_alerts"); }
   private settings() { return this.db.aiCollection<AISettings & { key: string }>("ai_settings"); }
+  private plans() { return this.db.aiCollection<SavedPlan>("ai_savings_plans"); }
+  private costCache: { since: number; value: number; at: number } | null = null;
 
   // Idempotent index creation, once per process.
   ready() {
@@ -100,6 +127,9 @@ export class MongoAIStore implements AIStore {
       this.alerts().createIndex({ userId: 1, kind: 1, createdAt: -1 }),
       this.alerts().createIndex({ createdAt: 1 }, { expireAfterSeconds: 90 * 86400 }),
       this.settings().createIndex({ key: 1 }, { unique: true }),
+      this.plans().createIndex({ id: 1 }, { unique: true }),
+      this.plans().createIndex({ userId: 1, createdAt: -1 }),
+      this.prefs().createIndex({ proactiveInsights: 1, userId: 1 }),
     ]).catch((error) => { this.indexes = null; throw error; });
     return this.indexes;
   }
@@ -201,13 +231,13 @@ export class MongoAIStore implements AIStore {
 
   // Inserts new alerts only: the same key never repeats, and the same kind
   // waits at least minIntervalMs since the last one.
-  async saveAlerts(userId: string, alerts: AlertCandidate[], minIntervalMs: number) {
+  async saveAlerts(userId: string, alerts: AlertV2[], minIntervalMs: number) {
     await this.ready();
     const created: AlertRecord[] = [];
     for (const alert of alerts) {
       const recent = await this.alerts().findOne({ userId, kind: alert.kind, createdAt: { $gte: new Date(Date.now() - minIntervalMs) } });
       if (recent) continue;
-      const record: AlertRecord = { ...alert, userId, createdAt: new Date(), readAt: null };
+      const record: AlertRecord = { ...alert, userId, createdAt: new Date(), state: "new", readAt: null, deliveredAt: null, channel: null };
       try {
         await this.alerts().insertOne(record);
         created.push(record);
@@ -220,6 +250,77 @@ export class MongoAIStore implements AIStore {
   async listAlerts(userId: string) {
     await this.ready();
     return this.alerts().find({ userId }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).limit(50).toArray() as Promise<AlertRecord[]>;
+  }
+
+  async setAlertState(userId: string, key: string, state: AlertState) {
+    await this.ready();
+    const result = await this.alerts().updateOne({ userId, key }, { $set: { state, ...(state !== "new" ? { readAt: new Date() } : {}) } });
+    return result.matchedCount > 0;
+  }
+  async markDelivered(userId: string, key: string, channel: string) {
+    await this.ready();
+    await this.alerts().updateOne({ userId, key }, { $set: { deliveredAt: new Date(), channel } });
+  }
+  // Users who consented, in userId order, for the scheduler.
+  async listAlertRecipients(after: string | null, limit: number) {
+    await this.ready();
+    const rows = await this.prefs().find({ proactiveInsights: true, ...(after ? { userId: { $gt: after } } : {}) }, { projection: { _id: 0, updatedAt: 0 } })
+      .sort({ userId: 1 }).limit(Math.min(500, limit)).toArray();
+    return rows.map(({ userId, ...preferences }) => ({ userId, preferences: preferences as AIPreferences }));
+  }
+  async dismissedRecommendations(userId: string) {
+    await this.ready();
+    const rows = await this.states().find({ userId, state: { $in: ["dismissed", "applied"] } }, { projection: { _id: 0, recommendationId: 1 } }).limit(500).toArray();
+    return rows.map((row) => row.recommendationId);
+  }
+  async setRecommendationFeedback(userId: string, recommendationId: string, feedback: "useful" | "not_useful") {
+    await this.ready();
+    await this.states().updateOne(
+      { userId, recommendationId },
+      { $set: { feedback, updatedAt: new Date() }, $setOnInsert: { userId, recommendationId, state: "viewed" } },
+      { upsert: true },
+    );
+  }
+
+  async savePlan(userId: string, plan: SavingsPlan) {
+    await this.ready();
+    const now = new Date();
+    const saved: SavedPlan = { ...plan, id: randomUUID(), userId, actions: plan.actions.map((action) => ({ ...action, status: "pending" as const })), createdAt: now, updatedAt: now };
+    await this.plans().insertOne(saved);
+    const old = await this.plans().find({ userId }, { projection: { _id: 0, id: 1 } }).sort({ createdAt: -1 }).skip(20).toArray();
+    if (old.length) await this.plans().deleteMany({ userId, id: { $in: old.map((item) => item.id) } });
+    const { _id, ...clean } = saved as SavedPlan & { _id?: unknown };
+    return clean as SavedPlan;
+  }
+  async listPlans(userId: string) {
+    await this.ready();
+    return this.plans().find({ userId }, { projection: { _id: 0 } }).sort({ createdAt: -1 }).limit(20).toArray() as Promise<SavedPlan[]>;
+  }
+  async getPlan(userId: string, id: string) {
+    await this.ready();
+    return this.plans().findOne({ userId, id }, { projection: { _id: 0 } }) as Promise<SavedPlan | null>;
+  }
+  async setPlanAction(userId: string, id: string, applianceId: string, status: ActionStatus) {
+    await this.ready();
+    const now = new Date();
+    const result = await this.plans().updateOne(
+      { userId, id, "actions.applianceId": applianceId },
+      { $set: { "actions.$.status": status, "actions.$.updatedAt": now, updatedAt: now } },
+    );
+    return result.matchedCount ? this.getPlan(userId, id) : null;
+  }
+  async deletePlan(userId: string, id: string) {
+    await this.ready();
+    return (await this.plans().deleteOne({ userId, id })).deletedCount > 0;
+  }
+  // Estimated model spend since a date, cached for a minute.
+  async costSince(since: Date) {
+    if (this.costCache && this.costCache.since === since.getTime() && Date.now() - this.costCache.at < 60000) return this.costCache.value;
+    await this.ready();
+    const [row] = await this.usage().aggregate([{ $match: { createdAt: { $gte: since } } }, { $group: { _id: null, cost: { $sum: "$estimatedCostUsd" } } }]).toArray();
+    const value = Number(row?.cost ?? 0);
+    this.costCache = { since: since.getTime(), value, at: Date.now() };
+    return value;
   }
 
   async getSettings() {
@@ -247,6 +348,7 @@ export class MongoAIStore implements AIStore {
       this.usage().deleteMany({ userId }),
       this.conversations().deleteMany({ userId }),
       this.alerts().deleteMany({ userId }),
+      this.plans().deleteMany({ userId }),
     ]);
   }
 }

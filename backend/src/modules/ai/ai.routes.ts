@@ -10,15 +10,17 @@ import type { MongoDatabase } from "../../storage/mongo-db";
 import {
   buildRecommendations, detectAnomalies, evaluateApplied, forecastMonth, measuredSource, planBudget,
   simulateForAppliance, simulateUsage, comparePeriods, money, kwh, measuredAveragePower, brlRate,
-  evaluateAlerts, buildReportSummary, monthPeriodFor,
+  buildReportSummary, monthPeriodFor,
 } from "./ai.engine";
 import { AIDataSource, ChatOptions, Orchestrator, loadSnapshot } from "./ai.orchestrator";
 import { aiConfig, createProvider, AIConfig, ModelProvider } from "./ai.provider";
 import {
   budgetRequestSchema, chatRequestSchema, preferencesSchema, recommendationStateSchema, simulateRequestSchema,
-  settingsSchema, ALLOWED_MODELS, type ChatRequest,
+  settingsSchema, ALLOWED_MODELS, type ChatRequest, planRequestSchema, planActionSchema, alertStateSchema,
 } from "./ai.schemas";
 import type { AISettings, AIStore } from "./ai.store";
+import { detectAlerts, frequencyMs } from "./ai.alerts";
+import { buildSavingsPlan, planProgress } from "./ai.plans";
 
 const userKey = (userId: string) => createHmac("sha256", env.jwtSecret).update(`ai:${userId}`).digest("hex");
 
@@ -100,6 +102,14 @@ export const createAIRouter = (deps: AIRouterDeps) => {
         deps.limits.consumeRateLimit("ai-model-user-day", userKey(userId), 86400000),
         deps.limits.consumeRateLimit("ai-model-global-month", "global", 30 * 86400000),
       ]);
+      // Spend cap in USD over the calendar month, from recorded usage.
+      const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+      const spent = config.monthlyCostLimitUsd > 0 ? await deps.store.costSince(monthStart).catch(() => 0) : 0;
+      if (config.monthlyCostLimitUsd > 0 && spent >= config.monthlyCostLimitUsd) {
+        limited.hit = true;
+        logger.warn("ai.budget_exhausted", { reason: "monthly_cost" });
+        return false;
+      }
       if (user.totalHits > config.dailyUserBudget || global.totalHits > config.monthlyGlobalBudget) {
         limited.hit = true;
         logger.warn("ai.budget_exhausted", { reason: user.totalHits > config.dailyUserBudget ? "user_daily" : "global_monthly" });
@@ -233,14 +243,12 @@ export const createAIRouter = (deps: AIRouterDeps) => {
       if (!preferences.proactiveInsights || (preferences.alertFrequency ?? "off") === "off") {
         return res.json({ created: [], skipped: "consent_required" });
       }
-      const properties = await deps.data.listProperties(userId);
+      const [properties, dismissed] = await Promise.all([deps.data.listProperties(userId), deps.store.dismissedRecommendations(userId)]);
       const created = [];
       for (const property of properties.slice(0, 5)) {
         const loaded = await orchestrator.snapshotFor(userId, property.id);
         if (!loaded) continue;
-        const candidates = evaluateAlerts(loaded.snapshot, preferences)
-          .filter((item) => !preferences.alertCategories?.length || preferences.alertCategories.includes(item.kind));
-        created.push(...await deps.store.saveAlerts(userId, candidates, preferences.alertFrequency === "weekly" ? 7 * 86400000 : 86400000));
+        created.push(...await deps.store.saveAlerts(userId, detectAlerts(loaded.snapshot, preferences, new Date(), dismissed), frequencyMs(preferences.alertFrequency)));
       }
       res.json({ created });
     } catch (error) { next(error); }
@@ -392,15 +400,20 @@ export const createAIRouter = (deps: AIRouterDeps) => {
     try {
       const userId = requireUser(req);
       const id = recommendationId.parse(req.params.id);
-      const { state } = recommendationStateSchema.parse(req.body);
+      const { state, feedback } = recommendationStateSchema.parse(req.body);
       const propertyId = z.object({ propertyId: idSchema.optional() }).parse(req.query).propertyId;
       let expectedMonthlyKWh: number | null = null;
       // Ownership: the recommendation must exist for one of the user's properties.
       const loaded = await orchestrator.snapshotFor(userId, propertyId);
       if (!loaded) throw new ApiError(404, "Imóvel não encontrado");
-      const match = buildRecommendations(loaded.snapshot, detectAnomalies(loaded.snapshot), { hasGoal: Boolean(loaded.preferences.monthlyGoal) })
-        .find((item) => item.id === id);
+      const anomalies = detectAnomalies(loaded.snapshot);
+      const match = [
+        ...buildRecommendations(loaded.snapshot, anomalies, { hasGoal: Boolean(loaded.preferences.monthlyGoal) }),
+        ...buildRecommendations(loaded.snapshot, anomalies, { roomIds: loaded.snapshot.rooms.map((room) => room.id) }),
+      ].find((item) => item.id === id);
       if (!match) throw new ApiError(404, "Recomendação não encontrada");
+      if (feedback) await deps.store.setRecommendationFeedback(userId, id, feedback);
+      if (!state) return res.json({ ok: true, id, feedback });
       if (match.applianceId && match.kind === "reduce_usage") {
         const item = loaded.snapshot.appliances.find((entry) => entry.id === match.applianceId);
         if (item) expectedMonthlyKWh = simulateForAppliance(item, item.usageHours - 1, loaded.snapshot.period.daysElapsed).savings.monthlyKWh;
@@ -410,6 +423,60 @@ export const createAIRouter = (deps: AIRouterDeps) => {
         expectedMonthlyKWh, appliedAt: state === "applied" ? new Date() : null,
       });
       res.json({ ok: true, id, state });
+    } catch (error) { next(error); }
+  });
+
+  // Alert history: read, dismissed (cancelled) or back to new.
+  router.patch("/alerts/:key", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const key = z.string().min(3).max(200).regex(/^[a-z_]+:[A-Za-z0-9_:.-]+$/).parse(req.params.key);
+      const { state } = alertStateSchema.parse(req.body);
+      if (!(await deps.store.setAlertState(requireUser(req), key, state))) throw new ApiError(404, "Alerta não encontrado");
+      res.json({ ok: true, key, state });
+    } catch (error) { next(error); }
+  });
+
+  // Savings plans: computed on the server from the target, saved, tracked.
+  router.post("/plans", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const userId = requireUser(req);
+      const body = planRequestSchema.parse(req.body);
+      const { snapshot, preferences } = await loadOwned(userId, body.propertyId);
+      const plan = buildSavingsPlan(snapshot, body.target, {
+        protectedIds: [...(body.protectedApplianceIds ?? []), ...(preferences.essentialApplianceIds ?? [])],
+        maxReduction: (preferences.maxReductionPercent ?? 30) / 100,
+        minHours: preferences.minHoursByAppliance,
+        statedCurrent: body.statedCurrent ?? null,
+      });
+      if (!plan.actions.length) throw new ApiError(409, "Não há mudanças possíveis para salvar neste plano.");
+      res.status(201).json({ plan: await deps.store.savePlan(userId, plan) });
+    } catch (error) { next(error); }
+  });
+  router.get("/plans", async (req: AuthenticatedRequest, res, next) => {
+    try { res.json({ plans: await deps.store.listPlans(requireUser(req)) }); } catch (error) { next(error); }
+  });
+  router.get("/plans/:id", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const userId = requireUser(req);
+      const plan = await deps.store.getPlan(userId, z.string().uuid().parse(req.params.id));
+      if (!plan) throw new ApiError(404, "Plano não encontrado");
+      const loaded = await orchestrator.snapshotFor(userId, plan.propertyId);
+      res.json({ plan, progress: loaded ? planProgress(plan, loaded.snapshot) : [] });
+    } catch (error) { next(error); }
+  });
+  router.patch("/plans/:id/actions/:applianceId", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const userId = requireUser(req);
+      const { status } = planActionSchema.parse(req.body);
+      const plan = await deps.store.setPlanAction(userId, z.string().uuid().parse(req.params.id), idSchema.parse(req.params.applianceId), status);
+      if (!plan) throw new ApiError(404, "Plano ou ação não encontrados");
+      res.json({ plan });
+    } catch (error) { next(error); }
+  });
+  router.delete("/plans/:id", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      if (!(await deps.store.deletePlan(requireUser(req), z.string().uuid().parse(req.params.id)))) throw new ApiError(404, "Plano não encontrado");
+      res.json({ ok: true });
     } catch (error) { next(error); }
   });
 

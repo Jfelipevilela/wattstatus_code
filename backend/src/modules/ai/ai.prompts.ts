@@ -20,3 +20,7 @@ export const narrationPrompt = (question: string, draft: string, facts: unknown,
 
 export const classificationPrompt = (intents: string[]) =>
   `Classifique a mensagem do usuário sobre energia residencial em exatamente uma destas intenções e responda só o nome: ${intents.join(", ")}.`;
+
+// The model only orders a subset of fixed tools; it never passes ids or queries.
+export const investigationPlanPrompt = (tools: readonly string[]) =>
+  `Você planeja uma investigação de consumo de energia. Responda só com JSON no formato {"tools":["..."]}, escolhendo de 1 a 8 ferramentas desta lista, na ordem útil: ${tools.join(", ")}. Inclua savings_plan só se a mensagem pedir economia em reais.`;

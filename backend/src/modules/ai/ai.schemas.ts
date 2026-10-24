@@ -49,14 +49,24 @@ export const budgetRequestSchema = z.object({
 }).strict();
 
 export const recommendationStateSchema = z.object({
-  state: z.enum(["new", "viewed", "saved", "tracking", "applied", "dismissed"]),
+  state: z.enum(["new", "viewed", "saved", "tracking", "applied", "dismissed"]).optional(),
+  feedback: z.enum(["useful", "not_useful"]).optional(),
+}).strict().refine((value) => value.state || value.feedback, "Informe state ou feedback");
+
+export const planRequestSchema = z.object({
+  propertyId: id,
+  target: z.number().positive().max(100000),
+  statedCurrent: z.number().positive().max(100000).optional(),
+  protectedApplianceIds: z.array(id).max(50).optional(),
 }).strict();
+export const planActionSchema = z.object({ status: z.enum(["pending", "applied", "skipped"]) }).strict();
+export const alertStateSchema = z.object({ state: z.enum(["new", "read", "dismissed"]) }).strict();
 
 export const RECOMMENDATION_KINDS = [
   "reduce_usage", "review_power", "enable_measurement", "check_device", "investigate_increase",
   "set_goal", "review_continuous", "consider_replacement",
 ] as const;
-export const ALERT_KINDS = ["consumption_increase", "goal_risk", "forecast", "missing_reading", "persistent_anomaly"] as const;
+export const ALERT_KINDS = ["consumption_increase", "goal_risk", "forecast", "missing_reading", "persistent_anomaly", "appliance_anomaly", "savings_opportunity"] as const;
 
 // Only what the user sets explicitly. Nothing the model infers is saved here.
 export const preferencesSchema = z.object({
@@ -92,6 +102,8 @@ export const actionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("open_simulator"), label: z.string().max(80), propertyId: id, applianceId: id, proposedHours: z.number().min(0).max(24).optional() }),
   z.object({ type: z.literal("open_page"), label: z.string().max(80), path: z.enum(["/dashboard", "/aparelhos", "/relatorios", "/anomalias", "/imoveis", "/integracoes/smartthings"]) }),
   z.object({ type: z.literal("ask"), label: z.string().max(80), message: z.string().max(200) }),
+  // Saves a plan the backend recomputes from these inputs; nothing else is trusted.
+  z.object({ type: z.literal("save_plan"), label: z.string().max(80), propertyId: id, target: z.number().positive().max(100000), statedCurrent: z.number().positive().max(100000).optional() }),
 ]);
 
 export const metricSchema = z.object({
@@ -120,6 +132,11 @@ export const cardSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("choices"), title: z.string(), items: z.array(z.object({ id: z.string(), label: z.string(), sublabel: z.string().nullable() })) }),
   z.object({ type: z.literal("trend"), title: z.string(), points: z.array(z.object({ month: z.string(), estimatedKWh: z.number(), estimatedCost: z.number(), measuredKWh: z.number().nullable() })) }),
   z.object({ type: z.literal("comparison"), title: z.string(), source, items: z.array(z.object({ label: z.string(), value: z.number(), unit: z.enum(["kWh", "R$", "%"]) })) }),
+  z.object({
+    type: z.literal("investigation"),
+    steps: z.array(z.object({ tool: z.string(), ok: z.boolean(), skipped: z.string().nullable(), findings: z.number() })),
+    findings: z.array(z.object({ id: z.string(), text: z.string(), evidence: source, confidence: z.enum(["alta", "media", "baixa"]), applianceId: z.string().nullable() })),
+  }),
 ]);
 
 export const responseSchema = z.object({

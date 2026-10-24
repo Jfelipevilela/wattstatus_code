@@ -68,6 +68,7 @@ test('SDK provider: typed errors map to retryable or not', async () => {
   await assert.rejects(make(server).complete({ model: 'm', system: '', messages: [], maxTokens: 1 }), (e) => e.retryable && e.status === 500);
   await assert.rejects(make(bad).complete({ model: 'm', system: '', messages: [], maxTokens: 1 }), (e) => !e.retryable && e.status === 400);
   await assert.rejects(make(new Anthropic.APIUserAbortError()).complete({ model: 'm', system: '', messages: [], maxTokens: 1 }), (e) => !e.retryable);
+  await assert.rejects(make(new Anthropic.APIConnectionError({ message: 'down' })).complete({ model: 'm', system: '', messages: [], maxTokens: 1 }), (e) => e.retryable && e.status === null);
 });
 
 test('SDK provider: refusal is a failure, not a rewrite', async () => {
@@ -216,6 +217,9 @@ const memoryStore = () => {
     listAlerts: async (u) => alerts.filter((a) => a.userId === u),
     getSettings: async () => settings,
     saveSettings: async (p) => { settings = { ...settings, ...p }; return settings; },
+    dismissedRecommendations: async () => [], setRecommendationFeedback: async () => {}, setAlertState: async () => true, markDelivered: async () => {},
+    listAlertRecipients: async () => [], savePlan: async (u, p) => ({ ...p, id: 'x', userId: u }), listPlans: async () => [], getPlan: async () => null,
+    setPlanAction: async () => null, deletePlan: async () => false, costSince: async () => 0,
     deleteUserData: async () => {},
   };
 };

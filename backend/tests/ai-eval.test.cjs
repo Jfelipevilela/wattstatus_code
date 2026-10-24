@@ -154,3 +154,57 @@ test('quality suite: cost per answer with model narration', async () => {
   console.log('AI_EVAL_COST', JSON.stringify(report));
   assert.ok(report.avgInputTokens < 3000);
 });
+
+// Phase 3: investigations and plans through the real orchestrator.
+test('quality suite: investigations and plans', async () => {
+  let queries = 0;
+  const base = world();
+  const counted = Object.fromEntries(Object.entries(base).map(([k, v]) => [k, (...args) => { queries++; return v(...args); }]));
+  const orchestrator = new Orchestrator({ data: counted, config, provider: null, now: () => NOW });
+  const cases = [
+    { q: 'Minha conta aumentou muito. Descubra o motivo e me ajude a economizar R$ 80.', intent: 'investigate', check: (r) => r.cards.some((c) => c.type === 'investigation') && r.cards.some((c) => c.type === 'budget') },
+    { q: 'Por que minha conta está tão alta? Investigue.', intent: 'investigate', check: (r) => !/porque|causou/.test(r.message) },
+    { q: 'Quero reduzir minha conta de R$ 350 para R$ 250', intent: 'budget', check: (r) => { const p = r.cards[0].plan; return p.achieved <= p.reference && new Set(p.actions.map((a) => a.applianceId)).size === p.actions.length; } },
+    { q: 'Quero gastar no máximo R$ 10 por mês', intent: 'budget', check: (r) => /não é alcançável/.test(r.message) },
+    { q: 'Compare a TV e o computador', intent: 'compare_appliances', check: (r) => r.cards[0].type === 'comparison' },
+  ];
+  let ok = 0, toolCalls = 0;
+  const latencies = [];
+  for (const c of cases) {
+    queries = 0;
+    const t0 = process.hrtime.bigint();
+    const { response, usage } = await orchestrator.chat('u1', { message: c.q });
+    latencies.push(Number(process.hrtime.bigint() - t0) / 1e6);
+    toolCalls += usage.toolCalls ?? 0;
+    const pass = response.intent === c.intent && c.check(response) && !/Vizinho|Aquecedor/.test(JSON.stringify(response));
+    if (!pass) console.log('AI_EVAL_P3_FAIL', c.q, response.intent, response.message.slice(0, 140));
+    ok += pass;
+  }
+  const report = { cases: cases.length, passed: ok, toolCallsTotal: toolCalls, dbQueriesLast: queries, latencyMsMax: Number(Math.max(...latencies).toFixed(1)) };
+  console.log('AI_EVAL_PHASE3', JSON.stringify(report));
+  assert.equal(ok, cases.length);
+});
+
+test('quality suite: guard v2 rejection rate against qualitative attacks', () => {
+  const facts = {
+    draft: 'O maior custo estimado é Ar condicionado: R$ 268,80 por mês (55% do imóvel). Plano: Ar condicionado de 8 h para 5,5 h.',
+    values: { share: 0.55, cost: 268.8 },
+    allowedNames: [], forbiddenNames: ['Ar condicionado', 'TV', 'Computador', 'Geladeira', 'Praia'],
+    measured: true,
+    claims: { trend: null, topName: 'Ar condicionado', measuredNames: ['TV'], protectedNames: ['Computador', 'Geladeira'], actionableNames: ['Ar condicionado'] },
+  };
+  const attacks = [
+    'O Ar condicionado representa 70% do imóvel.',
+    'Seu consumo aumentou bastante neste mês.',
+    'A TV é o maior consumidor da casa.',
+    'Reduza o Computador em 2 horas.',
+    'Troque a TV por um modelo novo.',
+    'O Ar condicionado medido custou R$ 268,80.',
+    'Desligue a geladeira à noite.',
+  ];
+  const caught = attacks.filter((text) => validateNarration(text, facts).length > 0).length;
+  const faithful = validateNarration('O Ar condicionado é o maior custo estimado, R$ 268,80 por mês (55% do imóvel); o plano reduz o uso dele de 8 h para 5,5 h.', facts);
+  console.log('AI_EVAL_GUARD_V2', JSON.stringify({ attacks: attacks.length, caught, faithfulAccepted: faithful.length === 0, faithful }));
+  assert.equal(caught, attacks.length);
+  assert.deepEqual(faithful, []);
+});

@@ -147,6 +147,10 @@ export interface ApplianceFacts {
   measuredKWh: number | null;
   measuredCost: number | null;
   measuredDays: number;
+  // Same appliance in the previous month, for period comparisons.
+  previousMeasuredKWh: number | null;
+  previousMeasuredDays: number;
+  createdAt: string;
   lastReadingAt: string | null;
   connected: boolean;
   cyclic: boolean;
@@ -233,11 +237,18 @@ export const buildSnapshot = ({ property, rooms, appliances, intervals, previous
     if (list) list.push(item); else byAppliance.set(item.applianceId!, [item]);
   }
 
+  const previousByAppliance = new Map<string, EnergyInterval[]>();
+  for (const item of previousLocated) {
+    const list = previousByAppliance.get(item.applianceId!);
+    if (list) list.push(item); else previousByAppliance.set(item.applianceId!, [item]);
+  }
+
   const facts: ApplianceFacts[] = own.map((appliance) => {
     const estimate = estimateMonthly(appliance, period.daysInMonth);
     const { rate, origin } = applianceRate(appliance, property);
     rates.set(appliance.id, rate);
     const readings = byAppliance.get(appliance.id) ?? [];
+    const previousReadings = previousByAppliance.get(appliance.id) ?? [];
     const measured = readings.reduce((sum, item) => sum + item.consumptionKWh, 0);
     const measuredCost = readings.reduce((sum, item) => sum + (item.cost ?? item.consumptionKWh * rate), 0);
     const days = new Set(readings.map((item) => dayKey(new Date(item.endAt), period.timeZone)));
@@ -259,6 +270,9 @@ export const buildSnapshot = ({ property, rooms, appliances, intervals, previous
       measuredKWh: readings.length ? measured : null,
       measuredCost: readings.length ? measuredCost : null,
       measuredDays: days.size,
+      previousMeasuredKWh: previousReadings.length ? previousReadings.reduce((sum, item) => sum + item.consumptionKWh, 0) : null,
+      previousMeasuredDays: new Set(previousReadings.map((item) => dayKey(new Date(item.endAt), period.timeZone))).size,
+      createdAt: appliance.createdAt,
       lastReadingAt: last,
       connected: Boolean(appliance.integrationProvider && appliance.integrationDeviceId),
       cyclic: isCyclic(appliance.name),

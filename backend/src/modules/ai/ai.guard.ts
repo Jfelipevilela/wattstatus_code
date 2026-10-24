@@ -14,10 +14,25 @@ export interface GuardFacts {
   forbiddenNames: string[];
   // True when the facts contain real measurements.
   measured: boolean;
+  // Structured claims the rewrite may make (all optional). When a claim type
+  // is present in the rewrite but cannot be checked, the rewrite is refused.
+  claims?: {
+    // Direction of the measured trend, or null when there is none.
+    trend?: "up" | "down" | "flat" | null;
+    // The appliance the facts rank first.
+    topName?: string | null;
+    // Appliances with real readings; "medido" next to any other is refused.
+    measuredNames?: string[];
+    // Appliances the user protected (essential, comfort floor, "não quero").
+    protectedNames?: string[];
+    // Appliances the facts recommend acting on.
+    actionableNames?: string[];
+  };
 }
 
 export type GuardViolation =
-  | "number" | "unit" | "name" | "source" | "causal" | "guarantee" | "period" | "insufficient" | "essential" | "length";
+  | "number" | "unit" | "name" | "source" | "causal" | "guarantee" | "period" | "insufficient" | "essential" | "length"
+  | "percent" | "direction" | "superlative" | "constraint" | "recommendation";
 
 const UNITS: Record<string, number> = {
   zero: 0, um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9,
@@ -99,6 +114,45 @@ const GUARANTEE = /(garant|com certeza|certamente|sem duvida|com seguranca|exata
 const PERIOD = /(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|ontem|anteontem|semana passada|ano passado|ultimo ano|ultimos \d+ (dias|meses)|trimestre|semestre)/g;
 const MEASURED_CLAIM = /(?<!(?:nao|sem) (?:e |foi |esta |tem |possui |ha )?)(medid[oa]s?|medicao real|leitura real)/;
 const INSUFFICIENT = /(nao (ha|tenho|existem?) (dados|informac|medic|historico)|insuficient|ainda nao da|nao e possivel|sem dados|nao (consigo|da para) (determinar|prever|comparar))/;
+const INCREASE = /(aument|subiu|subir|cresceu|crescimento|esta maior|ficou maior|alta no consumo|disparou)/;
+const DECREASE = /(diminuiu|caiu|reduziu|queda|esta menor|ficou menor)/;
+const SUPERLATIVE = /(o que mais (gasta|consome|pesa)|maior (consumidor|custo|gasto|peso)|mais caro|campeao de consumo)/g;
+const ACTION = /(reduz\w*|diminu\w*|deslig\w*|cortar|corte|usar menos|troc\w*|substitu\w*)/g;
+
+// Subject of a claim: the closest known name on the preferred side of the
+// claim ("a TV é medida": before; "reduza a TV": after), else the other side.
+// Only names inside the same clause count.
+const nameNear = (t: string, index: number, names: string[], prefer: "before" | "after", window = 60) => {
+  const clauseStart = Math.max(t.lastIndexOf(";", index), t.lastIndexOf(".", index - 1), t.lastIndexOf(",", index - 1)) + 1;
+  const ends = [t.indexOf(";", index), t.indexOf(".", index), t.indexOf(",", index)].filter((at) => at >= 0);
+  const clauseEnd = ends.length ? Math.min(...ends) : t.length;
+  const pick = (side: "before" | "after") => {
+    let best: { name: string; distance: number } | null = null;
+    for (const name of names) {
+      let from = 0, at: number;
+      while ((at = t.indexOf(name, from)) >= 0) {
+        from = at + name.length;
+        if (side === "before" ? at + name.length > index || at < clauseStart : at < index || at + name.length > clauseEnd) continue;
+        const distance = side === "before" ? index - (at + name.length) : at - index;
+        if (distance <= window && (!best || distance < best.distance)) best = { name, distance };
+      }
+    }
+    return best?.name ?? null;
+  };
+  return pick(prefer) ?? pick(prefer === "before" ? "after" : "before");
+};
+const draftClaims = (draft: string, pattern: RegExp, subject: string, prefer: "before" | "after") => {
+  for (const match of draft.matchAll(new RegExp(pattern.source, "g"))) if (nameNear(draft, match.index!, [subject], prefer) === subject) return true;
+  return false;
+};
+const collectPercents = (value: unknown, out: Set<number>, key = "") => {
+  if (typeof value === "number" && Number.isFinite(value) && /(share|percent|coverage|change|factor|wape)/i.test(key)) {
+    for (const d of [0, 1]) { out.add(Number((value * 100).toFixed(d))); out.add(Number(value.toFixed(d))); }
+  } else if (Array.isArray(value)) value.forEach((item) => collectPercents(item, out, key));
+  else if (value && typeof value === "object") for (const [k, v] of Object.entries(value)) collectPercents(v, out, k);
+  else if (typeof value === "string") for (const q of extractQuantities(value)) if (q.unit === "%") out.add(q.value);
+};
+
 const ESSENTIAL_CUT = /(deslig|reduz|diminu|cortar|menos).{0,30}(geladeira|refrigerador|freezer|frigobar|roteador|alarme|camera|bomba)|(geladeira|refrigerador|freezer|frigobar|roteador|alarme|camera|bomba).{0,30}(deslig|reduz|diminu|menos tempo)/;
 
 export const validateNarration = (text: string, facts: GuardFacts): GuardViolation[] => {
@@ -122,6 +176,14 @@ export const validateNarration = (text: string, facts: GuardFacts): GuardViolati
     if (q.unit && draftUnits && !draftUnits.has(q.unit) && ![...draftUnits].every((unit) => unit === null)) violations.add("unit");
   }
 
+  // Percentages: only shares, coverage and changes the facts contain.
+  const percents = new Set<number>();
+  collectPercents(facts.values, percents);
+  for (const q of draftQuantities) if (q.unit === "%") percents.add(q.value);
+  for (const q of extractQuantities(text)) {
+    if (q.unit === "%" && !percents.has(q.value) && !percents.has(Math.round(q.value))) violations.add("percent");
+  }
+
   // Names: no appliance, room or property beyond those in the facts.
   const cited = normalize(JSON.stringify(facts.values) ?? "");
   for (const name of facts.forbiddenNames) {
@@ -134,6 +196,30 @@ export const validateNarration = (text: string, facts: GuardFacts): GuardViolati
 
   // Source: "medido" only when there are measurements or the draft says so.
   if (!facts.measured && MEASURED_CLAIM.test(t) && !MEASURED_CLAIM.test(draft)) violations.add("source");
+
+  // Qualitative claims, checked against structured facts.
+  const claims = facts.claims ?? {};
+  const names = [...new Set([...facts.allowedNames, ...facts.forbiddenNames].map(normalize).filter((name) => name.length >= 2))];
+  if (INCREASE.test(t) && !INCREASE.test(draft) && claims.trend !== "up") violations.add("direction");
+  if (DECREASE.test(t) && !DECREASE.test(draft) && claims.trend !== "down") violations.add("direction");
+  for (const match of t.matchAll(SUPERLATIVE)) {
+    const subject = nameNear(t, match.index!, names, "before");
+    if (subject && normalize(claims.topName ?? "") !== subject && !draftClaims(draft, SUPERLATIVE, subject, "before")) violations.add("superlative");
+    if (!subject && !claims.topName && !new RegExp(SUPERLATIVE.source).test(draft)) violations.add("superlative");
+  }
+  if (claims.measuredNames) {
+    const measured = new Set(claims.measuredNames.map(normalize));
+    for (const match of t.matchAll(new RegExp(MEASURED_CLAIM.source, "g"))) {
+      const subject = nameNear(t, match.index!, names, "before");
+      if (subject && !measured.has(subject) && !draftClaims(draft, MEASURED_CLAIM, subject, "before")) violations.add("source");
+    }
+  }
+  for (const match of t.matchAll(ACTION)) {
+    const subject = nameNear(t, match.index!, names, "after", 50);
+    if (!subject) continue;
+    if (claims.protectedNames?.map(normalize).includes(subject) && !draftClaims(draft, ACTION, subject, "after")) violations.add("constraint");
+    else if (claims.actionableNames && !claims.actionableNames.map(normalize).includes(subject) && !draftClaims(draft, ACTION, subject, "after")) violations.add("recommendation");
+  }
 
   // Claims the draft does not make.
   if (CAUSAL.test(t) && !CAUSAL.test(draft)) violations.add("causal");

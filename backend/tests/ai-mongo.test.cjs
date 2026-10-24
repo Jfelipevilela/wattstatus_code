@@ -148,3 +148,48 @@ test('AI routes over MongoDB: budget limit counters and ownership', { skip: !uri
     } finally { server.close(); }
   });
 });
+
+test('AI store phase 3: plans, alert states, recipients, feedback and spend', { skip: !uri }, async () => {
+  await withDb(async (db) => {
+    const store = new MongoAIStore(db);
+    const plan = { version: 'plan-1', propertyId: 'p1', target: 200, statedCurrent: null, reference: 300, gap: 100, reachable: true, achieved: 110, achievedConservative: 80, remaining: 0,
+      actions: [{ applianceId: 'ac', applianceName: 'Ar', roomName: null, kind: 'reduce_hours', fromHours: 8, toHours: 6, monthlyKWh: 80, monthlyCost: 64, conservativeCost: 32, effort: 'medio', source: 'simulated' },
+        { applianceId: 'tv', applianceName: 'TV', roomName: null, kind: 'reduce_hours', fromHours: 5, toHours: 4, monthlyKWh: 4, monthlyCost: 46, conservativeCost: 46, effort: 'baixo', source: 'simulated' }],
+      ideas: [], excluded: [], assumptions: [], uncertainty: [] };
+    const saved = await store.savePlan('a', plan);
+    assert.equal(saved._id, undefined);
+    assert.equal((await store.listPlans('a')).length, 1);
+    assert.equal(await store.getPlan('b', saved.id), null);
+    assert.equal(await store.setPlanAction('b', saved.id, 'ac', 'applied'), null);
+    const updated = await store.setPlanAction('a', saved.id, 'ac', 'applied');
+    assert.deepEqual(updated.actions.map((a) => a.status), ['applied', 'pending']);
+    for (let i = 0; i < 22; i++) await store.savePlan('a', plan);
+    assert.equal((await store.listPlans('a')).length, 20);
+
+    await store.saveAlerts('a', [{ key: 'goal_risk:p1:2026-10', kind: 'goal_risk', priority: 'alta', title: 't', detail: 'd', propertyId: 'p1' }], 0);
+    assert.equal(await store.setAlertState('b', 'goal_risk:p1:2026-10', 'dismissed'), false);
+    assert.equal(await store.setAlertState('a', 'goal_risk:p1:2026-10', 'dismissed'), true);
+    await store.markDelivered('a', 'goal_risk:p1:2026-10', 'test');
+    const [alert] = await store.listAlerts('a');
+    assert.equal(alert.state, 'dismissed');
+    assert.equal(alert.priority, 'alta');
+    assert.equal(alert.channel, 'test');
+
+    for (const u of ['u3', 'u1', 'u2']) await store.savePreferences(u, { proactiveInsights: true, alertFrequency: 'daily' });
+    await store.savePreferences('u0', { proactiveInsights: false });
+    const page1 = await store.listAlertRecipients(null, 2);
+    assert.deepEqual(page1.map((r) => r.userId), ['u1', 'u2']);
+    assert.deepEqual((await store.listAlertRecipients('u2', 2)).map((r) => r.userId), ['u3']);
+
+    await store.setRecommendationFeedback('a', 'reduce_usage:tv', 'not_useful');
+    await store.setRecommendationState('a', { recommendationId: 'reduce_usage:ac', state: 'dismissed' });
+    assert.deepEqual(await store.dismissedRecommendations('a'), ['reduce_usage:ac']);
+    assert.equal((await store.listRecommendationStates('a')).find((s) => s.recommendationId === 'reduce_usage:tv').feedback, 'not_useful');
+
+    await store.recordUsage('a', { feature: 'chat', intent: 'x', generated: 'llm', model: 'm', inputTokens: 1, outputTokens: 1, estimatedCostUsd: 0.25, latencyMs: 1 });
+    await store.recordUsage('b', { feature: 'chat', intent: 'x', generated: 'llm', model: 'm', inputTokens: 1, outputTokens: 1, estimatedCostUsd: 0.5, latencyMs: 1 });
+    assert.equal(await store.costSince(new Date(Date.now() - 86400000)), 0.75);
+    await store.deleteUserData('a');
+    assert.equal((await store.listPlans('a')).length, 0);
+  });
+});

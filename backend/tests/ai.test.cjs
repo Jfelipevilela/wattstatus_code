@@ -295,6 +295,9 @@ const createStore = () => {
     listConversations: async () => [], getConversation: async () => null, deleteConversation: async () => false,
     saveAlerts: async () => [], listAlerts: async () => [],
     getSettings: async () => ({}), saveSettings: async (p) => p,
+    dismissedRecommendations: async () => [], setRecommendationFeedback: async () => {}, setAlertState: async () => true, markDelivered: async () => {},
+    listAlertRecipients: async () => [], savePlan: async (u, p) => ({ ...p, id: 'x', userId: u }), listPlans: async () => [], getPlan: async () => null,
+    setPlanAction: async () => null, deletePlan: async () => false, costSince: async () => 0,
   };
 };
 const serve = async (userId = 'u1', overrides = {}) => {

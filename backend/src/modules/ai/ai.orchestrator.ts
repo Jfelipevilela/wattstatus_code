@@ -14,8 +14,10 @@ import type { ChatContext, ChatRequest, WattAIAction, WattAICard, WattAIMetric, 
 import { responseSchema, preferencesSchema } from "./ai.schemas";
 import type { z } from "zod";
 import { AIConfig, ModelProvider, completeWithLimits } from "./ai.provider";
-import { SYSTEM_PROMPT, narrationPrompt, classificationPrompt } from "./ai.prompts";
-import { validateNarration, type GuardViolation } from "./ai.guard";
+import { SYSTEM_PROMPT, narrationPrompt, classificationPrompt, investigationPlanPrompt } from "./ai.prompts";
+import { validateNarration, type GuardFacts, type GuardViolation } from "./ai.guard";
+import { buildSavingsPlan, parsePlanRequest } from "./ai.plans";
+import { DEFAULT_BUDGET, defaultPlan, modelPlanSchema, runInvestigation, sanitizePlan, TOOL_NAMES, type Investigation, type ToolName } from "./ai.tools";
 
 export interface AIDataSource {
   listProperties(userId: string): Promise<PropertyRecord[]>;
@@ -30,12 +32,12 @@ export type Intent =
   | "greeting" | "property_summary" | "top_consumers" | "room_ranking" | "appliance_detail"
   | "forecast" | "compare_periods" | "coverage" | "anomalies" | "recommendations"
   | "simulate_reduction" | "simulate_annual" | "simulate_replacement" | "budget"
-  | "compare_properties" | "device_command" | "explain_chart" | "unknown";
+  | "compare_properties" | "device_command" | "explain_chart" | "investigate" | "compare_appliances" | "unknown";
 
 export const INTENTS: Intent[] = [
   "greeting", "property_summary", "top_consumers", "room_ranking", "appliance_detail", "forecast",
   "compare_periods", "coverage", "anomalies", "recommendations", "simulate_reduction", "simulate_annual",
-  "simulate_replacement", "budget", "compare_properties", "device_command", "explain_chart", "unknown",
+  "simulate_replacement", "budget", "compare_properties", "device_command", "explain_chart", "investigate", "compare_appliances", "unknown",
 ];
 
 // ---------------------------------------------------------------- parsing
@@ -78,7 +80,10 @@ export const classifyIntent = (text: string, context?: ChatContext): Intent => {
   if (/(em|por|num) (um )?ano|anual/.test(t) && (context?.lastIntent?.startsWith("simulate") || /economiz/.test(t)) && !hours) return "simulate_annual";
   if (hours && /(economi|menos|reduz|diminu|se eu|quanto|antes|cortar)/.test(t)) return "simulate_reduction";
   if (hours && context?.lastIntent?.startsWith("simulate")) return "simulate_reduction";
+  if (/(descubr|investig|qual (o|e o) motivo|por que .*(conta|consumo|gasto).*(aument|subiu|alta|cara)|(conta|consumo|gasto).*(aumentou muito|subiu muito|disparou|esta (muito )?alta))/.test(t)) return "investigate";
   if (/(trocar|substituir|troca|mais eficiente|inverter|novo modelo)/.test(t)) return "simulate_replacement";
+  if (/\bcompar/.test(t) && /\b(e|com|x|versus|vs)\b/.test(t) && !/(imove|ambiente|comodo|mes|periodo)/.test(t)) return "compare_appliances";
+  if (/(plano de economia|de r\$ ?\d[\d.,]* para r\$ ?\d)/.test(t) && parseMoney(text) !== null) return "budget";
   if (/(no maximo|meta|orcamento|limite de|reduzir (a |minha )?conta|economizar r\$|baixar (a |minha )?conta)/.test(t) && parseMoney(text) !== null) return "budget";
   if (/(dois imoveis|imoveis|outra casa|cada imovel)/.test(t) && /(compar|qual|diferen|versus|vs)/.test(t)) return "compare_properties";
   if (/(anomal|estranh|fora do (padrao|normal)|incomum|investig|pico|alteracao)/.test(t)) return "anomalies";
@@ -166,6 +171,8 @@ interface Draft {
   actions: WattAIAction[];
   context: ChatContext;
   facts: Record<string, unknown>;
+  // Structured qualitative claims a rewrite may make (see ai.guard).
+  claims?: GuardFacts["claims"];
   complex?: boolean;
 }
 
@@ -213,7 +220,7 @@ export const handleIntent = (
   intent: Intent,
   request: ChatRequest,
   snapshot: PropertySnapshot,
-  all: { snapshots: PropertySnapshot[]; preferences: AIPreferences; chart?: ChartExplanation },
+  all: { snapshots: PropertySnapshot[]; preferences: AIPreferences; chart?: ChartExplanation; investigation?: Investigation },
 ): Draft => {
   const context = request.context ?? {};
   const draft = emptyDraft(intent, snapshot, context);
@@ -449,10 +456,9 @@ export const handleIntent = (
       return draft;
     }
     case "budget": {
-      const amount = parseMoney(request.message)!;
       const t = normalize(request.message);
-      const reduceBy = /(reduzir|economizar|baixar|cortar)/.test(t) && !/no maximo|meta|limite/.test(t);
-      const target = reduceBy ? Math.max(0, totals.estimatedCost - amount) : amount;
+      const parsed = parsePlanRequest(request.message, totals.estimatedCost)!;
+      const target = parsed.target;
       const protectedIds = [...essential];
       // "não quero diminuir o computador": the user's own constraint wins.
       for (const clause of t.split(/[,.;]| mas /)) {
@@ -460,33 +466,93 @@ export const handleIntent = (
           for (const item of matchAppliances(clause, snapshot)) protectedIds.push(item.id);
         }
       }
-      const plan = planBudget(snapshot, target, {
+      const plan = buildSavingsPlan(snapshot, target, {
         protectedIds,
         maxReduction: (all.preferences.maxReductionPercent ?? 30) / 100,
         minHours: all.preferences.minHoursByAppliance,
+        statedCurrent: parsed.statedCurrent,
       });
       if (plan.gap <= 0) {
-        draft.message = `O custo estimado atual (${brl(money(plan.current))}) já está dentro da meta de ${brl(money(target))}. Posso avisar se a previsão do mês passar desse valor.`;
+        draft.message = `O custo estimado atual (${brl(money(plan.reference))}) já está dentro da meta de ${brl(money(target))}. Posso avisar se a previsão do mês passar desse valor.`;
       } else {
-        draft.message = `Para sair de ${brl(money(plan.current))} e chegar a ${brl(money(target))} por mês, é preciso reduzir ${brl(money(plan.gap))}. `
+        draft.message = `Para sair de ${brl(money(plan.reference))} e chegar a ${brl(money(target))} por mês, é preciso reduzir ${brl(money(plan.gap))}. `
           + (plan.actions.length
-            ? `Um plano possível: ${plan.actions.map((item) => `${safeName(item.applianceName)} de ${hoursText(item.fromHours)} para ${hoursText(item.toHours)} por dia (${brl(money(item.monthlyCost))})`).join("; ")}. `
+            ? `Plano: ${plan.actions.map((item) => `${safeName(item.applianceName)} de ${hoursText(item.fromHours)} para ${hoursText(item.toHours)} por dia (${brl(money(item.monthlyCost))}, esforço ${item.effort === "medio" ? "médio" : item.effort})`).join("; ")}. `
             : "")
           + (plan.reachable
             ? `Juntas, essas mudanças somam cerca de ${brl(money(plan.achieved))} por mês.`
-            : `Mesmo assim a economia fica em ${brl(money(plan.achieved))}; a meta exige mudanças maiores ou troca de equipamentos.`);
+            : `As mudanças permitidas somam ${brl(money(plan.achieved))}; faltam ${brl(money(plan.remaining))}. A meta não é alcançável só com cortes de uso dentro dos seus limites.`);
       }
       if (plan.excluded.length) draft.limitations.push(`Fora do plano: ${plan.excluded.map((item) => `${safeName(item.applianceName)} (${item.reason})`).join(", ")}.`);
-      draft.limitations.push("Economia simulada, sem garantia de resultado exato.");
+      draft.limitations.push(...plan.uncertainty);
       draft.metrics.push(
-        { label: "Custo estimado atual", value: money(plan.current), unit: "R$", source: "estimated" },
+        { label: "Custo estimado atual", value: money(plan.reference), unit: "R$", source: "estimated" },
         { label: "Meta", value: money(target), unit: "R$", source: "simulated" },
         { label: "Economia do plano", value: money(plan.achieved), unit: "R$", source: "simulated" },
       );
-      draft.cards.push({ type: "budget", plan: plan as unknown as Record<string, unknown> });
+      draft.cards.push({ type: "budget", plan: { ...plan, current: plan.reference } as unknown as Record<string, unknown> });
+      if (plan.actions.length) draft.actions.push({ type: "save_plan", label: "Salvar este plano", propertyId: snapshot.property.id, target: money(target), statedCurrent: parsed.statedCurrent ?? undefined });
       draft.facts = { plan };
+      draft.claims = { protectedNames: snapshot.appliances.filter((item) => protectedIds.includes(item.id) || item.essential).map((item) => item.name), actionableNames: plan.actions.map((item) => item.applianceName) };
       draft.complex = protectedIds.length > 0;
       return draft;
+    }
+    case "investigate": {
+      const investigation = all.investigation!;
+      const evidence = investigation.findings.filter((finding) => finding.tool !== "savings_plan");
+      draft.message = investigation.conclusion;
+      const planFinding = investigation.findings.find((finding) => finding.tool === "savings_plan");
+      if (planFinding) draft.message += ` ${planFinding.text}`;
+      draft.cards.push({
+        type: "investigation",
+        steps: investigation.steps.map((step) => ({ tool: step.tool, ok: step.ok, skipped: step.skipped ?? null, findings: step.findings.length })),
+        findings: evidence.slice(0, 8).map((finding) => ({ id: finding.id, text: finding.text, evidence: finding.evidence, confidence: finding.confidence, applianceId: finding.applianceId ?? null })),
+      });
+      if (investigation.plan && investigation.plan.gap > 0) {
+        draft.cards.push({ type: "budget", plan: { ...investigation.plan, current: investigation.plan.reference } as unknown as Record<string, unknown> });
+        if (investigation.plan.actions.length) draft.actions.push({ type: "save_plan", label: "Salvar este plano", propertyId: snapshot.property.id, target: money(investigation.plan.target) });
+        draft.limitations.push(...investigation.plan.uncertainty);
+      }
+      const focus = evidence.find((finding) => finding.applianceId && finding.tool === "appliance_changes") ?? evidence.find((finding) => finding.applianceId);
+      const item = focus && snapshot.appliances.find((entry) => entry.id === focus.applianceId);
+      if (item) {
+        draft.actions.push(openAppliance(snapshot, item), openSimulator(snapshot, item));
+        draft.context.applianceId = item.id;
+      }
+      if (investigation.insufficient) draft.limitations.push("Conecte medidores para que a investigação compare consumo real entre períodos.");
+      draft.limitations.push("A investigação aponta onde olhar; correlação não prova causa.");
+      draft.suggestions.push("Monte um plano para economizar R$ 50", "Quais dispositivos estão sem medição?");
+      draft.facts = { findings: evidence, conclusion: investigation.conclusion, plan: investigation.plan ?? null };
+      const comparison = comparePeriods(snapshot);
+      draft.claims = {
+        trend: comparison.status === "ok" && comparison.change !== null ? (Math.abs(comparison.change) < 0.05 ? "flat" : comparison.change > 0 ? "up" : "down") : null,
+        topName: snapshot.appliances[0]?.name ?? null,
+        actionableNames: investigation.plan?.actions.map((action) => action.applianceName) ?? [],
+      };
+      draft.complex = true;
+      return draft;
+    }
+    case "compare_appliances": {
+      const hits = matchAppliances(request.message, snapshot);
+      const named = snapshot.appliances.filter((item) => hits.includes(item)).slice(0, 4);
+      if (named.length < 2) {
+        draft.message = "Diga dois aparelhos cadastrados para comparar, por exemplo \"compare a TV e o computador\".";
+        return draft;
+      }
+      const [a, b] = named;
+      const ratio = b.estimatedCost > 0 ? a.estimatedCost / b.estimatedCost : null;
+      draft.message = `${safeName(a.name)} custa ${brl(money(a.estimatedCost))} por mês (${a.power} W × ${hoursText(a.usageHours)}/dia) e ${safeName(b.name)} custa ${brl(money(b.estimatedCost))} (${b.power} W × ${hoursText(b.usageHours)}/dia), pelo cadastro.`
+        + (ratio && ratio !== 1 ? ` ${safeName(ratio > 1 ? a.name : b.name)} pesa mais na conta.` : "");
+      draft.cards.push({
+        type: "comparison", title: "Custo estimado por mês", source: "estimated",
+        items: named.map((item) => ({ label: safeName(item.name), value: money(item.estimatedCost), unit: "R$" as const })),
+      });
+      for (const item of named.slice(0, 2)) draft.actions.push(openSimulator(snapshot, item));
+      if (named.some((item) => item.measuredKWh !== null)) {
+        draft.limitations.push(`Medido neste mês: ${named.map((item) => `${safeName(item.name)} ${item.measuredKWh === null ? "sem leitura" : kwhText(item.measuredKWh)}`).join(", ")}.`);
+      }
+      draft.claims = { topName: (a.estimatedCost >= b.estimatedCost ? a : b).name, measuredNames: named.filter((item) => item.measuredKWh !== null).map((item) => item.name) };
+      break;
     }
     case "forecast": {
       const forecast = forecastMonth(snapshot);
@@ -701,6 +767,7 @@ export interface UsageRecord {
   latencyMs: number;
   error?: string;
   guardViolations?: GuardViolation[];
+  toolCalls?: number;
 }
 
 export type ChatStage = "context" | "data" | "compute" | "narrate";
@@ -849,8 +916,41 @@ export class Orchestrator {
     const snapshots = intent === "compare_properties"
       ? await Promise.all(properties.map((item) => (item.id === property.id ? snapshot : loadSnapshot(this.deps.data, userId, item, appliances, now))))
       : [snapshot];
+    let investigation: Investigation | undefined;
+    if (intent === "investigate") {
+      // Plan: deterministic by default; a model may propose the order and the
+      // subset, validated against the whitelist and the budget.
+      let tools: ToolName[] = [];
+      const hasTarget = parseMoney(request.message) !== null;
+      if (modelAllowed && this.deps.provider && toolCalls < this.deps.config.maxToolCalls && ((await this.deps.reserveModelCall?.(userId)) ?? true)) {
+        toolCalls++;
+        try {
+          const result = await completeWithLimits(this.deps.provider, {
+            model: this.deps.config.modelFast,
+            system: investigationPlanPrompt(TOOL_NAMES),
+            messages: [{ role: "user", content: request.message }],
+            maxTokens: 120,
+            signal: options.signal,
+          }, this.deps.config.timeoutMs, 0);
+          this.addTokens(usage, result);
+          const json = result.text.match(/\{[\s\S]*\}/)?.[0];
+          const parsed = json ? modelPlanSchema.safeParse(JSON.parse(json)) : null;
+          if (parsed?.success) tools = sanitizePlan(parsed.data.tools, DEFAULT_BUDGET, hasTarget);
+          else usage.error = "plan_invalid";
+        } catch (error) {
+          usage.error = error instanceof Error ? error.message : "provider_error";
+        }
+      }
+      if (!tools.length) tools = sanitizePlan(defaultPlan(hasTarget), DEFAULT_BUDGET, hasTarget);
+      const protectedIds = [...(preferences.essentialApplianceIds ?? [])];
+      investigation = runInvestigation(snapshot, tools, {
+        planTarget: hasTarget ? parsePlanRequest(request.message, snapshot.totals.estimatedCost)?.target ?? null : null,
+        planOptions: { protectedIds, maxReduction: (preferences.maxReductionPercent ?? 30) / 100, minHours: preferences.minHoursByAppliance },
+      });
+      usage.toolCalls = investigation.budget.callsUsed;
+    }
     stage("compute");
-    const draft = handleIntent(intent, safeRequest, snapshot, { snapshots, preferences, chart });
+    const draft = handleIntent(intent, safeRequest, snapshot, { snapshots, preferences, chart, investigation });
     usage.intent = intent;
     if (!Object.keys(draft.facts).length) {
       draft.facts = { metrics: draft.metrics, cards: draft.cards };
@@ -884,6 +984,16 @@ export class Orchestrator {
             ...snapshot.rooms.map((item) => item.name),
           ],
           measured: snapshot.totals.measuredApplianceCount > 0,
+          claims: {
+            measuredNames: snapshot.appliances.filter((item) => item.measuredKWh !== null).map((item) => item.name),
+            protectedNames: snapshot.appliances.filter((item) => item.essential || preferences.essentialApplianceIds?.includes(item.id)).map((item) => item.name),
+            trend: (() => {
+              const comparison = comparePeriods(snapshot);
+              return comparison.status === "ok" && comparison.change !== null ? (Math.abs(comparison.change) < 0.05 ? "flat" : comparison.change > 0 ? "up" : "down") : null;
+            })(),
+            topName: snapshot.appliances[0]?.name ?? null,
+            ...draft.claims,
+          },
         });
         usage.guardViolations = violations;
         if (!violations.length) {
