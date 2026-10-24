@@ -23,6 +23,7 @@ import IntegrationUsage from "@/components/IntegrationUsage";
 import { SummaryHeader } from "@/components/dashboard/SummaryHeader";
 import { EnergyHero } from "@/components/dashboard/EnergyHero";
 import { EnergyInsights, type Insight } from "@/components/dashboard/EnergyInsights";
+import { AIInsights } from "@/components/wattai/AIInsights";
 import {
   ConsumptionTrendChart,
   type TrendPoint,
@@ -346,6 +347,7 @@ export default function Dashboard() {
                     status={status}
                   />
                   <EnergyInsights insights={insights.slice(0, 4)} />
+                  <AIInsights />
                   <div className="grid min-w-0 gap-6 lg:grid-cols-[1.6fr_1fr]">
                     <ConsumptionTrendChart data={trend} />
                     <ConsumptionDistribution

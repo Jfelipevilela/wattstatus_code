@@ -22,6 +22,8 @@ import { createReportRouter } from "./modules/reports/report.routes";
 import { PropertyService } from "./modules/properties/properties.service";
 import { createPropertyRouter } from "./modules/properties/properties.routes";
 import { createRequestLimiter, protectMutation } from "./middleware/security";
+import { createAIRouter } from "./modules/ai/ai.routes";
+import { MongoAIStore } from "./modules/ai/ai.store";
 
 export interface AppDependencies {
   db: MongoDatabase;
@@ -77,6 +79,17 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
   app.use("/api/analytics", authenticate, createAnalyticsRouter(db));
   app.use("/api/energy", authenticate, createEnergyRouter(db));
   app.use("/api/reports", authenticate, createReportRouter());
+  app.use("/api/ai", authenticate, createAIRouter({
+    data: {
+      listProperties: (userId) => propertyService.list(userId),
+      listRooms: (userId, propertyId) => propertyService.listRooms(userId, propertyId),
+      listAppliances: (userId) => applianceService.list(userId),
+      getEnergyHistory: (userId, start, end) => db.getEnergyHistory(userId, start, end),
+    },
+    store: new MongoAIStore(db),
+    limits: db,
+    getUserEmail: async (userId) => (await db.getUserById(userId))?.email ?? null,
+  }));
 
   app.use(errorHandler);
 

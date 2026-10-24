@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Building, Check, ChevronDown, Crown, DoorOpen, Loader2, LayoutTemplate, MapPin, Pencil, Plug, Plus, Radio, X } from "lucide-react";
+import { Building, Check, ChevronDown, Crown, DoorOpen, Loader2, LayoutTemplate, MapPin, Pencil, Plug, Plus, Radio, Sparkles, X } from "lucide-react";
 import { AppSidebar, SidebarProvider, SidebarTrigger } from "@/components/Sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import { notifyError } from "@/lib/error-toast";
 import { cn } from "@/lib/utils";
 import { zonedMonthRange, zonedParts } from "@/lib/timezone";
 import { PROPERTY_TYPES, type RoomLayout } from "@/types/property";
+import { useWattAI } from "@/components/wattai/WattAI";
 
 const TABS = [
   { value: "planta", label: "Planta" },
@@ -92,6 +93,28 @@ export default function PropertyDetail() {
   const [draft, setDraft] = useState<Map<string, RoomLayout>>(new Map());
   const [busyId, setBusyId] = useState<string | null>(null);
   const desktop = useDesktop();
+  const { openAssistant } = useWattAI();
+
+  // Deep links from WattStatus AI: ?sala=<roomId>&aparelho=<applianceId>
+  // select the room (and its floor) through the plan's own state.
+  const linkedRoom = params.get("sala");
+  const linkedAppliance = params.get("aparelho");
+  useEffect(() => {
+    if (!linkedRoom && !linkedAppliance) return;
+    const room = layout.rooms.find((item) => item.id === linkedRoom);
+    if (linkedRoom && !room) return;
+    if (room) {
+      setFloorId(room.floorId);
+      setSelectedRoomId(room.id);
+    }
+    setHighlighted(linkedAppliance);
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("sala");
+      next.delete("aparelho");
+      return next;
+    }, { replace: true });
+  }, [linkedRoom, linkedAppliance, layout.rooms]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const roomsForPlan = floorRooms.map((room) => (draft.has(room.id) ? { ...room, layout: draft.get(room.id)! } : room));
   const overlaps = overlappingRooms(roomsForPlan);
@@ -146,6 +169,24 @@ export default function PropertyDetail() {
   const Icon = property ? PROPERTY_ICONS[property.type] : Building;
 
   const panel = selectedRoom && property && (
+    <div className="flex h-full min-h-0 flex-col">
+    <button
+      type="button"
+      onClick={() => {
+        openAssistant({
+          message: `Analisar o consumo de ${selectedRoom.name}`,
+          context: { propertyId: property.id, roomId: selectedRoom.id },
+        });
+        // On phones the room sheet would cover the assistant.
+        if (!desktop) setSelectedRoomId(null);
+      }}
+      className={cn(
+        "ml-4 mt-3 inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted",
+        desktop ? "mr-4" : "mr-14",
+      )}
+    >
+      <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden /> Analisar consumo deste ambiente
+    </button>
     <RoomPanel
       property={property}
       properties={api.properties}
@@ -169,6 +210,7 @@ export default function PropertyDetail() {
       }
       floorName={layout.floors.length > 1 ? layout.floors.find((floor) => floor.id === selectedRoom.floorId)?.name : undefined}
     />
+    </div>
   );
 
   return (

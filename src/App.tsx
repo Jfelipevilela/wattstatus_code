@@ -8,6 +8,7 @@ import { lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { AppsProvider } from "./hooks/useApps";
 import { UserPreferencesProvider } from "./hooks/useUserPreferences";
+import { WattAIProvider } from "./components/wattai/WattAI";
 
 const queryClient = new QueryClient();
 const Index = lazy(() => import("./pages/Index"));
@@ -47,6 +48,7 @@ const App = () => (
               <Toaster />
               <Sonner />
               <BrowserRouter>
+                <WattAIProvider>
                 <Suspense fallback={<div className="p-8 text-center text-sm" role="status">Carregando página…</div>}>
                 <Routes>
                   <Route path="/" element={<Index />} />
@@ -132,6 +134,7 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
                 </Suspense>
+                </WattAIProvider>
               </BrowserRouter>
             </TooltipProvider>
           </ThemeProvider>

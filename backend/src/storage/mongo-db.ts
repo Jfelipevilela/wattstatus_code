@@ -1,4 +1,4 @@
-import { MongoClient, MongoClientOptions, Collection, Db } from "mongodb";
+import { MongoClient, MongoClientOptions, Collection, Db, Document } from "mongodb";
 import crypto from "crypto";
 import {
   ApplianceRecord,
@@ -161,6 +161,12 @@ export class MongoDatabase {
   private energySamples(): Collection<EnergySample> {
     return this.db.collection<EnergySample>("energy_samples");
   }
+  // Collections owned by the AI module (preferences, recommendation states,
+  // usage metrics). Every query on them is scoped by userId in MongoAIStore.
+  aiCollection<T extends Document>(name: `ai_${string}`) {
+    return this.db.collection<T>(name);
+  }
+
   async createSession(userId: string, id: string, expiresAt: Date) {
     await this.db.collection("sessions").insertOne({ userId, id, expiresAt, createdAt: new Date() });
   }
