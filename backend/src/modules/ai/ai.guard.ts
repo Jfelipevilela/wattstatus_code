@@ -217,11 +217,12 @@ export const validateNarration = (text: string, facts: GuardFacts): GuardViolati
       if (subject && !measured.has(subject) && !draftClaims(draft, MEASURED_CLAIM, subject, "before")) violations.add("source");
     }
   }
+  // Readings are periodic counters, never live power: "agora"/"consumo atual"
+  // is refused for any appliance unless the computed text says it.
   if (claims.recentNames) {
-    const recent = new Set(claims.recentNames.map(normalize));
     for (const match of t.matchAll(CURRENT)) {
       const subject = nameNear(t, match.index!, names, "before");
-      if (subject && !recent.has(subject) && !draftClaims(draft, CURRENT, subject, "before")) violations.add("currentness");
+      if (subject && !draftClaims(draft, CURRENT, subject, "before")) violations.add("currentness");
     }
   }
   for (const match of t.matchAll(ACTION)) {

@@ -234,10 +234,19 @@ export interface SnapshotInput {
   period: MonthPeriod;
   // Stored collection status for the user (optional: absent = unknown).
   collection?: CollectionStatus | null;
+  now?: Date;
 }
 
-export const buildSnapshot = ({ property, rooms, appliances, intervals, previousIntervals, period, collection }: SnapshotInput): PropertySnapshot => {
+export const buildSnapshot = ({ property, rooms, appliances, intervals, previousIntervals, period, collection, now = new Date() }: SnapshotInput): PropertySnapshot => {
   const freshnessById = new Map((collection?.devices ?? []).map((device) => [device.applianceId, device]));
+  // The queue only records successes since it exists: a device it calls
+  // "missing" may still have readings in the history. Those readings decide.
+  const effectiveFreshness = (id: string, lastReading: string | null): DeviceFreshness | null => {
+    const stored = freshnessById.get(id);
+    if (!stored || stored.state !== "missing" || !lastReading || !collection) return stored ?? null;
+    const ageMs = now.getTime() - new Date(lastReading).getTime();
+    return { ...stored, state: ageMs <= 2 * collection.intervalMs ? "recent" : "delayed", ageMs, lastReadingAt: lastReading, derived: true };
+  };
   const roomById = new Map(rooms.map((room) => [room.id, room]));
   const own = appliances.filter((item) => item.propertyId === property.id);
   const ownIds = new Set(own.map((item) => item.id));
@@ -289,7 +298,7 @@ export const buildSnapshot = ({ property, rooms, appliances, intervals, previous
       previousMeasuredDays: new Set(previousReadings.map((item) => dayKey(new Date(item.endAt), period.timeZone))).size,
       createdAt: appliance.createdAt,
       lastReadingAt: last,
-      freshness: freshnessById.get(appliance.id) ?? null,
+      freshness: effectiveFreshness(appliance.id, last ?? previousReadings.reduce<string | null>((max, item) => (!max || item.endAt > max ? item.endAt : max), null)),
       connected: Boolean(appliance.integrationProvider && appliance.integrationDeviceId),
       cyclic: isCyclic(appliance.name),
       essential: isEssential(appliance.name),
@@ -391,7 +400,7 @@ const stdev = (values: number[]) => {
 export interface Forecast {
   status: "ok" | "insufficient_data";
   source: EnergyDataSource;
-  method: "pace_7d" | "pace_month" | "estimate" | "none";
+  method: "pace_7d" | "pace_month" | "pace_mixed" | "estimate" | "none";
   kWh: number | null;
   cost: number | null;
   low: number | null;
@@ -456,6 +465,22 @@ export const forecastMonth = (snapshot: PropertySnapshot): Forecast => {
         const backtest = backtestDailyPace(values.concat());
         return backtest && backtest.wape <= 0.2 && snapshot.freshness.available ? "alta" : "media";
       })(),
+    };
+  }
+  // Some meters stale but carrying little of the consumption: keep the fresh
+  // meters' measured pace and use the registration only for the stale ones.
+  const stale = snapshot.appliances.filter((item) => item.measuredKWh !== null && item.freshness && item.freshness.state !== "recent");
+  const staleShare = snapshot.totals.estimatedKWh > 0 ? stale.reduce((sum, item) => sum + item.estimatedKWh, 0) / snapshot.totals.estimatedKWh : 1;
+  if (source === "measured" && observed.length >= 5 && staleMeters > 0 && staleShare <= 0.2) {
+    const fresh = snapshot.appliances.filter((item) => item.measuredKWh !== null && !stale.includes(item) && item.measuredDays > 0);
+    const paceKWh = fresh.reduce((sum, item) => sum + item.measuredKWh! / item.measuredDays, 0) + stale.reduce((sum, item) => sum + item.estimatedKWh / daysInMonth, 0);
+    const paceCost = fresh.reduce((sum, item) => sum + (item.measuredCost ?? 0) / item.measuredDays, 0) + stale.reduce((sum, item) => sum + item.estimatedCost / daysInMonth, 0);
+    return {
+      status: "ok", source: "projected", method: "pace_mixed",
+      kWh: snapshot.totals.measuredKWh + paceKWh * remaining,
+      cost: snapshot.totals.measuredCost + paceCost * remaining,
+      low: null, high: null, daysObserved: observed.length, backtest: null, confidence: "media",
+      reason: `Ritmo medido dos aparelhos atualizados; ${stale.map((item) => item.name).join(", ")} (leitura atrasada ou com erro, ${Math.round(staleShare * 100)}% do consumo estimado) entra pelo cadastro.`,
     };
   }
   if (snapshot.totals.applianceCount > 0 && snapshot.totals.estimatedKWh > 0) {

@@ -651,3 +651,14 @@ Resultados:
 - `recent` vale até 2 intervalos, conforme o contrato: uma leitura de 50 minutos ainda conta como atualizada com intervalo de 30 minutos.
 - O estado é por dispositivo e por usuário. Aparelhos sem integração não têm estado: são estimativas, sem indicador.
 - `createAIRouter` espalha (`...`) o data source recebido, então ele precisa ser um objeto simples, como em `app.ts`. Uma instância de classe perderia os métodos do protótipo.
+
+### 15.7 Refinamentos da integração final
+
+Branch `feature/wattstatus-integration-final`. Cada problema foi reproduzido antes da correção em `tests/ai-freshness-refinements.test.cjs`.
+
+| Problema | Antes | Correção |
+|---|---|---|
+| Leitura de até 2 intervalos tratada como tempo real | "Última medição: há 50 min." sem ressalva. A guarda aceitava "está consumindo agora" para aparelhos `recent` | A frase passa a ser "…há 50 min; isso não é uma medição em tempo real.". A guarda recusa "agora" e "consumo atual" para qualquer aparelho, salvo se o texto calculado disser isso. A leitura é um contador periódico, nunca potência instantânea. |
+| Um medidor atrasado descartava o ritmo medido do imóvel inteiro | A previsão virava estimativa do cadastro | Se os medidores atrasados respondem por até 20% do consumo estimado, a previsão usa o método `pace_mixed`: ritmo medido dos aparelhos atualizados mais o cadastro para os atrasados. Origem `projected`, confiança média e o motivo nomeia os atrasados. Acima de 20%, continua a estimativa. |
+| Histórico anterior à fila nova aparecia como "nenhuma medição" | "Medido neste mês: 190 kWh… ainda não tem nenhuma medição automática" | Quando o contrato diz `missing` mas o histórico tem leituras, o estado é derivado das leituras (`recent` ou `delayed`, com a idade) e marcado com `derived: true`. |
+| 3 consultas MongoDB a mais por pergunta | — | **Mantidas.** Medido com MongoDB real e 20 dispositivos: p50 de 3,8 ms sem o estado e 4,4 ms com ele (+0,6 ms). As consultas rodam em paralelo às já existentes, usam índice e só acontecem quando há aparelho conectado. Juntá-las exigiria mudar o método do coletor para receber a lista de aparelhos da IA. O ganho é pequeno e misturaria as responsabilidades. |

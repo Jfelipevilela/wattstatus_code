@@ -825,6 +825,7 @@ export const loadSnapshot = async (data: AIDataSource, userId: string, property:
     previousIntervals: history.filter((item) => item.endAt < start),
     period,
     collection,
+    now,
   });
 };
 
@@ -848,7 +849,8 @@ export const applyFreshness = (draft: Draft, snapshot: PropertySnapshot, request
   if (focus && FOCUS_INTENTS.includes(draft.intent)) {
     const sentence = freshnessSentence(safeName(focus.name), focus.freshness ?? undefined, focus.connected);
     if (sentence && (focus.freshness || asksCurrent)) draft.message += ` ${sentence}`;
-    else if (asksCurrent && focus.freshness?.state === "recent") draft.message += ` Última medição de ${safeName(focus.name)}: ${ageText(focus.freshness.ageMs)}.`;
+    // A cumulative reading up to two intervals old is recent, never live.
+    else if (asksCurrent && focus.freshness?.state === "recent") draft.message += ` Última medição de ${safeName(focus.name)}: ${ageText(focus.freshness.ageMs)}; isso não é uma medição em tempo real.`;
     if (asksCurrent && !focus.freshness && !focus.connected) draft.limitations.push("Sem medição automática não há como confirmar o consumo atual; os valores são estimados.");
     push(focus);
   }

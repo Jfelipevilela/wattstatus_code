@@ -11,6 +11,9 @@ export interface DeviceFreshness {
   nextAt?: string | null;
   lastStatus?: string | null;
   failures?: number;
+  // True when the AI derived the state from readings in the history
+  // (devices measured before the collection queue recorded successes).
+  derived?: boolean;
 }
 export interface CollectionStatus { enabled: boolean; intervalMs: number; devices: DeviceFreshness[] }
 

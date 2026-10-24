@@ -61,7 +61,7 @@ const tvContext = { propertyId: 'p1', applianceId: 'tv' };
 
 test('recente: confirma a última medição com a idade vinda do backend', async () => {
   const r = await ask(world(), 'Quanto a TV está consumindo agora?', tvContext);
-  assert.match(r.message, /Última medição de TV: há 10 min\./);
+  assert.match(r.message, /Última medição de TV: há 10 min; isso não é uma medição em tempo real\./);
   assert.deepEqual(r.dataQuality.map((q) => [q.name, q.state, q.label]), [['TV', 'recent', 'Atualizado']]);
 });
 
@@ -78,7 +78,10 @@ test('desativada, erro e sem medição: frases do contrato', async () => {
   const error = await ask(world({ status: { tv: 'error' } }), 'Quanto a TV gasta?', tvContext);
   assert.match(error.message, /Há um problema na atualização das medições de TV\. Os valores recentes podem estar incompletos\./);
   assert.equal(error.dataQuality[0].label, 'Erro de coleta');
-  const missing = await ask(world({ status: { tv: 'missing', tvAge: null } }), 'Quanto a TV gasta?', tvContext);
+  // Never read and no history: really missing.
+  const noHistory = world({ status: { tv: 'missing', tvAge: null } });
+  noHistory.data.intervals = noHistory.data.intervals.filter((i) => i.applianceId !== 'tv');
+  const missing = await ask(noHistory, 'Quanto a TV gasta?', tvContext);
   assert.match(missing.message, /TV ainda não tem nenhuma medição automática/);
   assert.equal(missing.dataQuality[0].label, 'Sem medição');
 });
