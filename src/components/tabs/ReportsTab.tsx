@@ -26,6 +26,8 @@ import { useEnergyHistory } from "@/hooks/useEnergyHistory";
 import { useProperties, usePropertyLayout } from "@/hooks/useProperties";
 import { appliancePropertyId } from "@/lib/property-energy";
 import { apiRequest } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { wattAIAccount } from "@/lib/wattai";
 import { measuredByDevice, summarizeMeasured } from "@/lib/measured";
 import {
   estimateAppliance,
@@ -62,7 +64,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
   const [selectedAppliance, setSelectedAppliance] = useState("all");
   const [propertyId, setPropertyId] = useState("all");
   const [roomId, setRoomId] = useState("all");
-  const { properties, primary } = useProperties();
+  const { properties, primary, loading: propertiesLoading } = useProperties();
   const { rooms } = usePropertyLayout(propertyId === "all" ? undefined : propertyId);
   const property = properties.find((item) => item.id === propertyId);
   const room = rooms.find((item) => item.id === roomId);
@@ -176,6 +178,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
           consumptionKWh: item.consumptionKWh,
           cost: item.cost,
         })),
+        summary: summary.data ?? null,
       });
       pdf.save(`wattstatus_${month}_${period.year}.pdf`);
       recordReportEvent("export_completed", { itemCount, durationMs: Date.now() - startedAt });
@@ -198,6 +201,18 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
   const selectedName =
     selectedAppliance === "all" ? "Todos os aparelhos" : appliances.find((item) => item.id === selectedAppliance)?.name ?? "Aparelho";
   const canExport = !measured.loading && !measured.error && (rows.length > 0 || hasMeasured);
+  // Deterministic summary from the AI engine. Optional: the report and the
+  // PDF work the same when it is unavailable.
+  const summaryProperty = propertyId === "all" ? primary?.id : propertyId;
+  const summary = useQuery({
+    queryKey: ["wattai", "report-summary", summaryProperty, period.year, period.month],
+    queryFn: () => wattAIAccount.reportSummary(period.year, period.month, summaryProperty),
+    enabled: Boolean(summaryProperty),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  // Connected appliances usually bring readings: hold the space for the bar.
+  const expectsMeasured = totalConsumption > 0 && appliances.some((item) => item.integrationDeviceId);
   const measuredShare = totalConsumption > 0 && hasMeasured ? (measuredTotals.consumptionKWh / totalConsumption) * 100 : null;
 
   const SortHeader = ({ label, column, align = "left" }: { label: string; column: SortKey; align?: "left" | "right" }) => (
@@ -236,9 +251,11 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
               Mês atual
             </Button>
           )}
-          {properties.length > 0 && (
+          {/* Shown (disabled) while loading so the toolbar does not grow under the user. */}
+          {(propertiesLoading || properties.length > 0) && (
             <select
               aria-label="Imóvel"
+              disabled={propertiesLoading}
               value={propertyId}
               onChange={(event) => {
                 setPropertyId(event.target.value);
@@ -295,6 +312,27 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
         </div>
       </header>
 
+      {/* Placeholder while the summary loads, so the report below does not jump. */}
+      {(summary.isLoading || (propertiesLoading && !summary.data)) && (
+        <section className="rounded-2xl border bg-card p-5" aria-label="Resumo do período" aria-busy="true">
+          <div className="h-5 w-40 animate-pulse rounded bg-muted" />
+          <div className="mt-3 space-y-1.5" aria-hidden="true">
+            {[0, 1, 2, 3, 4].map((line) => <div key={line} className="h-5 animate-pulse rounded bg-muted/70" style={{ width: `${92 - line * 10}%` }} />)}
+          </div>
+        </section>
+      )}
+      {summary.data && summary.data.lines.length > 0 && (
+        <section className="rounded-2xl border bg-card p-5" aria-label="Resumo do período">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Resumo do período{propertyId === "all" && properties.length > 1 ? ` · ${summary.data.property.name}` : ""}</h3>
+            <span className="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{summary.data.quality}</span>
+          </div>
+          <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+            {summary.data.lines.map((line) => <li key={line}>{line}</li>)}
+          </ul>
+        </section>
+      )}
+
       <article className="overflow-hidden rounded-[32px] border bg-card shadow-sm">
         <div className="relative overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-900 to-emerald-950 p-6 text-white sm:p-8">
           <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-energy-green-light/20 blur-3xl" />
@@ -320,9 +358,13 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
                 <Radio className="h-3.5 w-3.5" aria-hidden="true" /> Medido
               </dt>
               {measured.loading ? (
-                <dd className="mt-2 flex items-center gap-2 text-white/60">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Consultando…
-                </dd>
+                // Same height as the loaded value, so the report does not jump.
+                <>
+                  <dd className="mt-2 flex h-10 items-center gap-2 text-white/60">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Consultando…
+                  </dd>
+                  <dd className="text-sm" aria-hidden="true">&nbsp;</dd>
+                </>
               ) : hasMeasured ? (
                 <>
                   <dd className="mt-2 text-4xl font-bold tabular-nums">
@@ -348,7 +390,12 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
               <dd className="text-sm text-white/60">{formatNumber(totalConsumption / daysInMonth, 1)} kWh/dia</dd>
             </div>
           </dl>
-          {measuredShare !== null && (
+          {measured.loading && expectsMeasured && (
+            <div className="relative mt-8 h-[52.5px]" aria-hidden="true">
+              <div className="mt-6 h-2 animate-pulse rounded-full bg-white/10" />
+            </div>
+          )}
+          {!measured.loading && measuredShare !== null && (
             <div className="relative mt-8">
               <div className="flex justify-between text-xs text-white/60">
                 <span>Medido vs. estimado</span>

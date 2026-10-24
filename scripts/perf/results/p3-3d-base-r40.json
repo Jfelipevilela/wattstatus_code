@@ -1,0 +1,126 @@
+{
+  "profile": "desktop",
+  "base": "http://127.0.0.1:4514",
+  "runs": 3,
+  "at": "2026-10-24T15:09:34.028Z",
+  "loads": {
+    "property-3d:cold": {
+      "ttfb": 7,
+      "fcp": 132,
+      "lcp": 392,
+      "lcpElement": "P.mt-0.5 text-xs leading-relaxed text-slate-500 dark Acompanhe o consumo em tempo real da sua",
+      "cls": 0.0003,
+      "shifts": [
+        {
+          "value": 0.0002,
+          "at": 391,
+          "nodes": [
+            "BUTTON.fixed bottom-5 right-5 z-40 inline-flex h-11 items-center ga y 826→826 h 74→74",
+            "svg.[object SVGAnimatedString] y 23.5→23.5 h 16→16"
+          ]
+        },
+        {
+          "value": 0,
+          "at": 575,
+          "nodes": [
+            "DD.text-2xl font-bold tabular-nums y 108→104 h 20→32"
+          ]
+        }
+      ],
+      "tbt": 327,
+      "domContentLoaded": 108,
+      "heapMB": 23.6,
+      "usableMs": 508,
+      "requests": 56,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 1833.1,
+      "jsKB": 1417.9,
+      "jsFiles": 47,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties/:id/energy": 1,
+        "GET /api/user-settings": 1
+      },
+      "canvas": true,
+      "drawCallsTotal": 1459
+    },
+    "property-3d:warm": {
+      "ttfb": 6,
+      "fcp": 116,
+      "lcp": 228,
+      "lcpElement": "P.mt-0.5 text-xs leading-relaxed text-slate-500 dark Acompanhe o consumo em tempo real da sua",
+      "cls": 0.0001,
+      "shifts": [
+        {
+          "value": 0,
+          "at": 300,
+          "nodes": [
+            "svg.[object SVGAnimatedString] y 23.5→23.5 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0001,
+          "at": 350,
+          "nodes": [
+            "BUTTON.fixed bottom-5 right-5 z-40 inline-flex h-11 items-center ga y 826→826 h 74→74"
+          ]
+        },
+        {
+          "value": 0,
+          "at": 509,
+          "nodes": [
+            "DD.text-2xl font-bold tabular-nums y 108→104 h 20→32"
+          ]
+        }
+      ],
+      "tbt": 321,
+      "domContentLoaded": 79,
+      "heapMB": 15.4,
+      "usableMs": 432,
+      "requests": 56,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 7.1,
+      "jsKB": 0,
+      "jsFiles": 47,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties/:id/energy": 1,
+        "GET /api/user-settings": 1
+      },
+      "canvas": true,
+      "drawCallsTotal": 1459
+    }
+  },
+  "spa": [],
+  "three": {
+    "canvasMs": 388,
+    "frameMsP50": 16.7,
+    "frameMsP95": 166.6,
+    "fpsDuringOrbit": 59.9,
+    "drawCallsPerFrame": 189,
+    "trianglesPerFrame": 7832,
+    "idleDrawCalls2s": 0,
+    "heapMB": 59.9,
+    "nodes": 9027
+  },
+  "memory": {
+    "cycles": 20,
+    "heapMBAfterGc": [
+      29.59,
+      29.94,
+      30.54,
+      30.72,
+      30.77
+    ]
+  }
+}

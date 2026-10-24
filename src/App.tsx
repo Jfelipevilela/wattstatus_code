@@ -8,8 +8,10 @@ import { lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { AppsProvider } from "./hooks/useApps";
 import { UserPreferencesProvider } from "./hooks/useUserPreferences";
+import { createQueryClient } from "./lib/query-client";
+import { WattAIProvider } from "./components/wattai/WattAI";
 
-const queryClient = new QueryClient();
+const queryClient = createQueryClient();
 const Index = lazy(() => import("./pages/Index"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Sobre = lazy(() => import("./pages/Sobre"));
@@ -27,12 +29,28 @@ const Properties = lazy(() => import("./pages/Properties"));
 const PropertyDetail = lazy(() => import("./pages/PropertyDetail"));
 const RoomDetails = lazy(() => import("./pages/RoomDetails"));
 const Apps = lazy(() => import("./pages/Apps"));
+const AIPreferences = lazy(() => import("./pages/AIPreferences"));
+const AIAdmin = lazy(() => import("./pages/AIAdmin"));
 
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { token, user, loading } = useAuth();
-  if (loading) {
-    return <div className="p-8 text-center text-sm">Carregando...</div>;
+  const { token, user, loading, sessionError, refreshUser } = useAuth();
+  if (loading && !user) {
+    return <div className="p-8 text-center text-sm" role="status">Carregando...</div>;
+  }
+  // The session could not be checked (rate limit, server or network failure):
+  // that is not a logout, so offer a retry instead of the login page.
+  if (!user && sessionError) {
+    return (
+      <div className="mx-auto max-w-md p-8 text-center text-sm" role="alert">
+        <p className="font-medium">Não foi possível validar sua sessão agora.</p>
+        <p className="mt-1 text-muted-foreground">{sessionError}</p>
+        <button type="button" onClick={() => void refreshUser()}
+          className="mt-4 rounded-md border px-4 py-2 font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          Tentar novamente
+        </button>
+      </div>
+    );
   }
   return user || token ? <>{children}</> : <Navigate to="/login" replace />;
 };
@@ -47,6 +65,7 @@ const App = () => (
               <Toaster />
               <Sonner />
               <BrowserRouter>
+                <WattAIProvider>
                 <Suspense fallback={<div className="p-8 text-center text-sm" role="status">Carregando página…</div>}>
                 <Routes>
                   <Route path="/" element={<Index />} />
@@ -119,6 +138,8 @@ const App = () => (
                   <Route path="/imoveis" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
                   <Route path="/imoveis/:id" element={<ProtectedRoute><PropertyDetail /></ProtectedRoute>} />
                   <Route path="/imoveis/:id/ambientes/:roomId" element={<ProtectedRoute><RoomDetails /></ProtectedRoute>} />
+                  <Route path="/ia/preferencias" element={<ProtectedRoute><AIPreferences /></ProtectedRoute>} />
+                  <Route path="/ia/admin" element={<ProtectedRoute><AIAdmin /></ProtectedRoute>} />
                   <Route
                     path="/apps"
                     element={
@@ -132,6 +153,7 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
                 </Suspense>
+                </WattAIProvider>
               </BrowserRouter>
             </TooltipProvider>
           </ThemeProvider>

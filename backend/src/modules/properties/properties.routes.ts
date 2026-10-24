@@ -2,6 +2,7 @@ import { Router, type NextFunction, type Response } from "express";
 import { z } from "zod";
 import { AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { ApiError } from "../../middleware/error-handler";
+import { intervalsBody } from "../energy/energy-compact";
 import {
   energyQuerySchema,
   floorInputSchema,
@@ -42,7 +43,7 @@ const range = (query: unknown) => {
   const end = new Date(parsed.end);
   const span = end.getTime() - start.getTime();
   if (span <= 0 || span > 366 * 86400000) throw new ApiError(400, "Período inválido");
-  return { start, end, roomId: parsed.roomId };
+  return { start, end, roomId: parsed.roomId, format: parsed.format };
 };
 
 export const createPropertyRouter = (service: PropertyService) => {
@@ -69,8 +70,9 @@ export const createPropertyRouter = (service: PropertyService) => {
     res.json(await service.summary(req.userId, req.params.id));
   }));
   router.get("/:id/energy", route(async (req, res) => {
-    const { start, end, roomId } = range(req.query);
-    res.json(await service.energy(req.userId, req.params.id, start, end, roomId));
+    const { start, end, roomId, format } = range(req.query);
+    const energy = await service.energy(req.userId, req.params.id, start, end, roomId);
+    res.json({ ...energy, intervals: intervalsBody(energy.intervals, format) });
   }));
 
   router.get("/:id/floors", route(async (req, res) => {

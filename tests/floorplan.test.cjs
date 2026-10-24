@@ -298,3 +298,57 @@ test('no model or furniture ends up inside another, in any room size', () => {
     );
   }
 });
+
+test('ready-made plans: valid, side by side, no room on top of another', () => {
+  const { PLAN_TEMPLATES, templateArea } = load('components/properties/planTemplates.ts');
+  const { ROOM_TYPES } = load('types/property.ts');
+  assert.ok(PLAN_TEMPLATES.length >= 6);
+  for (const template of PLAN_TEMPLATES) {
+    for (const floor of template.floors) {
+      const list = floor.rooms.map((room) => room.layout);
+      for (const room of floor.rooms) {
+        assert.ok(ROOM_TYPES[room.type], `${template.id}: type ${room.type}`);
+        const { x, y, width, depth } = room.layout;
+        assert.ok(x >= 0 && y >= 0 && width >= 1 && depth >= 1 && width <= 40 && depth <= 40 && x + width <= 150, `${template.id} ${room.name} within limits`);
+      }
+      list.forEach((a, i) => list.slice(i + 1).forEach((b) => {
+        const overlap = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 1e-6 && Math.min(a.y + a.depth, b.y + b.depth) - Math.max(a.y, b.y) > 1e-6;
+        assert.ok(!overlap, `${template.id}: rooms overlap`);
+      }));
+    }
+    const area = templateArea(template);
+    const stated = Number(/Cerca de (\d+) m²/.exec(template.description)[1]);
+    assert.ok(Math.abs(area - stated) / stated < 0.15, `${template.id}: ${area.toFixed(0)} m² vs ${stated}`);
+  }
+});
+
+test('doors: every room of the ready-made plans is reachable, through free wall', () => {
+  const { PLAN_TEMPLATES } = load('components/properties/planTemplates.ts');
+  const { planDoors } = load('components/floorplan/three/doors.ts');
+  for (const template of PLAN_TEMPLATES) {
+    for (const floor of template.floors) {
+      const rooms = floor.rooms.map((room, index) => ({ id: `r${index}`, type: room.type, name: room.name, layout: room.layout }));
+      const doors = planDoors(rooms);
+      // The wall is open where each door is.
+      const walls = buildWalls(rooms.map((room) => room.layout), doors);
+      for (const door of doors) {
+        const mx = (door.x1 + door.x2) / 2;
+        const mz = (door.z1 + door.z2) / 2;
+        assert.ok(!walls.some((w) => Math.min(w.x1, w.x2) - 1e-6 <= mx && mx <= Math.max(w.x1, w.x2) + 1e-6 && Math.min(w.z1, w.z2) - 1e-6 <= mz && mz <= Math.max(w.z1, w.z2) + 1e-6), `${template.id}: door left walled`);
+      }
+      const at = (x, z) => rooms.filter((r) => x >= r.layout.x - 1e-6 && x <= r.layout.x + r.layout.width + 1e-6 && z >= r.layout.y - 1e-6 && z <= r.layout.y + r.layout.depth + 1e-6);
+      const edges = doors.map((door) => at((door.x1 + door.x2) / 2, (door.z1 + door.z2) / 2).map((r) => r.id));
+      for (const pair of edges) {
+        assert.equal(pair.length, 2, `${template.id}: door between two rooms`);
+        const types = pair.map((id) => rooms.find((r) => r.id === id).type);
+        assert.ok(!(types.every((t) => t === 'bedroom' || t === 'suite')), `${template.id}: bedrooms never open into each other`);
+      }
+      const seen = new Set([rooms.find((r) => ['living', 'hallway'].includes(r.type))?.id ?? rooms[0].id]);
+      for (let changed = true; changed; ) {
+        changed = false;
+        for (const [a, b] of edges) if (seen.has(a) !== seen.has(b)) { seen.add(a); seen.add(b); changed = true; }
+      }
+      assert.equal(seen.size, rooms.length, `${template.id} ${floor.name}: ${rooms.filter((r) => !seen.has(r.id)).map((r) => floor.rooms[Number(r.id.slice(1))].name).join(', ')} unreachable`);
+    }
+  }
+});

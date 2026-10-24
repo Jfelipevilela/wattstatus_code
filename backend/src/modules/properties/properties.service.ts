@@ -135,10 +135,14 @@ export class PropertyService {
     }
     const primary = properties.find((item) => item.isPrimary && !item.archivedAt) ?? properties.find((item) => !item.archivedAt);
     if (primary) {
-      if (!primary.isPrimary) await this.repo.setPrimaryProperty(userId, primary.id);
       await this.repo.moveAppliances(userId, { propertyId: null }, { propertyId: primary.id, roomId: null });
+      // Moving appliances does not touch properties: re-read only when the primary flag changed.
+      if (!primary.isPrimary) {
+        await this.repo.setPrimaryProperty(userId, primary.id);
+        return this.repo.listProperties(userId);
+      }
     }
-    return this.repo.listProperties(userId);
+    return properties;
   }
 
   async list(userId: string, includeArchived = false) {

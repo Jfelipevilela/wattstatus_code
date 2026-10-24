@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Building, Check, ChevronDown, Crown, DoorOpen, Loader2, MapPin, Pencil, Plug, Radio, X } from "lucide-react";
+import { Building, Check, ChevronDown, Crown, DoorOpen, Loader2, LayoutTemplate, MapPin, Pencil, Plug, Plus, Radio, Sparkles, X } from "lucide-react";
 import { AppSidebar, SidebarProvider, SidebarTrigger } from "@/components/Sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
@@ -15,8 +16,8 @@ import { overlappingRooms } from "@/components/floorplan/snap";
 import { RoomPanel } from "@/components/properties/RoomPanel";
 import { RoomOverviewList } from "@/components/properties/RoomOverviewList";
 import { AddRoomForm, PropertyRoomsTab } from "@/components/properties/PropertyRoomsTab";
+import { PlanTemplatePicker } from "@/components/properties/PlanTemplatePicker";
 import { PropertyAppliancesTab } from "@/components/properties/PropertyAppliancesTab";
-import { PropertyEnergyTab } from "@/components/properties/PropertyEnergyTab";
 import { PropertySettingsTab } from "@/components/properties/PropertySettingsTab";
 import { PROPERTY_ICONS } from "@/components/properties/propertyVisual";
 import { useProperties, usePropertyEnergy, usePropertyLayout } from "@/hooks/useProperties";
@@ -27,6 +28,12 @@ import { notifyError } from "@/lib/error-toast";
 import { cn } from "@/lib/utils";
 import { zonedMonthRange, zonedParts } from "@/lib/timezone";
 import { PROPERTY_TYPES, type RoomLayout } from "@/types/property";
+import { useWattAI } from "@/components/wattai/WattAI";
+
+// Recharts only loads when the "Consumo" tab opens; the page starts on the plan.
+const PropertyEnergyTab = lazy(() =>
+  import("@/components/properties/PropertyEnergyTab").then((module) => ({ default: module.PropertyEnergyTab })),
+);
 
 const TABS = [
   { value: "planta", label: "Planta" },
@@ -86,9 +93,32 @@ export default function PropertyDetail() {
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const [heat, setHeat] = useState<HeatMetric | null>(null);
   const [editing, setEditing] = useState(false);
+  const [addingRoom, setAddingRoom] = useState(false);
   const [draft, setDraft] = useState<Map<string, RoomLayout>>(new Map());
   const [busyId, setBusyId] = useState<string | null>(null);
   const desktop = useDesktop();
+  const { openAssistant } = useWattAI();
+
+  // Deep links from WattStatus AI: ?sala=<roomId>&aparelho=<applianceId>
+  // select the room (and its floor) through the plan's own state.
+  const linkedRoom = params.get("sala");
+  const linkedAppliance = params.get("aparelho");
+  useEffect(() => {
+    if (!linkedRoom && !linkedAppliance) return;
+    const room = layout.rooms.find((item) => item.id === linkedRoom);
+    if (linkedRoom && !room) return;
+    if (room) {
+      setFloorId(room.floorId);
+      setSelectedRoomId(room.id);
+    }
+    setHighlighted(linkedAppliance);
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("sala");
+      next.delete("aparelho");
+      return next;
+    }, { replace: true });
+  }, [linkedRoom, linkedAppliance, layout.rooms]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const roomsForPlan = floorRooms.map((room) => (draft.has(room.id) ? { ...room, layout: draft.get(room.id)! } : room));
   const overlaps = overlappingRooms(roomsForPlan);
@@ -143,6 +173,24 @@ export default function PropertyDetail() {
   const Icon = property ? PROPERTY_ICONS[property.type] : Building;
 
   const panel = selectedRoom && property && (
+    <div className="flex h-full min-h-0 flex-col">
+    <button
+      type="button"
+      onClick={() => {
+        openAssistant({
+          message: `Analisar o consumo de ${selectedRoom.name}`,
+          context: { propertyId: property.id, roomId: selectedRoom.id },
+        });
+        // On phones the room sheet would cover the assistant.
+        if (!desktop) setSelectedRoomId(null);
+      }}
+      className={cn(
+        "ml-4 mt-3 inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted",
+        desktop ? "mr-4" : "mr-14",
+      )}
+    >
+      <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden /> Analisar consumo deste ambiente
+    </button>
     <RoomPanel
       property={property}
       properties={api.properties}
@@ -166,6 +214,7 @@ export default function PropertyDetail() {
       }
       floorName={layout.floors.length > 1 ? layout.floors.find((floor) => floor.id === selectedRoom.floorId)?.name : undefined}
     />
+    </div>
   );
 
   return (
@@ -326,6 +375,17 @@ export default function PropertyDetail() {
                             Adicione ambientes e eles aparecem aqui automaticamente, prontos para ajustar.
                           </p>
                         </div>
+                        <PlanTemplatePicker
+                          layout={layout}
+                          floors={layout.floors}
+                          activeFloor={activeFloor}
+                          trigger={
+                            <Button className="rounded-full">
+                              <LayoutTemplate className="mr-2 h-4 w-4" /> Usar planta pronta
+                            </Button>
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">ou adicione um ambiente por vez</p>
                         <div className="w-full max-w-xl">
                           <AddRoomForm floors={layout.floors} layout={layout} defaultFloorId={activeFloor?.id} />
                         </div>
@@ -346,6 +406,39 @@ export default function PropertyDetail() {
                         onHeatChange={setHeat}
                         editing={editing}
                         onLayoutChange={(roomId, value) => setDraft((current) => new Map(current).set(roomId, value))}
+                        toolbar2D={
+                          <>
+                            <PlanTemplatePicker
+                              layout={layout}
+                              floors={layout.floors}
+                              activeFloor={activeFloor}
+                              trigger={
+                                <Button variant="outline" size="icon" className="h-9 w-9 rounded-full bg-card" aria-label="Usar planta pronta" title="Usar planta pronta">
+                                  <LayoutTemplate className="h-4 w-4" />
+                                </Button>
+                              }
+                            />
+                            <Popover open={addingRoom} onOpenChange={setAddingRoom}>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="icon" className="h-9 w-9 rounded-full bg-card" aria-label="Adicionar ambiente" title="Adicionar ambiente">
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="end" className="w-[min(36rem,calc(100vw-2rem))]">
+                              <p className="mb-2 text-sm font-medium">Novo ambiente</p>
+                              <AddRoomForm
+                                floors={layout.floors}
+                                layout={layout}
+                                defaultFloorId={activeFloor?.id}
+                                onAdded={(room) => {
+                                  setAddingRoom(false);
+                                  setSelectedRoomId(room.id);
+                                }}
+                              />
+                            </PopoverContent>
+                            </Popover>
+                          </>
+                        }
                         toolbar={
                           editing ? (
                             <>
@@ -463,13 +556,15 @@ export default function PropertyDetail() {
                 />
               )}
               {tab === "consumo" && (
-                <PropertyEnergyTab
-                  rooms={layout.rooms}
-                  energy={energy}
-                  unlocated={measured.unlocated}
-                  periodLabel={periodLabel}
-                  measuredError={measured.error}
-                />
+                <Suspense fallback={<Skeleton className="h-80 w-full rounded-2xl" aria-label="Carregando consumo" />}>
+                  <PropertyEnergyTab
+                    rooms={layout.rooms}
+                    energy={energy}
+                    unlocated={measured.unlocated}
+                    periodLabel={periodLabel}
+                    measuredError={measured.error}
+                  />
+                </Suspense>
               )}
               {tab === "config" && (
                 <PropertySettingsTab

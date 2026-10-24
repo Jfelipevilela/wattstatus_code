@@ -217,7 +217,9 @@ export const createIntegrationRouter = (
   router.get("/:provider/overview", async (req: AuthenticatedRequest, res, next) => {
     try {
       const configured = await ensureIntegrationConfigured(req, req.params.provider);
-      const devices = await listDevices(req.userId!, configured, true);
+      // Background polls (?cached=1) may reuse the short-lived device list;
+      // statuses below are always read live.
+      const devices = await listDevices(req.userId!, configured, req.query.cached !== "1");
       const items = await mapLimited(devices, STATUS_CONCURRENCY, async (device) => {
         try {
           const status = await readStatus(req.userId!, configured.integration, device.id);

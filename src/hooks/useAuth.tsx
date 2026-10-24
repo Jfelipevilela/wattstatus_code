@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ApiError, apiRequest, invalidateCsrfToken } from "@/lib/api";
+import { apiRequest, invalidateCsrfToken, isSessionExpired } from "@/lib/api";
 import { notifyError } from "@/lib/error-toast";
 import { toast } from "@/components/ui/use-toast";
 
@@ -18,6 +18,8 @@ interface AuthContextValue {
   ) => Promise<void>;
   logout: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
+  // Set when the session could not be checked (429, 5xx, offline) and no user is known yet.
+  sessionError: string | null;
 }
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -30,55 +32,80 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const activeActions = useRef(0);
   const channel = useRef<BroadcastChannel | null>(null);
 
-  const beginRequest = () => {
+  const userRef = useRef<User | null>(null);
+  const lastValidated = useRef(0);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+
+  const applyUser = useCallback((next: User | null) => {
+    // Cached queries belong to one account: drop them only when the account changes.
+    if (userRef.current?.id !== next?.id) queryClient.clear();
+    userRef.current = next;
+    setUser((previous) => previous && next && previous.id === next.id && previous.name === next.name &&
+      previous.email === next.email ? previous : next);
+  }, [queryClient]);
+
+  // background: revalidate a known session without unmounting protected pages.
+  const beginRequest = (background = false) => {
     currentRequest.current?.abort();
     const controller = new AbortController();
     currentRequest.current = controller;
     generation.current++;
-    setLoading(true);
+    if (!background) setLoading(true);
     return { controller, version: generation.current };
   };
-  const loadProfile = useCallback(async () => {
-    const { controller, version } = beginRequest();
+  const loadProfile = useCallback(async (options: { background?: boolean } = {}) => {
+    const background = Boolean(options.background && userRef.current);
+    const { controller, version } = beginRequest(background);
     try {
       const data = await apiRequest<{ user: User }>("/api/auth/me", {
         method: "GET", skipErrorToast: true, signal: controller.signal,
       });
       if (version === generation.current) {
-        queryClient.clear();
-        setUser((previous) => previous?.id === data.user.id && previous.name === data.user.name && previous.email === data.user.email
-          ? previous : data.user);
+        lastValidated.current = Date.now();
+        setSessionError(null);
+        applyUser(data.user);
       }
     } catch (error) {
       if (controller.signal.aborted || version !== generation.current) return;
-      if (!(error instanceof ApiError && error.status === 401)) {
-        notifyError(error, { title: "Erro ao validar sessão", fallbackMessage: "Não foi possível validar sua sessão." });
+      if (isSessionExpired(error)) {
+        setSessionError(null);
+        applyUser(null);
+        invalidateCsrfToken();
+        return;
       }
-      setUser(null);
+      // 429, 5xx, timeouts and offline say nothing about the session: keep the
+      // signed-in user and only surface the problem.
+      if (userRef.current) {
+        if (!background) {
+          notifyError(error, { title: "Erro ao validar sessão", fallbackMessage: "Não foi possível validar sua sessão.",
+            dedupeKey: "auth:validate" });
+        }
+        return;
+      }
+      setSessionError(error instanceof Error && error.message ? error.message : "Não foi possível validar sua sessão.");
     } finally {
       if (version === generation.current) setLoading(false);
     }
-  }, [queryClient]);
+  }, [applyUser]);
 
   useEffect(() => {
     if (typeof BroadcastChannel !== "undefined") {
       channel.current = new BroadcastChannel("wattstatus-session");
       channel.current.onmessage = () => {
-        queryClient.clear();
         invalidateCsrfToken();
-        setUser(null);
         void loadProfile();
       };
     }
     const refreshVisibleSession = () => {
-      if (document.visibilityState === "visible" && activeActions.current === 0) void loadProfile();
+      // At most once a minute: a quick tab switch does not need a round trip.
+      if (document.visibilityState === "visible" && activeActions.current === 0 &&
+          Date.now() - lastValidated.current > 60000) void loadProfile({ background: true });
     };
     const endExpiredSession = () => {
       currentRequest.current?.abort();
       generation.current++;
-      setUser(null);
+      applyUser(null);
       setLoading(false);
-      queryClient.clear();
       invalidateCsrfToken();
     };
     window.addEventListener("wattstatus-session-expired", endExpiredSession);
@@ -90,7 +117,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       document.removeEventListener("visibilitychange", refreshVisibleSession);
       window.removeEventListener("wattstatus-session-expired", endExpiredSession);
     };
-  }, [loadProfile, queryClient]);
+  }, [loadProfile, applyUser]);
 
   const signIn = async (path: string, body: Record<string, unknown>) => {
     activeActions.current++;
@@ -101,6 +128,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       if (version !== generation.current) return;
       queryClient.clear();
+      userRef.current = data.user;
+      lastValidated.current = Date.now();
+      setSessionError(null);
       setUser(data.user);
       channel.current?.postMessage("session-changed");
     } finally {
@@ -117,6 +147,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await apiRequest("/api/auth/logout", { method: "POST", body: "{}", signal: controller.signal });
       if (version !== generation.current) return false;
+      userRef.current = null;
       setUser(null);
       queryClient.clear();
       channel.current?.postMessage("session-changed");
@@ -132,7 +163,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (version === generation.current) setLoading(false);
     }
   };
-  return <AuthContext.Provider value={{ user, token: null, loading, login, register, logout, refreshUser: loadProfile }}>
+  return <AuthContext.Provider value={{ user, token: null, loading, login, register, logout, refreshUser: () => loadProfile(), sessionError }}>
     {children}
   </AuthContext.Provider>;
 };

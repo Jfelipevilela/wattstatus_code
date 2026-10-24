@@ -1,0 +1,740 @@
+{
+  "profile": "desktop",
+  "base": "http://127.0.0.1:4521",
+  "runs": 5,
+  "at": "2026-10-24T18:18:39.960Z",
+  "loads": {
+    "home:cold": {
+      "ttfb": 8,
+      "fcp": 104,
+      "lcp": 316,
+      "cls": 0.0002,
+      "tbt": 0,
+      "domContentLoaded": 57,
+      "heapMB": 3.7,
+      "usableMs": 249,
+      "requests": 34,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 695.7,
+      "jsKB": 424.3,
+      "jsFiles": 28,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "home:warm": {
+      "ttfb": 3,
+      "fcp": 92,
+      "lcp": 196,
+      "lcpElement": "IMG.rounded-xl shadow-lg w-full h-auto object-cover ",
+      "cls": 0.0002,
+      "tbt": 0,
+      "domContentLoaded": 18,
+      "heapMB": 5.3,
+      "usableMs": 89,
+      "requests": 34,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 2.3,
+      "jsKB": 0,
+      "jsFiles": 28,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "login:cold": {
+      "ttfb": 5,
+      "fcp": 92,
+      "lcp": 216,
+      "lcpElement": "H2.max-w-md text-4xl font-bold leading-tight tracking Entenda sua energia. Gaste menos.",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 58,
+      "heapMB": 7.3,
+      "usableMs": 159,
+      "requests": 24,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 613.1,
+      "jsKB": 358,
+      "jsFiles": 19,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "login:warm": {
+      "ttfb": 3,
+      "fcp": 48,
+      "lcp": 96,
+      "lcpElement": "H2.max-w-md text-4xl font-bold leading-tight tracking Entenda sua energia. Gaste menos.",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 20,
+      "heapMB": 8.3,
+      "usableMs": 97,
+      "requests": 24,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 2.3,
+      "jsKB": 0,
+      "jsFiles": 19,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "signup:cold": {
+      "ttfb": 5,
+      "fcp": 76,
+      "lcp": 212,
+      "lcpElement": "H2.max-w-md text-4xl font-bold leading-tight tracking Entenda sua energia. Gaste menos.",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 57,
+      "heapMB": 9.5,
+      "usableMs": 81,
+      "requests": 28,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 621.4,
+      "jsKB": 366.3,
+      "jsFiles": 23,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "signup:warm": {
+      "ttfb": 3,
+      "fcp": 144,
+      "lcp": 144,
+      "lcpElement": "H2.max-w-md text-4xl font-bold leading-tight tracking Entenda sua energia. Gaste menos.",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 20,
+      "heapMB": 11.6,
+      "usableMs": 81,
+      "requests": 28,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 2.3,
+      "jsKB": 0,
+      "jsFiles": 23,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "dashboard:cold": {
+      "ttfb": 6,
+      "fcp": 68,
+      "lcp": 220,
+      "lcpElement": "P.mt-2 max-w-xl text-muted-foreground Estimativas, medições e custos do períod",
+      "cls": 0.0278,
+      "shifts": [
+        {
+          "value": 0.0001,
+          "at": 430,
+          "nodes": [
+            "BUTTON.fixed bottom-5 right-5 z-40 inline-flex h-11 items-center ga y 826→826 h 74→74"
+          ]
+        },
+        {
+          "value": 0.0077,
+          "at": 630,
+          "nodes": [
+            "DIV.flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center y 108→164 h 108→56"
+          ]
+        },
+        {
+          "value": 0.0156,
+          "at": 900,
+          "nodes": [
+            "SECTION.space-y-3 y 590→619 h 208→235",
+            "DIV.space-y-3 bg-energy-blue-dark/95 p-6 sm:p-8 y 374.5→413 h 183.5→174",
+            "DIV.grid min-w-0 gap-6 lg:grid-cols-[1.6fr_1fr] y 824→880 h 76→20",
+            "DIV.pointer-events-none absolute -bottom-40 left-1/3 h-80 w-80 r y 398→427 h 189→160",
+            "SPAN.rounded-full px-3 py-1 text-xs font-semibold ring-1 bg-energ y 279→279 h 26→26"
+          ]
+        },
+        {
+          "value": 0.0045,
+          "at": 1055,
+          "nodes": [
+            "DIV.grid min-w-0 gap-6 lg:grid-cols-[1.6fr_1fr] y 880→0 h 20→0"
+          ]
+        }
+      ],
+      "tbt": 49,
+      "domContentLoaded": 42,
+      "heapMB": 22.9,
+      "usableMs": 541,
+      "requests": 65,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 1393.4,
+      "jsKB": 946.5,
+      "jsFiles": 55,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "dashboard:warm": {
+      "ttfb": 4,
+      "fcp": 140,
+      "lcp": 144,
+      "lcpElement": "P.mt-2 max-w-xl text-muted-foreground Estimativas, medições e custos do períod",
+      "cls": 0.0278,
+      "shifts": [
+        {
+          "value": 0.0077,
+          "at": 378,
+          "nodes": [
+            "DIV.flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center y 108→164 h 108→56"
+          ]
+        },
+        {
+          "value": 0.0156,
+          "at": 593,
+          "nodes": [
+            "SECTION.space-y-3 y 590→619 h 208→235",
+            "DIV.space-y-3 bg-energy-blue-dark/95 p-6 sm:p-8 y 374.5→413 h 183.5→174",
+            "DIV.grid min-w-0 gap-6 lg:grid-cols-[1.6fr_1fr] y 824→880 h 76→20",
+            "DIV.pointer-events-none absolute -bottom-40 left-1/3 h-80 w-80 r y 398→427 h 189→160",
+            "SPAN.rounded-full px-3 py-1 text-xs font-semibold ring-1 bg-energ y 279→279 h 26→26"
+          ]
+        },
+        {
+          "value": 0.0045,
+          "at": 802,
+          "nodes": [
+            "DIV.grid min-w-0 gap-6 lg:grid-cols-[1.6fr_1fr] y 880→0 h 20→0"
+          ]
+        }
+      ],
+      "tbt": 1,
+      "domContentLoaded": 27,
+      "heapMB": 21.5,
+      "usableMs": 411,
+      "requests": 65,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 8,
+      "jsKB": 0,
+      "jsFiles": 55,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "properties:cold": {
+      "ttfb": 5,
+      "fcp": 60,
+      "lcp": 156,
+      "lcpElement": "P.mt-2 max-w-xl text-muted-foreground Cada imóvel com seus ambientes, aparelho",
+      "cls": 0.0001,
+      "shifts": [
+        {
+          "value": 0,
+          "at": 488,
+          "nodes": [
+            "#text. y 479→479 h 16→16"
+          ]
+        }
+      ],
+      "tbt": 0,
+      "domContentLoaded": 39,
+      "heapMB": 21.1,
+      "usableMs": 231,
+      "requests": 45,
+      "apiRequests": 5,
+      "api429": 0,
+      "transferKB": 851.8,
+      "jsKB": 473.1,
+      "jsFiles": 38,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/appliances": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "properties:warm": {
+      "ttfb": 4,
+      "fcp": 48,
+      "lcp": 96,
+      "lcpElement": "P.mt-2 max-w-xl text-muted-foreground Cada imóvel com seus ambientes, aparelho",
+      "cls": 0.0001,
+      "shifts": [
+        {
+          "value": 0,
+          "at": 219,
+          "nodes": [
+            "#text. y 479→479 h 16→16",
+            "#text. y 519→519 h 16→16"
+          ]
+        },
+        {
+          "value": 0,
+          "at": 327,
+          "nodes": [
+            "#text. y 479→479 h 16→16"
+          ]
+        }
+      ],
+      "tbt": 0,
+      "domContentLoaded": 23,
+      "heapMB": 23.3,
+      "usableMs": 200,
+      "requests": 45,
+      "apiRequests": 5,
+      "api429": 0,
+      "transferKB": 5.2,
+      "jsKB": 0,
+      "jsFiles": 38,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/appliances": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "property-3d:cold": {
+      "ttfb": 8,
+      "fcp": 64,
+      "lcp": 164,
+      "lcpElement": "P.mt-0.5 text-xs leading-relaxed text-slate-500 dark Acompanhe o consumo em tempo real da sua",
+      "cls": 0.0001,
+      "shifts": [
+        {
+          "value": 0,
+          "at": 340,
+          "nodes": [
+            "svg.[object SVGAnimatedString] y 23.5→23.5 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0001,
+          "at": 401,
+          "nodes": [
+            "BUTTON.fixed bottom-5 right-5 z-40 inline-flex h-11 items-center ga y 826→826 h 74→74"
+          ]
+        },
+        {
+          "value": 0,
+          "at": 608,
+          "nodes": [
+            "DD.text-2xl font-bold tabular-nums y 108→104 h 20→32"
+          ]
+        }
+      ],
+      "tbt": 58,
+      "domContentLoaded": 40,
+      "heapMB": 23.8,
+      "usableMs": 401,
+      "requests": 58,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 1809.4,
+      "jsKB": 1420.7,
+      "jsFiles": 49,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties/:id/energy": 1,
+        "GET /api/user-settings": 1
+      },
+      "canvas": true,
+      "drawCallsTotal": 723
+    },
+    "property-3d:warm": {
+      "ttfb": 3,
+      "fcp": 60,
+      "lcp": 124,
+      "lcpElement": "P.mt-0.5 text-xs leading-relaxed text-slate-500 dark Acompanhe o consumo em tempo real da sua",
+      "cls": 0.0001,
+      "shifts": [
+        {
+          "value": 0,
+          "at": 281,
+          "nodes": [
+            "svg.[object SVGAnimatedString] y 23.5→23.5 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0001,
+          "at": 338,
+          "nodes": [
+            "BUTTON.fixed bottom-5 right-5 z-40 inline-flex h-11 items-center ga y 826→826 h 74→74"
+          ]
+        },
+        {
+          "value": 0,
+          "at": 492,
+          "nodes": [
+            "DD.text-2xl font-bold tabular-nums y 108→104 h 20→32"
+          ]
+        }
+      ],
+      "tbt": 51,
+      "domContentLoaded": 32,
+      "heapMB": 31.6,
+      "usableMs": 231,
+      "requests": 58,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 7.1,
+      "jsKB": 0,
+      "jsFiles": 49,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties/:id/energy": 1,
+        "GET /api/user-settings": 1
+      },
+      "canvas": true,
+      "drawCallsTotal": 723
+    },
+    "appliances:cold": {
+      "ttfb": 4,
+      "fcp": 72,
+      "lcp": 296,
+      "lcpElement": "P.mt-1 text-4xl font-bold tabular-nums sm:text-5xl R$ 2.295,67",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 48,
+      "heapMB": 37.8,
+      "usableMs": 140,
+      "requests": 45,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 732.9,
+      "jsKB": 569.9,
+      "jsFiles": 40,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1
+      }
+    },
+    "appliances:warm": {
+      "ttfb": 3,
+      "fcp": 88,
+      "lcp": 188,
+      "lcpElement": "P.mt-1 text-4xl font-bold tabular-nums sm:text-5xl R$ 2.295,67",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 24,
+      "heapMB": 42.9,
+      "usableMs": 117,
+      "requests": 45,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 3.3,
+      "jsKB": 0,
+      "jsFiles": 40,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "reports:cold": {
+      "ttfb": 14,
+      "fcp": 104,
+      "lcp": 348,
+      "lcpElement": "P.mt-2 text-muted-foreground Estimado e medido lado a lado, pronto pa",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 77,
+      "heapMB": 54,
+      "usableMs": 611,
+      "requests": 53,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 868.6,
+      "jsKB": 486.5,
+      "jsFiles": 43,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/ai/report-summary": 1,
+        "GET /api/auth/csrf": 1,
+        "POST /api/reports/events": 1
+      }
+    },
+    "reports:warm": {
+      "ttfb": 3,
+      "fcp": 92,
+      "lcp": 220,
+      "lcpElement": "P.mt-2 text-muted-foreground Estimado e medido lado a lado, pronto pa",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 32,
+      "heapMB": 30,
+      "usableMs": 491,
+      "requests": 53,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 8,
+      "jsKB": 0,
+      "jsFiles": 43,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/ai/report-summary": 1,
+        "GET /api/auth/csrf": 1,
+        "POST /api/reports/events": 1
+      }
+    },
+    "calculator:cold": {
+      "ttfb": 7,
+      "fcp": 76,
+      "lcp": 224,
+      "lcpElement": "P.-mt-2 text-xs text-muted-foreground Está na etiqueta ou no manual, em watts ",
+      "cls": 0.0029,
+      "shifts": [
+        {
+          "value": 0.0029,
+          "at": 2908,
+          "nodes": [
+            "DETAILS.group mt-4 rounded-2xl border bg-card p-4 text-sm y 655.5→740.5 h 54→54",
+            "BUTTON.inline-flex items-center justify-center gap-2 whitespace-now y 563.5→648.5 h 48→48"
+          ]
+        }
+      ],
+      "tbt": 0,
+      "domContentLoaded": 48,
+      "heapMB": 35.6,
+      "usableMs": 144,
+      "requests": 38,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 632,
+      "jsKB": 469.1,
+      "jsFiles": 33,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "calculator:warm": {
+      "ttfb": 5,
+      "fcp": 168,
+      "lcp": 180,
+      "lcpElement": "P.-mt-2 text-xs text-muted-foreground Está na etiqueta ou no manual, em watts ",
+      "cls": 0.0029,
+      "shifts": [
+        {
+          "value": 0.0029,
+          "at": 269,
+          "nodes": [
+            "DETAILS.group mt-4 rounded-2xl border bg-card p-4 text-sm y 655.5→740.5 h 54→54",
+            "BUTTON.inline-flex items-center justify-center gap-2 whitespace-now y 563.5→648.5 h 48→48"
+          ]
+        }
+      ],
+      "tbt": 0,
+      "domContentLoaded": 49,
+      "heapMB": 40.4,
+      "usableMs": 167,
+      "requests": 38,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 3.3,
+      "jsKB": 0,
+      "jsFiles": 33,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "smartthings:cold": {
+      "ttfb": 5,
+      "fcp": 144,
+      "lcp": 308,
+      "lcpElement": "P.rounded-xl bg-muted/50 p-3 text-xs text-muted-fore Pela regra atual da Samsung, tokens pess",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 118,
+      "heapMB": 45.3,
+      "usableMs": 209,
+      "requests": 52,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 670.1,
+      "jsKB": 527.8,
+      "jsFiles": 47,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/integrations/smartthings/token": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "smartthings:warm": {
+      "ttfb": 3,
+      "fcp": 48,
+      "lcp": 144,
+      "lcpElement": "P.rounded-xl bg-muted/50 p-3 text-xs text-muted-fore Pela regra atual da Samsung, tokens pess",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 18,
+      "heapMB": 48.9,
+      "usableMs": 83,
+      "requests": 52,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 3.3,
+      "jsKB": 0,
+      "jsFiles": 47,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/integrations/smartthings/token": 1,
+        "GET /api/user-settings": 1
+      }
+    }
+  },
+  "spa": [
+    {
+      "path": "/imoveis",
+      "settledMs": 181,
+      "requests": 7,
+      "apiRequests": 1,
+      "api429": 0,
+      "transferKB": 1,
+      "jsKB": 0,
+      "jsFiles": 6,
+      "apiPaths": {
+        "GET /api/energy/history": 1
+      }
+    },
+    {
+      "path": "/imoveis/d11059be-3145-4db1-a8c1-bd9bff681a90",
+      "settledMs": 157,
+      "requests": 11,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 2.9,
+      "jsKB": 0,
+      "jsFiles": 8,
+      "apiPaths": {
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/properties/:id/energy": 1
+      }
+    },
+    {
+      "path": "/aparelhos",
+      "settledMs": 62,
+      "requests": 3,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 3,
+      "apiPaths": {}
+    },
+    {
+      "path": "/dashboard",
+      "settledMs": 48,
+      "requests": 0,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 0,
+      "apiPaths": {}
+    },
+    {
+      "path": "/imoveis",
+      "settledMs": 49,
+      "requests": 0,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 0,
+      "apiPaths": {}
+    },
+    {
+      "path": "/relatorios",
+      "settledMs": 249,
+      "requests": 6,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 2.8,
+      "jsKB": 0,
+      "jsFiles": 3,
+      "apiPaths": {
+        "GET /api/auth/csrf": 1,
+        "GET /api/ai/report-summary": 1,
+        "POST /api/reports/events": 1
+      }
+    },
+    {
+      "path": "/dashboard",
+      "settledMs": 49,
+      "requests": 0,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 0,
+      "apiPaths": {}
+    }
+  ],
+  "three": {
+    "canvasMs": 143,
+    "frameMsP50": 16.7,
+    "frameMsP95": 66.7,
+    "fpsDuringOrbit": 59.9,
+    "drawCallsPerFrame": 115,
+    "trianglesPerFrame": 4735,
+    "idleDrawCalls2s": 0,
+    "heapMB": 58.5,
+    "nodes": 17916
+  },
+  "memory": {
+    "cycles": 20,
+    "heapMBAfterGc": [
+      33.77,
+      34.99,
+      35.5,
+      35.67,
+      25.22
+    ]
+  }
+}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { ContactShadows, Edges, Html, OrbitControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { BoxGeometry, CylinderGeometry, Vector3, type Group, type OrthographicCamera } from "three";
+import { BoxGeometry, CylinderGeometry, Matrix4, Vector3, type InstancedMesh, type OrthographicCamera } from "three";
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import type { Appliance } from "@/hooks/useAppliances";
 import { formatCurrency, formatNumber } from "@/lib/energy";
@@ -13,8 +13,9 @@ import type { Room } from "@/types/property";
 import { heatColor, heatScale, metricValue } from "./heat";
 import { PLAN_TOKENS } from "./tokens";
 import type { FloorPlanProps } from "./FloorPlan2D";
-import { buildWalls, wallBox, WALL_HEIGHTS, type WallKind } from "./three/walls";
+import { buildWalls, wallBox, WALL_HEIGHTS, WALL_THICKNESS, type WallKind } from "./three/walls";
 import { furnitureFor, type FurniturePiece } from "./three/furniture";
+import { planDoors } from "./three/doors";
 import { placeAppliances } from "./three/applianceModels";
 import { easeInOutCubic, groupUnits, planTransition, TIMING, unitAt, type RoomPhase } from "./three/assembly";
 import {
@@ -158,9 +159,30 @@ function CameraRig({
   return null;
 }
 
-// One room's furniture. Each unit (a whole sofa, bed or car) is a group whose
-// y offset and visibility are driven by refs inside useFrame: no React
-// renders per frame, and frames are requested only while something moves.
+// One room's furniture, drawn as one instanced mesh per shape and finish
+// (a handful of draw calls instead of one per piece). Each unit (a whole sofa,
+// bed or car) still animates on its own: useFrame rewrites the instance
+// matrices of its pieces, with no React renders per frame, and frames are
+// requested only while something moves.
+const restMatrix = new Matrix4();
+const writeUnits = (
+  buckets: Array<{ pieces: Array<{ piece: FurniturePiece; unit: number }> }>,
+  meshes: Array<InstancedMesh | null>,
+  offset: (unit: number) => number,
+  visible: (unit: number) => boolean,
+) => {
+  buckets.forEach((bucket, index) => {
+    const mesh = meshes[index];
+    if (!mesh) return;
+    bucket.pieces.forEach(({ piece, unit }, at) => {
+      const [sx, sy, sz] = visible(unit) ? piece.size : [0, 0, 0];
+      restMatrix.makeScale(sx, sy, sz).setPosition(piece.x, piece.y + offset(unit), piece.z);
+      mesh.setMatrixAt(at, restMatrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+};
+
 function AnimatedFurniture({
   pieces,
   origin,
@@ -179,7 +201,19 @@ function AnimatedFurniture({
   onSettled: (phase: RoomPhase) => void;
 }) {
   const units = useMemo(() => groupUnits(pieces), [pieces]);
-  const groups = useRef<Array<Group | null>>([]);
+  const buckets = useMemo(() => {
+    const byKind = new Map<string, { shape: FurniturePiece["shape"]; finish: FurniturePiece["finish"]; pieces: Array<{ piece: FurniturePiece; unit: number }> }>();
+    units.forEach((unit, index) => unit.pieces.forEach((piece) => {
+      const key = `${piece.shape}|${piece.finish}`;
+      let bucket = byKind.get(key);
+      if (!bucket) { bucket = { shape: piece.shape, finish: piece.finish, pieces: [] }; byKind.set(key, bucket); }
+      bucket.pieces.push({ piece, unit: index });
+    }));
+    return [...byKind.entries()].map(([key, bucket]) => ({ key, ...bucket }));
+  }, [units]);
+  const meshes = useRef<Array<InstancedMesh | null>>([]);
+  // Last pose of each unit, reapplied when React hands over a new mesh.
+  const pose = useRef<{ offset: number[]; visible: boolean[] }>({ offset: [], visible: [] });
   const invalidate = useThree((state) => state.invalidate);
   const settled = useRef<RoomPhase | null>(null);
   const speed = useMemo(motionSpeed, []);
@@ -188,32 +222,31 @@ function AnimatedFurniture({
     settled.current = null;
     if (!phase) {
       // Safety: no phase means everything rests in place.
-      groups.current.forEach((group) => {
-        if (!group) return;
-        group.position.y = 0;
-        group.visible = true;
-      });
+      pose.current = { offset: [], visible: [] };
+      writeUnits(buckets, meshes.current, () => 0, () => true);
       offsets.current = units.map(() => 0);
     }
     invalidate();
-  }, [phase, units, offsets, invalidate]);
+  }, [phase, units, buckets, offsets, invalidate]);
 
   useFrame(() => {
     if (!phase || settled.current === phase) return;
     const now = performance.now();
+    // One pass, two small arrays per frame (offsets is a fresh array because
+    // room transitions keep earlier snapshots of it).
+    const offset: number[] = [];
+    const visible = pose.current.visible;
+    visible.length = units.length;
     let done = true;
-    const current: number[] = [];
-    units.forEach((_, index) => {
+    for (let index = 0; index < units.length; index++) {
       const state = unitAt(phase, index, now, speed);
-      const group = groups.current[index];
-      if (group) {
-        group.position.y = state.offset;
-        group.visible = state.visible;
-      }
-      current.push(state.offset);
+      offset.push(state.offset);
+      visible[index] = state.visible;
       if (!state.done) done = false;
-    });
-    offsets.current = current;
+    }
+    pose.current.offset = offset;
+    writeUnits(buckets, meshes.current, (unit) => offset[unit], (unit) => visible[unit]);
+    offsets.current = offset;
     if (done) {
       settled.current = phase;
       onSettled(phase);
@@ -222,24 +255,20 @@ function AnimatedFurniture({
 
   return (
     <group position={[origin[0], FLOOR_THICKNESS, origin[1]]}>
-      {units.map((unit, index) => (
-        <group
-          key={unit.id}
+      {buckets.map((bucket, index) => (
+        <instancedMesh
+          key={`${bucket.key}:${bucket.pieces.length}`}
           ref={(node) => {
-            groups.current[index] = node;
+            meshes.current[index] = node;
+            // A fresh mesh starts with identity matrices: apply the last pose.
+            if (node) writeUnits([bucket], [node], (unit) => pose.current.offset[unit] ?? 0, (unit) => pose.current.visible[unit] ?? true);
           }}
-        >
-          {unit.pieces.map((piece) => (
-            <mesh
-              key={piece.key}
-              raycast={noRaycast}
-              geometry={piece.shape === "cylinder" ? geometries.cylinder : geometries.box}
-              material={furnitureMaterial(piece.finish, dimmed)}
-              position={[piece.x, piece.y, piece.z]}
-              scale={piece.size}
-            />
-          ))}
-        </group>
+          args={[bucket.shape === "cylinder" ? geometries.cylinder : geometries.box, furnitureMaterial(bucket.finish, dimmed), bucket.pieces.length]}
+          material={furnitureMaterial(bucket.finish, dimmed)}
+          raycast={noRaycast}
+          // Instances span the whole room; the room is always near the view.
+          frustumCulled={false}
+        />
       ))}
     </group>
   );
@@ -513,8 +542,13 @@ export default function FloorPlan3D({
     // layoutKey captures every layout change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layoutKey]);
+  const doors = useMemo(
+    () => planDoors(placed.map((room) => ({ id: room.id, type: room.type, name: room.name, layout: room.layout! }))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [layoutKey],
+  );
   const walls = useMemo(
-    () => buildWalls(placed.map((room) => room.layout!)).sort((a, b) => WALL_ORDER.indexOf(a.kind) - WALL_ORDER.indexOf(b.kind)),
+    () => buildWalls(placed.map((room) => room.layout!), doors).sort((a, b) => WALL_ORDER.indexOf(a.kind) - WALL_ORDER.indexOf(b.kind)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [layoutKey],
   );
@@ -660,6 +694,28 @@ export default function FloorPlan3D({
           );
         })}
 
+        {/* Door leaves stand open against the room they swing into. */}
+        {doors
+          .filter((door) => door.leaf)
+          .map((door) => {
+            const vertical = Math.abs(door.x1 - door.x2) < 1e-6;
+            const length = Math.abs(vertical ? door.z2 - door.z1 : door.x2 - door.x1) - 0.12;
+            const height = WALL_HEIGHTS.interior + 0.15;
+            return (
+              <mesh
+                key={`${door.x1},${door.z1},${door.x2},${door.z2}`}
+                raycast={noRaycast}
+                geometry={geometries.box}
+                material={furnitureMaterial("wood", false)}
+                position={
+                  vertical
+                    ? [door.x1 + WALL_THICKNESS / 2 + length / 2, FLOOR_THICKNESS + height / 2, door.z1 + 0.08]
+                    : [door.x1 + 0.08, FLOOR_THICKNESS + height / 2, door.z1 + WALL_THICKNESS / 2 + length / 2]
+                }
+                scale={vertical ? [length, height, 0.04] : [0.04, height, length]}
+              />
+            );
+          })}
         {walls.map((wall, index) => {
           const { position, size } = wallBox(wall);
           return (

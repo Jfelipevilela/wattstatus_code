@@ -53,8 +53,9 @@ export const createAuthenticate = (db: MongoDatabase) => async (
       });
       throw new ApiError(401, "Token inválido ou expirado");
     }
-    const session = await db.getSession(payload.jti);
-    if (!session || session.userId !== payload.sub || !await db.getUserById(payload.sub)) {
+    // Independent lookups: one round trip instead of two.
+    const [session, user] = await Promise.all([db.getSession(payload.jti), db.getUserById(payload.sub)]);
+    if (!session || session.userId !== payload.sub || !user) {
       throw new ApiError(401, "Sessão encerrada ou inválida.");
     }
     req.userId = payload.sub;

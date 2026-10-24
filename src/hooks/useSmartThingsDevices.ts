@@ -35,13 +35,17 @@ export const useSmartThingsDevices = (enabled: boolean) => {
   // when a background poll returns an older reading.
   const confirming = useRef(new Set<string>());
 
-  const refresh = useCallback(async () => {
+  const lastRefresh = useRef(0);
+  // background: polls may reuse the server's 60 s device-list cache; statuses
+  // are always read live. A manual refresh asks for a fresh device list.
+  const refresh = useCallback(async (background = false) => {
     if (!enabled || !user || inFlight.current) return;
+    lastRefresh.current = Date.now();
     inFlight.current = true;
     setLoading(true);
     try {
       const data = await apiRequest<{ fetchedAt: string; items: OverviewItem[] }>(
-        "/api/integrations/smartthings/overview",
+        `/api/integrations/smartthings/overview${background ? "?cached=1" : ""}`,
         { method: "GET", skipErrorToast: true },
         token || undefined,
       );
@@ -70,9 +74,11 @@ export const useSmartThingsDevices = (enabled: boolean) => {
   useEffect(() => {
     if (!enabled) return;
     const id = setInterval(() => {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState === "visible") refresh(true);
     }, POLL_MS);
-    const onVisible = () => document.visibilityState === "visible" && refresh();
+    // A quick tab switch does not need new readings.
+    const onVisible = () =>
+      document.visibilityState === "visible" && Date.now() - lastRefresh.current > 15_000 && refresh(true);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       clearInterval(id);
@@ -163,5 +169,5 @@ export const useSmartThingsDevices = (enabled: boolean) => {
     [items, token, readDevice],
   );
 
-  return { items, fetchedAt, loading, error, pending, refresh, refreshDevice, sendCommand };
+  return { items, fetchedAt, loading, error, pending, refresh: () => refresh(), refreshDevice, sendCommand };
 };

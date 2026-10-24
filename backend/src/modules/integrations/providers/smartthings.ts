@@ -58,7 +58,13 @@ export class SmartThingsIntegration implements DeviceIntegration {
       const status = error.response?.status;
       if (status === 401 || status === 403) throw new ApiError(424, "Token SmartThings inválido ou sem permissão");
       if (status === 404) throw new ApiError(404, "Dispositivo SmartThings não encontrado");
-      if (status === 429) throw new ApiError(429, "Limite de chamadas SmartThings atingido");
+      if (status === 429) {
+        // X-RateLimit-Reset: seconds until the window resets (SmartThings docs).
+        const reset = Number(error.response?.headers?.["x-ratelimit-reset"] ?? error.response?.headers?.["retry-after"]);
+        const limited = new ApiError(429, "Limite de chamadas SmartThings atingido") as ApiError & { retryAfterMs?: number };
+        if (Number.isFinite(reset) && reset > 0) limited.retryAfterMs = Math.min(reset, 3600) * 1000;
+        throw limited;
+      }
       throw new ApiError(503, "SmartThings indisponível. Tente novamente.");
     });
     return client;
@@ -165,6 +171,24 @@ export class SmartThingsIntegration implements DeviceIntegration {
       });
       throw error;
     }
+  }
+
+  // Device ids with an energy capability, from one /devices call (no room
+  // names), for the scheduled collector: once per user per run.
+  async listEnergyDeviceIds(capabilities: string[]): Promise<Set<string>> {
+    this.ensureConfigured();
+    const { data } = await this.client.get<{ items: SmartThingsDevice[] }>("/devices");
+    return new Set((data.items || [])
+      .filter((item) => item.components?.some((component) => component.capabilities?.some((capability) => capabilities.includes(capability.id))))
+      .map((item) => item.deviceId));
+  }
+
+  // Scheduled collection only needs the raw status: one request per reading,
+  // no device list, no health call, no room names.
+  async getDeviceReading(deviceId: string): Promise<{ raw: unknown }> {
+    this.ensureConfigured();
+    const { data } = await this.client.get(`/devices/${deviceId}/status`);
+    return { raw: data };
   }
 
   async executeCommand(
