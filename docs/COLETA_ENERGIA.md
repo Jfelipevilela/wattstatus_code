@@ -204,7 +204,7 @@ Com a configuração padrão (60 por execução, 720 leituras por hora), o inter
 
 - **Por dispositivo** (em `energy_collection`): `lastSuccessAt`, `lastIntervalMs` (intervalo real entre leituras), `lastLagMs` (atraso na fila ao ser atendido), `lastDurationMs`, `lastStatus`, `failures`.
 - **Por execução** (`energy_collection_runs`, TTL de 30 dias): reservados, salvos, falhas, ignorados, `rateLimited`, chamadas externas, duração, média por dispositivo, motivo da parada e configuração.
-- **`energyCollectionStats`**, em `GET /api/energy/collection-stats` (só e-mails em `AI_ADMIN_EMAILS`, sem IDs de dispositivo):
+- **`energyCollectionStats`**, em `GET /api/energy/collection-stats` (só administradores com concessão no servidor em `admin_grants`, sem IDs de dispositivo):
   - na fila, vencidos, atrasados (mais de um intervalo após vencer), antigos (última leitura com mais de 2 intervalos), nunca lidos, com falha;
   - idade do mais atrasado, intervalo, atraso e duração médios;
   - totais da última hora e leituras por hora necessárias;

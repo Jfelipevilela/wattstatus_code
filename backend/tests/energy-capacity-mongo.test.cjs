@@ -253,7 +253,7 @@ test('rotas de status da coleta: por usuário e métricas só para administrador
     app.use(errorHandler);
     const server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
     const base = `http://127.0.0.1:${server.address().port}/api/energy`;
-    process.env.AI_ADMIN_EMAILS = 'admin@x.com';
+    await raw.collection('admin_grants').insertOne({ userId: 'u0', grantedAt: new Date(), revokedAt: null });
     try {
       const mine = await (await fetch(`${base}/collection-status`, { headers: { 'x-user': 'u1' } })).json();
       assert.equal(mine.devices.length, 5);
@@ -263,7 +263,7 @@ test('rotas de status da coleta: por usuário e métricas só para administrador
       const stats = await (await fetch(`${base}/collection-stats`, { headers: { 'x-user': 'u0' } })).json();
       assert.equal(stats.queued, 10);
       assert.ok(!JSON.stringify(stats).includes('dev'), 'no device ids in operator metrics');
-    } finally { server.close(); delete process.env.AI_ADMIN_EMAILS; }
+    } finally { server.close(); }
   });
 });
 

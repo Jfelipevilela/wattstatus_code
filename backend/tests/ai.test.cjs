@@ -309,7 +309,7 @@ const serve = async (userId = 'u1', overrides = {}) => {
   app.use('/api/ai', createAIRouter({
     data: createData(), store, limiter: false, config: { ...config, dailyUserBudget: 1 }, provider: null,
     limits: { consumeRateLimit: async () => ({ totalHits: ++hits, resetTime: new Date() }) },
-    getUserEmail: async (u) => (u === 'admin' ? 'admin@x.com' : 'user@x.com'),
+    isAdmin: async (u) => u === 'admin',
     ...overrides,
   }));
   app.use(errorHandler);
@@ -359,9 +359,8 @@ test('API: insights, recommendation states and admin access', async () => {
     const fake = await call(`/recommendations/${encodeURIComponent('reduce_usage:alien')}`, { method: 'PATCH', body: JSON.stringify({ state: 'applied' }) });
     assert.equal(fake.status, 404);
     assert.equal((await call('/admin/usage')).status, 403);
-    process.env.AI_ADMIN_EMAILS = 'admin@x.com';
-    assert.equal((await call('/admin/usage', {}, 'admin')).status, 200);
+      assert.equal((await call('/admin/usage', {}, 'admin')).status, 200);
     const other = await (await call('/insights?propertyId=p1', {}, 'u2')).json();
     assert.equal(other.property, null);
-  } finally { server.close(); delete process.env.AI_ADMIN_EMAILS; }
+  } finally { server.close(); }
 });

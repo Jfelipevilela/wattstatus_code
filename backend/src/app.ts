@@ -88,7 +88,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
     },
     store: new MongoAIStore(db),
     limits: db,
-    getUserEmail: async (userId) => (await db.getUserById(userId))?.email ?? null,
+    isAdmin: (userId) => db.isAdmin(userId),
   }));
 
   app.use(errorHandler);

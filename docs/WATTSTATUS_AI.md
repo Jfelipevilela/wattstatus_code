@@ -201,8 +201,8 @@ Todos ficam sob `/api/ai`, com a autenticação existente. Mutações exigem CSR
 | `GET /alerts`, `POST /alerts/evaluate` | Alertas: só com consentimento e frequência definidos | nunca |
 | `GET /report-summary?year=&month=&propertyId=` | Resumo do relatório | nunca |
 | `DELETE /data` | Apaga preferências, estados, conversas, alertas e métricas do usuário | nunca |
-| `GET /admin/usage?days=` | Métricas agregadas (somente `AI_ADMIN_EMAILS`) | nunca |
-| `GET/PUT /admin/settings` | Configuração em tempo de execução (somente `AI_ADMIN_EMAILS`) | nunca |
+| `GET /admin/usage?days=` | Métricas agregadas (somente administradores com concessão no servidor) | nunca |
+| `GET/PUT /admin/settings` | Configuração em tempo de execução (somente administradores com concessão no servidor) | nunca |
 
 ## 7. Configuração
 
@@ -224,7 +224,7 @@ Todos ficam sob `/api/ai`, com a autenticação existente. Mutações exigem CSR
 | `AI_MAX_CONCURRENT_REQUESTS` | `4` | Chamadas simultâneas por instância. |
 | `AI_PRICE_INPUT_PER_MTOK` / `AI_PRICE_OUTPUT_PER_MTOK` | `0.1` / `0.5` | USD por milhão de tokens (preço de tabela do Claude Haiku 5.5), só para o custo estimado. |
 | `AI_USAGE_RETENTION_DAYS` | `90` | TTL das métricas de uso. |
-| `AI_ADMIN_EMAILS` | — | E-mails com acesso à administração. |
+| `AI_ADMIN_EMAILS` | — | Descontinuada e ignorada. O acesso administrativo vem de `admin_grants`, provisionado por `backend/scripts/admin-grant.cjs`. |
 
 Detalhes do provedor:
 

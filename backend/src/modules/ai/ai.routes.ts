@@ -43,7 +43,8 @@ export interface AIRouterDeps {
   // The app passes the MongoDatabase here; its stored collection status
   // (energyCollectionStatus) feeds measurement freshness when available.
   limits: Pick<MongoDatabase, "consumeRateLimit"> & Partial<Pick<MongoDatabase, "energyCollectionStatus">>;
-  getUserEmail?: (userId: string) => Promise<string | null>;
+  // Server-side admin grant (MongoDatabase.isAdmin). Absent means nobody is admin.
+  isAdmin?: (userId: string) => Promise<boolean>;
   config?: AIConfig;
   provider?: ModelProvider | null;
   limiter?: boolean;
@@ -91,11 +92,7 @@ export const createAIRouter = (input: AIRouterDeps) => {
     return { config, provider, settings };
   };
 
-  const isAdmin = async (userId: string) => {
-    const admins = (process.env.AI_ADMIN_EMAILS || "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
-    const email = (await deps.getUserEmail?.(userId))?.toLowerCase();
-    return Boolean(email && admins.includes(email));
-  };
+  const isAdmin = async (userId: string) => Boolean(await deps.isAdmin?.(userId).catch(() => false));
   const requireAdmin = async (userId: string) => {
     if (!(await isAdmin(userId))) throw new ApiError(403, "Acesso restrito");
   };

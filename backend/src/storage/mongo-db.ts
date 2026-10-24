@@ -93,6 +93,7 @@ export class MongoDatabase {
     // build in parallel, indexes of one collection keep their order.
     const indexes: Array<[string, () => Promise<string>]> = [
       ["users", () => this.db.collection("users").createIndex({ email: 1 }, { unique: true })],
+      ["admin_grants", () => this.db.collection("admin_grants").createIndex({ userId: 1 }, { unique: true })],
       ["users", () => this.db.collection("users").createIndex({ emailCanonical: 1 }, {
       unique: true, partialFilterExpression: { emailCanonical: { $type: "string" } },
     })],
@@ -595,6 +596,17 @@ export class MongoDatabase {
 
   async getUserById(id: string) {
     return this.operation("query", "users.getById", () => this.users().findOne({ id }));
+  }
+
+  // Administrative privilege is a server-side grant tied to the user id. It is
+  // written only by scripts/admin-grant.cjs with direct database access; no
+  // HTTP route writes it, and an e-mail address alone never grants it
+  // (registration does not verify e-mail ownership).
+  async isAdmin(userId: string) {
+    if (!userId) return false;
+    const grant = await this.operation("query", "admin_grants.get", () =>
+      this.db.collection("admin_grants").findOne({ userId, revokedAt: null }, { projection: { _id: 1 } }));
+    return Boolean(grant);
   }
 
   async addUser(user: UserRecord) {

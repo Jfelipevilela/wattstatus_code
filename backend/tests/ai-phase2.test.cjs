@@ -232,7 +232,7 @@ const serve = async (overrides = {}) => {
   app.use('/api/ai', createAIRouter({
     data: createData(), store, limiter: false, config, provider: null,
     limits: { consumeRateLimit: async () => ({ totalHits: ++hits, resetTime: new Date() }) },
-    getUserEmail: async (u) => (u === 'admin' ? 'admin@x.com' : 'user@x.com'),
+    isAdmin: async (u) => u === 'admin',
     ...overrides,
   }));
   app.use(errorHandler);
@@ -305,7 +305,6 @@ test('API: alerts need consent, then dedupe', async () => {
 test('API: admin settings are protected, bounded and applied', async () => {
   let calls = 0;
   const provider = { name: 'fake', async complete(req) { calls++; return { text: 'texto', inputTokens: 10, outputTokens: 2, model: req.model }; } };
-  process.env.AI_ADMIN_EMAILS = 'admin@x.com';
   const { server, call } = await serve({ provider });
   try {
     assert.equal((await call('/admin/settings')).status, 403);
@@ -321,7 +320,7 @@ test('API: admin settings are protected, bounded and applied', async () => {
     assert.equal(view.effective.generative, false);
     assert.equal(view.effective.keyConfigured, true);
     assert.ok(!JSON.stringify(view).includes('"test"'));
-  } finally { server.close(); delete process.env.AI_ADMIN_EMAILS; }
+  } finally { server.close(); }
 });
 
 test('API: report summary for a past month', async () => {

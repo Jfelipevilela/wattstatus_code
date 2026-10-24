@@ -36,13 +36,11 @@ export const createEnergyRouter = (db: MongoDatabase) => {
       res.json(await db.energyCollectionStatus(req.userId, new Date(), intervalMs()));
     } catch (err) { next(err); }
   });
-  // Queue health for operators only (same allowlist as the AI admin).
+  // Queue health for operators only (server-side admin grant, see isAdmin).
   router.get("/collection-stats", async (req: AuthenticatedRequest, res, next) => {
     try {
       if (!req.userId) throw new ApiError(401, "Não autenticado");
-      const admins = (process.env.AI_ADMIN_EMAILS || "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
-      const email = (await db.getUserById(req.userId))?.email?.toLowerCase();
-      if (!email || !admins.includes(email)) throw new ApiError(403, "Acesso restrito");
+      if (!(await db.isAdmin(req.userId))) throw new ApiError(403, "Acesso restrito");
       res.json(await db.energyCollectionStats(new Date(), intervalMs()));
     } catch (err) { next(err); }
   });
