@@ -142,3 +142,105 @@ Outras:
 - Dashboard mobile frio (LCP 7 s): medir numa máquina ociosa ou aparelho real antes de mudar estrutura.
 - Repetir benchmarks numa máquina realmente ociosa; esta rodada teve carga de outras sessões.
 - Bancos `wattstatus_test_*` e `wattstatus_ai_test_*` no Mongo local são de outras sessões; não foram apagados.
+
+## 11. Coleta justa e escalável (segunda integração)
+
+Worktree `C:\dev\wattstatus_integration_collect`, branch local `feature/wattstatus-integration-collect`, a partir de `9b2d015` (HEAD consolidado).
+
+`fix/energy-collection-fairness` saiu de `9f73dc9`, antes de `075e406` e `9b2d015`. Nenhum dos seus 3 commits estava na integração. Arquivos em comum: nenhum. Cherry-pick sem conflito, na ordem original:
+
+| Integração | Origem | Commit |
+|---|---|---|
+| `332553d` | `48bfa82` | Serve scheduled energy collection from a queue ordered by nextAt |
+| `0852347` | `c6b101b` | Scale scheduled energy collection within SmartThings and Netlify limits |
+| `7bdf841` | `0ade3d3` | Correct the capacity test count in the collection doc |
+| (novo) | — | Keep collecting when the busy-user list goes stale during a claim |
+
+### Bug encontrado na homologação
+
+O teste "prazo curto" falhou de forma intermitente (1 em cerca de 6 execuções, `99 !== 100`). Causa: o worker monta a lista de usuários ocupados, reserva excluindo esses usuários e, sem linha, encerra a execução para todos os workers se nada mais estiver em leitura. Se as leituras desses usuários terminam durante a reserva, dispositivos vencidos ficam para a execução seguinte (atraso de 5 min, sem perda de leitura). Correção: com lista de ocupados não vazia, o worker tenta de novo com a lista atualizada. Teste determinístico novo falha sem a correção e passa com ela.
+
+### Testes (versão integrada)
+
+| Suíte | Resultado |
+|---|---|
+| TypeScript frontend e backend | sem erros |
+| ESLint | 0 erros, 13 avisos |
+| Builds | ok |
+| Frontend | 45/45 |
+| Backend com MongoDB local isolado | 180/180, duas execuções seguidas |
+| Backend sem MongoDB | 137 passam, 42 pulados |
+
+Uma terceira execução, com a máquina carregada por outras sessões, teve 3 falhas por `MongoWaitQueueTimeoutError` (pool do MongoDB esgotado). As mesmas falhas não se repetiram em execução isolada nem nas duas rodadas completas seguintes.
+
+Cobertura de concorrência:
+- dois workers simultâneos nunca pegam o mesmo dispositivo;
+- limite por usuário: `maxPerUser ≤ perUserConcurrency` verificado em todas as configurações de capacidade;
+- lease expirado com conclusão atrasada descartada, sem leitura duplicada;
+- prazo curto sem reservas presas, retomada na execução seguinte;
+- 429 com descanso da conta até o reset, outras contas seguem, sem falha contada;
+- 404, 401 e falhas repetidas com backoff;
+- lista de ocupados desatualizada (novo);
+- coleta ponta a ponta sem leituras duplicadas; consulta da fila usa índice.
+
+Segurança:
+- `/api/energy/collection-status` e `/collection-stats` respondem 401 sem sessão ou com token forjado no app real, sem consultar a coleta (teste novo).
+- `collection-status` filtra por `userId` em todas as consultas; teste confirma que um usuário vê só os seus 5 dispositivos.
+- `collection-stats` exige e-mail em `AI_ADMIN_EMAILS` (403 para os demais) e não devolve IDs de dispositivo nem tokens.
+- Erros da SmartThings não expõem credenciais (teste existente).
+
+### Capacidade simulada (MongoDB local, SmartThings simulada)
+
+| Configuração | Latência | Leituras por execução | Duração | Dispositivos sustentáveis a 30 min |
+|---|---|---|---|---|
+| Padrão (60, 4 workers, 2/usuário) | 50 ms | 60 | 1,6 s | 360 |
+| Padrão | 300 ms | 60 | 6,6 s | 360 |
+| Grande (200, 8, 2) | 300 ms | 200 | 11,7 s | 1.200 |
+| Máxima (500, 16, 2) | 300 ms | 495 | 14,5 s | cerca de 2.970 |
+
+Regime permanente (2 h simuladas, orçamento pela fórmula, 8 workers):
+
+| Dispositivos | Orçamento | Intervalo p95 | Atrasados | Execução média / máxima |
+|---|---|---|---|---|
+| 250 | 53 | 30 min | 0 | 0,8 / 1,5 s |
+| 500 | 105 | 30 min | 0 | 1,2 / 1,8 s |
+| 1.000 | 209 | 30 min | 0 | 2,2 / 3,0 s |
+| 5.000 | 500 (teto), 16 workers | 50 min | 0 | 3,5 / 4,8 s; `capacityShort: true` |
+
+Chamadas externas: cerca de 1,2 por leitura (597 chamadas para 497 leituras).
+
+### Configuração
+
+Padrão (produção): `ENERGY_COLLECTION_BATCH_SIZE=60`, `ENERGY_COLLECTION_CONCURRENCY=4`, `ENERGY_COLLECTION_PER_USER=2`, `ENERGY_COLLECTION_INTERVAL_MINUTES=30`, coleta só com `ENERGY_COLLECTION_ENABLED=true`. Sustenta 360 dispositivos a 30 min.
+
+Máxima (limites rígidos em `COLLECTION_LIMITS`, não habilitar por padrão): 500 por execução, 16 workers, 4 por usuário, prazo de 25 s, timeout de 4 s por requisição.
+
+### Limitações da Netlify
+
+- Função agendada: limite de 30 s; o coletor usa prazo de 23 s. Com 300 ms de latência, a configuração máxima usa cerca de 14,5 s.
+- Acima de cerca de 3.000 dispositivos a 30 min é preciso mais de uma função agendada ou uma função de fundo.
+- Cron mínimo de 1 min; o atual é de 5 min.
+- Cada execução abre e fecha a conexão com o MongoDB (cold start incluído no prazo).
+
+### Homologação controlada da SmartThings (preparada, não executada)
+
+Requer autorização e uma conta de homologação com credenciais próprias. Nunca usar contas de clientes.
+
+1. Ambiente: preview isolado ou servidor local apontando para MongoDB descartável; `ENERGY_COLLECTION_ENABLED=true`, configuração padrão.
+2. Conta: 1 usuário de homologação com 3 a 10 dispositivos com medição de energia; token próprio, nunca registrado em log.
+3. Execução: 12 execuções (1 h), uma a cada 5 min, depois 1 execução com `ENERGY_COLLECTION_PER_USER=4` para medir o limite por conta.
+4. Medir a partir de `energy_collection_runs` e `energy_collection`:
+   - latência média e p95 por leitura (`avgDeviceMs`, `lastDurationMs`);
+   - falhas e respostas 429 (`failed`, `rateLimited`, `lastStatus`);
+   - tempo de coleta por execução (`durationMs`);
+   - chamadas externas por leitura (`externalCalls / saved`);
+   - desempenho por usuário (agrupar `lastDurationMs` por `userId`).
+5. Parar imediatamente se houver qualquer 429 ou 401 inesperado.
+6. Ajustar orçamento e workers pela fórmula de `docs/COLETA_ENERGIA.md` § 5 com a latência medida.
+
+### Pendências de produção da coleta
+
+- Latência real da SmartThings não medida (todas as latências acima são simuladas).
+- `X-RateLimit-Remaining` não é usado para desacelerar antes do 429.
+- Admin de `collection-stats` é decidido pelo e-mail em `AI_ADMIN_EMAILS`. Se o cadastro não verifica o e-mail, um e-mail listado e ainda não cadastrado pode ser registrado por outra pessoa. Cadastrar as contas administrativas antes de configurar a variável, ou exigir verificação.
+- A IA ainda não consome `collection-status` (contrato em `docs/COLETA_ENERGIA.md` § 7).
