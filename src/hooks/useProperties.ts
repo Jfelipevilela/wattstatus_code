@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { expandIntervals } from "@/lib/energy-compact";
 import { useAuth } from "./useAuth";
-import type { EnergyInterval } from "./useEnergyHistory";
 import { applianceKeys } from "./useAppliances";
 import type { Floor, Property, Room, RoomLayout } from "@/types/property";
 
@@ -141,10 +141,10 @@ export const usePropertyEnergy = (propertyId: string | undefined, start: Date, e
     // One retry, so a failed reading shows as "indisponível" in seconds.
     retry: 1,
     queryFn: () =>
-      api<{ intervals: EnergyInterval[]; unlocated: { count: number; consumptionKWh: number } }>(
-        `/api/properties/${propertyId}/energy?${new URLSearchParams({ start: startIso, end: endIso })}`,
+      api<{ intervals: Parameters<typeof expandIntervals>[0]; unlocated: { count: number; consumptionKWh: number } }>(
+        `/api/properties/${propertyId}/energy?${new URLSearchParams({ start: startIso, end: endIso, format: "columns" })}`,
         { skipErrorToast: true },
-      ),
+      ).then((body) => ({ ...body, intervals: expandIntervals(body.intervals) })),
   });
   return {
     intervals: query.data?.intervals ?? [],

@@ -118,3 +118,22 @@ Método: medir, identificar, corrigir, medir de novo. Tudo rodou num ambiente lo
 4. **Medições pendentes:** medir 3D e memória no mobile e o cold start real na Netlify (preview deploy autorizado).
 5. **Ruído no `/me` e no `/rooms`:** p95 isolado de cerca de 200 ms numa amostra. Repetir com mais amostras.
 6. **Rate limit em produção:** os limites novos (300 por sessão, 1200 por IP autenticado) devem ser acompanhados em produção pelos logs de 429.
+
+## 10. Segunda rodada: prioridades 1 a 3 aplicadas
+
+1. **Histórico de energia em colunas:**
+   - `?format=columns` em `/api/energy/history` e em `/api/properties/:id/energy` envia ids e textos uma vez só, num dicionário, e as datas em milissegundos.
+   - O frontend (`src/lib/energy-compact.ts`) reconstrói os mesmos objetos. O teste `tests/energy-compact.test.cjs` compara o resultado campo a campo.
+   - Se algum dado não puder ser reconstruído exatamente (data fora do formato ISO canônico ou campo desconhecido), o servidor envia o formato antigo.
+   - Clientes que não pedem o formato novo, como o módulo de IA, recebem a resposta antiga.
+   - Medido: 1,66 MB → 277 KB.
+2. **`IntegrationUsage`:** só faz polling quando a última resposta trouxe dados. O React Query já pausa o polling com a aba oculta. Uma conta sem integrações faz uma consulta só.
+3. **3D:**
+   - Os móveis de cada ambiente são desenhados com um `InstancedMesh` por forma e acabamento.
+   - A animação de montagem por unidade continua: o `useFrame` reescreve as matrizes das instâncias.
+   - Draw calls por frame: 204 → 118.
+
+Pendências:
+- LCP do Dashboard mobile frio.
+- CLS do resumo de IA em Relatórios (trabalho de outro agente).
+- Cold start da Netlify, que exige deploy.

@@ -146,3 +146,33 @@ Os dois lados não são comparáveis: entre as medições, a maquete ganhou móv
 | Dashboard mobile (frio), LCP | 3764 ms | 6812 ms | Não comparável (ver acima) | measure.mjs, mobile |
 | Memória 3D | 19,7 MB estável | 26,3 → 28,1 MB | Não comparável (cena mudou) | measure.mjs, 20 ciclos |
 | Cold start da function na Netlify | não medido | não medido | — | exige deploy; não autorizado |
+
+## Segunda rodada (mesmo dia): payload, polling e 3D instanciado
+
+Mudanças medidas nesta rodada:
+- Histórico de energia em colunas, opcional com `?format=columns`.
+- Polling de integrações condicionado a haver dados.
+- Móveis do 3D com `InstancedMesh`.
+
+Arquivos: `after2-browser-desktop-r20.json` (1 execução) e `after2-browser-mobile-r20.json` (mediana de 3).
+
+| Área | Antes (baseline) | Depois | Melhoria | Como foi medido |
+|---|---|---|---|---|
+| `/api/energy/history`, 30 dias, bytes | 1.661.658 | 276.933 | −83% | script com sessão, 15 amostras |
+| `/api/energy/history`, p50 servidor | 96,0 ms (simples) | 101,1 ms (colunas) | Igual (dentro do ruído) | mesma medição |
+| 3D, draw calls por frame | 204 (com móveis novos) | 118 | −42% | measure.mjs, desktop |
+| 3D, heap após GC, 20 ciclos | 26,32 → 28,14 MB | 24,54 → 25,89 MB | −7% no início | measure.mjs, desktop |
+| Mobile Dashboard frio, transferido | 2734,7 KB | 1388,6 KB | −49% | measure.mjs, mobile |
+| Mobile Dashboard frio, utilizável | 15.207 ms | 8689 ms | −43% | measure.mjs, mobile |
+| Mobile Imóveis frio, utilizável | 10.552 ms | 5554 ms | −47% | measure.mjs, mobile |
+| Mobile Imóvel 3D frio, utilizável | 17.950 ms | 10.610 ms | −41% | measure.mjs, mobile |
+| Mobile Imóvel 3D frio, TBT | 1977 ms | 491 ms | −75% | measure.mjs, mobile |
+
+Origem do "antes" de cada linha:
+- **3D desktop:** primeira rodada "depois", já com os móveis novos.
+- **Mobile Dashboard:** primeira rodada "depois".
+- **Demais linhas mobile:** baseline original.
+
+Observações:
+- O LCP do Dashboard mobile frio continua alto: 7020 ms. A transferência caiu, mas o LCP depende do JS (936 KB) e do conteúdo que chega por último.
+- Relatórios no desktop voltou a ter CLS de 0,0926. A causa é um bloco novo de resumo da IA (`/api/ai/report-summary`) que entra acima do relatório depois do carregamento. Ele faz parte do trabalho em andamento de outro agente em `ReportsTab.tsx`. Precisa reservar altura enquanto carrega.

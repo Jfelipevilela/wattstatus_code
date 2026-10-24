@@ -1,0 +1,221 @@
+{
+  "profile": "mobile",
+  "base": "http://127.0.0.1:4511",
+  "runs": 3,
+  "at": "2026-10-24T14:12:09.875Z",
+  "loads": {
+    "dashboard:cold": {
+      "ttfb": 6,
+      "fcp": 2816,
+      "lcp": 7020,
+      "cls": 0,
+      "tbt": 1169,
+      "domContentLoaded": 2763,
+      "heapMB": 16.5,
+      "usableMs": 8689,
+      "requests": 63,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 1388.6,
+      "jsKB": 942,
+      "jsFiles": 53,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "dashboard:warm": {
+      "ttfb": 5,
+      "fcp": 316,
+      "lcp": 700,
+      "cls": 0,
+      "tbt": 698,
+      "domContentLoaded": 238,
+      "heapMB": 19.6,
+      "usableMs": 1309,
+      "requests": 63,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 8,
+      "jsKB": 0,
+      "jsFiles": 53,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "properties:cold": {
+      "ttfb": 6,
+      "fcp": 2832,
+      "lcp": 4268,
+      "cls": 0.0004,
+      "shifts": [
+        {
+          "value": 0.0003,
+          "at": 4607,
+          "nodes": [
+            "#text. y 527→527 h 16→16",
+            "#text. y 567→567 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0002,
+          "at": 5595,
+          "nodes": [
+            "#text. y 527→527 h 16→16"
+          ]
+        }
+      ],
+      "tbt": 8,
+      "domContentLoaded": 2757,
+      "heapMB": 24.9,
+      "usableMs": 5554,
+      "requests": 43,
+      "apiRequests": 5,
+      "api429": 0,
+      "transferKB": 847.4,
+      "jsKB": 470.4,
+      "jsFiles": 36,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/appliances": 1,
+        "GET /api/energy/history": 1
+      }
+    },
+    "properties:warm": {
+      "ttfb": 3,
+      "fcp": 340,
+      "lcp": 644,
+      "cls": 0.0002,
+      "shifts": [
+        {
+          "value": 0.0002,
+          "at": 846,
+          "nodes": [
+            "#text. y 527→527 h 16→16"
+          ]
+        }
+      ],
+      "tbt": 48,
+      "domContentLoaded": 259,
+      "heapMB": 22.7,
+      "usableMs": 783,
+      "requests": 43,
+      "apiRequests": 5,
+      "api429": 0,
+      "transferKB": 5.2,
+      "jsKB": 0,
+      "jsFiles": 36,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/appliances": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "property-3d:cold": {
+      "ttfb": 4,
+      "fcp": 2832,
+      "lcp": 5240,
+      "cls": 0.0001,
+      "shifts": [
+        {
+          "value": 0.0001,
+          "at": 4855,
+          "nodes": [
+            "svg.[object SVGAnimatedString] y 23.5→23.5 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0001,
+          "at": 6926,
+          "nodes": [
+            "DD.text-2xl font-bold tabular-nums y 184→180 h 20→32"
+          ]
+        }
+      ],
+      "tbt": 491,
+      "domContentLoaded": 2777,
+      "heapMB": 25.9,
+      "usableMs": 10610,
+      "requests": 56,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 1804.9,
+      "jsKB": 1417.9,
+      "jsFiles": 47,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties/:id/energy": 1
+      },
+      "canvas": true,
+      "drawCallsTotal": 723
+    },
+    "property-3d:warm": {
+      "ttfb": 3,
+      "fcp": 340,
+      "lcp": 944,
+      "cls": 0.0001,
+      "shifts": [
+        {
+          "value": 0.0001,
+          "at": 1136,
+          "nodes": [
+            "svg.[object SVGAnimatedString] y 23.5→23.5 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0001,
+          "at": 1223,
+          "nodes": [
+            "DD.text-2xl font-bold tabular-nums y 184→180 h 20→32"
+          ]
+        }
+      ],
+      "tbt": 399,
+      "domContentLoaded": 251,
+      "heapMB": 33.5,
+      "usableMs": 870,
+      "requests": 56,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 7.1,
+      "jsKB": 0,
+      "jsFiles": 47,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties/:id/energy": 1
+      },
+      "canvas": true,
+      "drawCallsTotal": 723
+    }
+  },
+  "spa": [],
+  "three": null,
+  "memory": null
+}

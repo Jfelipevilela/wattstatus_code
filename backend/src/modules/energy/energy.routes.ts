@@ -3,11 +3,13 @@ import { z } from "zod";
 import { MongoDatabase } from "../../storage/mongo-db";
 import { AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { ApiError } from "../../middleware/error-handler";
+import { intervalsBody } from "./energy-compact";
 
 const querySchema = z.object({
   start: z.string().datetime({ offset: true }),
   end: z.string().datetime({ offset: true }),
   applianceId: z.string().uuid().optional(),
+  format: z.literal("columns").optional(),
 });
 
 export const createEnergyRouter = (db: MongoDatabase) => {
@@ -21,7 +23,7 @@ export const createEnergyRouter = (db: MongoDatabase) => {
       const span = end.getTime() - start.getTime();
       if (span <= 0 || span > 366 * 86400000) throw new ApiError(400, "Período inválido");
       const intervals = await db.getEnergyHistory(req.userId, start, end, query.applianceId);
-      res.json({ intervals });
+      res.json({ intervals: intervalsBody(intervals, query.format) });
     } catch (err) { next(err); }
   });
   return router;

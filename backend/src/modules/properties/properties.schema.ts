@@ -80,6 +80,7 @@ export const energyQuerySchema = z.object({
   start: z.string().datetime({ offset: true }),
   end: z.string().datetime({ offset: true }),
   roomId: z.string().uuid().optional(),
+  format: z.literal("columns").optional(),
 });
 
 export type PropertyInput = z.infer<typeof propertyInputSchema>;
