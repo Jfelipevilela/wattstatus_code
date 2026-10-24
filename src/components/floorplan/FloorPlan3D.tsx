@@ -232,11 +232,22 @@ function AnimatedFurniture({
   useFrame(() => {
     if (!phase || settled.current === phase) return;
     const now = performance.now();
-    const states = units.map((_, index) => unitAt(phase, index, now, speed));
-    pose.current = { offset: states.map((state) => state.offset), visible: states.map((state) => state.visible) };
-    writeUnits(buckets, meshes.current, (unit) => states[unit].offset, (unit) => states[unit].visible);
-    offsets.current = states.map((state) => state.offset);
-    if (states.every((state) => state.done)) {
+    // One pass, two small arrays per frame (offsets is a fresh array because
+    // room transitions keep earlier snapshots of it).
+    const offset: number[] = [];
+    const visible = pose.current.visible;
+    visible.length = units.length;
+    let done = true;
+    for (let index = 0; index < units.length; index++) {
+      const state = unitAt(phase, index, now, speed);
+      offset.push(state.offset);
+      visible[index] = state.visible;
+      if (!state.done) done = false;
+    }
+    pose.current.offset = offset;
+    writeUnits(buckets, meshes.current, (unit) => offset[unit], (unit) => visible[unit]);
+    offsets.current = offset;
+    if (done) {
       settled.current = phase;
       onSettled(phase);
     } else invalidate();
