@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { apiRequest } from "@/lib/api";
 import { expandIntervals } from "@/lib/energy-compact";
+import { energyHistoryKeys } from "@/lib/cache-keys";
 
 export interface EnergyInterval {
   applianceId: string | null;
@@ -27,7 +28,7 @@ export const useEnergyHistory = (start: Date, end: Date, applianceId?: string) =
   const startIso = start.toISOString();
   const endIso = end.toISOString();
   const query = useQuery({
-    queryKey: ["energy-history", user?.id ?? "anonymous", startIso, endIso, applianceId ?? null],
+    queryKey: energyHistoryKeys.range(user?.id ?? "anonymous", startIso, endIso, applianceId ?? null),
     enabled: Boolean(user),
     // Readings arrive at most every few minutes.
     staleTime: 60_000,

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { applianceKeys, refreshAfterApplianceChange } from "@/lib/cache-keys";
 import { useAuth } from "./useAuth";
 
 export interface Appliance {
@@ -37,11 +38,7 @@ export interface ApplianceInput {
   roomId?: string | null;
 }
 
-// Keyed by user so a cached list can never be served to another account.
-export const applianceKeys = {
-  all: ["appliances"] as const,
-  list: (userId: string) => ["appliances", userId] as const,
-};
+export { applianceKeys };
 
 // One shared, cached list for every page and panel. Mutations write the
 // server's answer into the cache; room and property totals are derived from it.
@@ -61,6 +58,8 @@ export const useAppliances = () => {
 
   const write = (update: (previous: Appliance[]) => Appliance[]) => {
     client.setQueryData<Appliance[]>(key, (previous) => update(previous ?? []));
+    // Readings, room totals and analyses derive from the list.
+    void refreshAfterApplianceChange(client);
   };
 
   const addAppliance = async (input: ApplianceInput) => {

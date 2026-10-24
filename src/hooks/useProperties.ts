@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { expandIntervals } from "@/lib/energy-compact";
 import { useAuth } from "./useAuth";
-import { applianceKeys } from "./useAppliances";
+import { propertyKeys, refreshAfterApplianceChange, refreshAfterPlaceChange } from "@/lib/cache-keys";
 import type { Floor, Property, Room, RoomLayout } from "@/types/property";
 
 export type PropertyInput = Partial<Omit<Property, "id" | "isPrimary" | "createdAt" | "updatedAt" | "archivedAt">> & {
@@ -15,18 +15,14 @@ const useApi = () => {
     apiRequest<T>(path, init, token || undefined);
 };
 
-export const propertyKeys = {
-  all: ["properties"] as const,
-  detail: (id: string) => ["properties", id] as const,
-  energy: (id: string, start: string, end: string) => ["properties", id, "energy", start, end] as const,
-};
+export { propertyKeys };
 
 export const useProperties = (includeArchived = false) => {
   const { user } = useAuth();
   const api = useApi();
   const client = useQueryClient();
   const query = useQuery({
-    queryKey: [...propertyKeys.all, includeArchived],
+    queryKey: propertyKeys.list(user?.id ?? "anonymous", includeArchived),
     enabled: Boolean(user),
     queryFn: () =>
       api<{ properties: Property[] }>(`/api/properties${includeArchived ? "?archived=1" : ""}`, { skipErrorToast: true }).then(
@@ -44,13 +40,14 @@ export const useProperties = (includeArchived = false) => {
       api<{ property: Property }>(`/api/properties/${id}`, { method: "PATCH", body: JSON.stringify(input) }).then(
         (data) => data.property,
       ),
-    onSuccess: invalidate,
+    // Tariff, timezone or primary flag changes reach estimates and readings.
+    onSuccess: () => refreshAfterApplianceChange(client),
   });
   const remove = useMutation({
     mutationFn: ({ id, moveAppliancesTo }: { id: string; moveAppliancesTo?: string }) =>
       api(`/api/properties/${id}`, { method: "DELETE", body: JSON.stringify({ moveAppliancesTo }) }),
     // The server moves the appliances, so the cached list is stale too.
-    onSuccess: () => Promise.all([invalidate(), client.invalidateQueries({ queryKey: applianceKeys.all })]),
+    onSuccess: () => refreshAfterPlaceChange(client),
   });
   const properties = query.data ?? [];
   return {
@@ -69,7 +66,7 @@ export const usePropertyLayout = (propertyId: string | undefined) => {
   const { user } = useAuth();
   const api = useApi();
   const client = useQueryClient();
-  const key = propertyKeys.detail(propertyId ?? "none");
+  const key = propertyKeys.detail(user?.id ?? "anonymous", propertyId ?? "none");
   const query = useQuery({
     queryKey: key,
     enabled: Boolean(user && propertyId),
@@ -99,7 +96,7 @@ export const usePropertyLayout = (propertyId: string | undefined) => {
   const removeRoom = useMutation({
     mutationFn: ({ id, moveAppliancesTo }: { id: string; moveAppliancesTo?: string | null }) =>
       api(`${base}/rooms/${id}`, { method: "DELETE", body: JSON.stringify({ moveAppliancesTo }) }),
-    onSuccess: () => Promise.all([invalidate(), client.invalidateQueries({ queryKey: applianceKeys.all })]),
+    onSuccess: () => refreshAfterPlaceChange(client),
   });
   const addFloor = useMutation({
     mutationFn: (input: { name: string; level: number }) =>
@@ -136,7 +133,7 @@ export const usePropertyEnergy = (propertyId: string | undefined, start: Date, e
   const startIso = start.toISOString();
   const endIso = end.toISOString();
   const query = useQuery({
-    queryKey: propertyKeys.energy(propertyId ?? "none", startIso, endIso),
+    queryKey: propertyKeys.energy(user?.id ?? "anonymous", propertyId ?? "none", startIso, endIso),
     enabled: Boolean(user && propertyId),
     // One retry, so a failed reading shows as "indisponível" in seconds.
     retry: 1,
