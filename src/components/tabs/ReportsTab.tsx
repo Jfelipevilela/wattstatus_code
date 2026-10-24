@@ -312,6 +312,15 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
         </div>
       </header>
 
+      {/* Placeholder while the summary loads, so the report below does not jump. */}
+      {(summary.isLoading || (propertiesLoading && !summary.data)) && (
+        <section className="rounded-2xl border bg-card p-5" aria-label="Resumo do período" aria-busy="true">
+          <div className="h-5 w-40 animate-pulse rounded bg-muted" />
+          <div className="mt-3 space-y-1.5" aria-hidden="true">
+            {[0, 1, 2, 3, 4].map((line) => <div key={line} className="h-5 animate-pulse rounded bg-muted/70" style={{ width: `${92 - line * 10}%` }} />)}
+          </div>
+        </section>
+      )}
       {summary.data && summary.data.lines.length > 0 && (
         <section className="rounded-2xl border bg-card p-5" aria-label="Resumo do período">
           <div className="flex flex-wrap items-center justify-between gap-2">
