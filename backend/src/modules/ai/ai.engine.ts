@@ -25,10 +25,20 @@ export const kwh = (value: number) => round(value, value >= 100 ? 0 : value >= 1
 
 // ---------------------------------------------------------------- calendar
 
+// Building an Intl.DateTimeFormat is far slower than using one, and these run
+// once per energy reading; keep one formatter per zone and pattern.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+const formatter = (locale: string, options: Intl.DateTimeFormatOptions) => {
+  const key = `${locale}|${options.timeZone}|${options.hour ? "time" : "day"}`;
+  let cached = formatters.get(key);
+  if (!cached) { cached = new Intl.DateTimeFormat(locale, options); formatters.set(key, cached); }
+  return cached;
+};
+
 // Calendar parts of an instant in the property's time zone.
 export const zonedDay = (date: Date, timeZone: string) => {
   try {
-    const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" })
+    const parts = formatter("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" })
       .formatToParts(date);
     const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
     return { year: get("year"), month: get("month"), day: get("day") };
@@ -45,7 +55,7 @@ const daysInMonth = (year: number, month: number) => new Date(Date.UTC(year, mon
 // Offset of the zone at an instant, in ms (handles DST transitions).
 const zoneOffset = (date: Date, timeZone: string) => {
   try {
-    const parts = new Intl.DateTimeFormat("en-US", {
+    const parts = formatter("en-US", {
       timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
       hour: "2-digit", minute: "2-digit", second: "2-digit",
     }).formatToParts(date);
@@ -208,12 +218,17 @@ export const buildSnapshot = ({ property, rooms, appliances, intervals, previous
   const previousLocated = previousIntervals.filter((item) => item.applianceId && ownIds.has(item.applianceId) &&
     (!item.propertyId || item.propertyId === property.id));
   const rates = new Map<string, number>();
+  const byAppliance = new Map<string, EnergyInterval[]>();
+  for (const item of located) {
+    const list = byAppliance.get(item.applianceId!);
+    if (list) list.push(item); else byAppliance.set(item.applianceId!, [item]);
+  }
 
   const facts: ApplianceFacts[] = own.map((appliance) => {
     const estimate = estimateMonthly(appliance, period.daysInMonth);
     const { rate, origin } = applianceRate(appliance, property);
     rates.set(appliance.id, rate);
-    const readings = located.filter((item) => item.applianceId === appliance.id);
+    const readings = byAppliance.get(appliance.id) ?? [];
     const measured = readings.reduce((sum, item) => sum + item.consumptionKWh, 0);
     const measuredCost = readings.reduce((sum, item) => sum + (item.cost ?? item.consumptionKWh * rate), 0);
     const days = new Set(readings.map((item) => dayKey(new Date(item.endAt), period.timeZone)));
