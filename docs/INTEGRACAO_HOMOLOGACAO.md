@@ -186,7 +186,7 @@ Cobertura de concorrência:
 Segurança:
 - `/api/energy/collection-status` e `/collection-stats` respondem 401 sem sessão ou com token forjado no app real, sem consultar a coleta (teste novo).
 - `collection-status` filtra por `userId` em todas as consultas; teste confirma que um usuário vê só os seus 5 dispositivos.
-- `collection-stats` exige e-mail em `AI_ADMIN_EMAILS` (403 para os demais) e não devolve IDs de dispositivo nem tokens.
+- `collection-stats` exige concessão administrativa em `admin_grants` (403 para os demais) e não devolve IDs de dispositivo nem tokens. Atualizado depois desta integração: o acesso por e-mail (`AI_ADMIN_EMAILS`) foi removido no commit `30c7d96`; ver `docs/PLANO_HOMOLOGACAO_PRODUCAO.md` § 3.
 - Erros da SmartThings não expõem credenciais (teste existente).
 
 ### Capacidade simulada (MongoDB local, SmartThings simulada)
@@ -242,5 +242,5 @@ Requer autorização e uma conta de homologação com credenciais próprias. Nun
 
 - Latência real da SmartThings não medida (todas as latências acima são simuladas).
 - `X-RateLimit-Remaining` não é usado para desacelerar antes do 429.
-- Admin de `collection-stats` é decidido pelo e-mail em `AI_ADMIN_EMAILS`. Se o cadastro não verifica o e-mail, um e-mail listado e ainda não cadastrado pode ser registrado por outra pessoa. Cadastrar as contas administrativas antes de configurar a variável, ou exigir verificação.
-- A IA ainda não consome `collection-status` (contrato em `docs/COLETA_ENERGIA.md` § 7).
+- ~~Admin de `collection-stats` decidido pelo e-mail em `AI_ADMIN_EMAILS`~~ Resolvido no commit `30c7d96`: o acesso vem só de `admin_grants`, ligado ao id do usuário e provisionado por `backend/scripts/admin-grant.cjs`. `AI_ADMIN_EMAILS` não é mais lida.
+- ~~A IA ainda não consome `collection-status`~~ Resolvido nos commits `518c534` e `2d23f36` (`docs/WATTSTATUS_AI.md` § 15).
