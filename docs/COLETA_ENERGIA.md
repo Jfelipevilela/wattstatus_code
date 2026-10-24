@@ -1,6 +1,6 @@
 # Coleta agendada de energia
 
-Como a função agendada `collect-energy` escolhe os dispositivos SmartThings a ler, e a correção da falha de atendimento (starvation) encontrada na revisão de integração.
+Como a função agendada `collect-energy` escolhe e lê os dispositivos SmartThings: a correção da falha de atendimento (starvation, seções 1 a 3) e o dimensionamento da capacidade (seções 4 a 9).
 
 ## 1. Causa do bug
 
@@ -78,57 +78,180 @@ Os índices são criados por `db.init()`, na inicialização da API, como os dem
 
 **Impacto na escrita**: cada conclusão já atualizava `nextAt`; agora também atualiza a entrada do índice `{nextAt, key}`. É uma escrita de índice a mais por leitura de dispositivo. O índice parcial de `user_settings` só muda quando o usuário liga ou desliga a coleta.
 
-## 4. Capacidade medida
+## 4. Capacidade: diagnóstico
 
-MongoDB 7.0.14 local e descartável. Cada execução tem 3 dispositivos, de 5 em 5 minutos, com intervalo de 30 minutos (`tests/energy-queue-mongo.test.cjs`, `QUEUE_BENCH`):
+### Limites externos (documentação oficial, consultada em 24/10/2026)
 
-| Dispositivos | Execuções até atender todos | Tempo simulado | Tempo médio por execução (registro + 3 reservas e conclusões) |
-|---|---|---|---|
-| 1 | 1 | 5 min | 82 ms (primeira, com aquecimento) |
-| 50 | 17 | 1,4 h | 22 ms |
-| 199 | 67 | 5,6 h | 26 ms |
-| 200 | 67 | 5,6 h | 25 ms |
-| 201 | 67 | 5,6 h | 22 ms |
-| 250 | 84 | 7,0 h | 26 ms |
-| 500 | 167 | 13,9 h | 26 ms |
-| 1.000 | 334 | 27,8 h | 33 ms |
+**SmartThings** ([Rate Limits](https://developer.smartthings.com/docs/getting-started/rate-limits)):
 
-Consultas ao banco por execução com 3 dispositivos: cerca de 20.
+- **Por dispositivo**: 12 requisições por minuto para ler estado. Ler a cada 30 minutos fica muito abaixo disso.
+- **Por app instalado**: 60 requisições por minuto nas APIs de Installed Apps.
+- **Por localização**: 100 requisições por minuto em Get e List Location.
+- **Por token**: a documentação não define limite.
+- **Ao estourar**: HTTP 429, com os cabeçalhos `X-RateLimit-Limit`, `X-RateLimit-Remaining` e `X-RateLimit-Reset` (segundos até o fim da janela). `Retry-After` não é documentado.
 
-- **Registro**: 5 operações (usuários habilitados, cursor, página de aparelhos, `bulkWrite`, atualização do cursor).
-- **Cada dispositivo**: 5 operações (reserva, configuração, aparelho, leitura e escrita da conclusão).
+**Netlify** ([Scheduled functions](https://docs.netlify.com/build/functions/scheduled-functions/)): função agendada tem limite de 30 s de execução e não faz streaming.
 
-Às chamadas ao banco somam-se as chamadas à SmartThings.
+### O que limitava de verdade
 
-### Limite real
+| Fator | Antes | Era o gargalo? |
+|---|---|---|
+| Teto de dispositivos por execução | 3, fixo no código (`maxDevices ≤ 3`) | **Sim**: 36 leituras por hora |
+| Processamento | Sequencial, um dispositivo por vez | **Sim** |
+| Chamadas externas por leitura | Lista de dispositivos com nomes de cômodos (1 + uma por localização) + estado + saúde, **a cada dispositivo** | **Sim**: 3 ou mais chamadas por leitura |
+| Token | Resolvido a cada dispositivo | Pouco |
+| MongoDB | ~5 operações por dispositivo, reserva por índice (1 chave examinada) | Não |
+| Netlify | 30 s por execução | Teto absoluto por execução |
+| Cotas SmartThings | 12/min por dispositivo; sem limite documentado por token | Não, com o limite por usuário |
 
-O gargalo não é o banco, e sim a vazão configurada: `maxDevices` é limitado a 3 por execução em `energy-collector.ts`, e a execução tem prazo de 23 s.
+## 5. Dimensionamento
 
-- Com 3 dispositivos a cada 5 minutos, a capacidade é de 36 leituras por hora.
-- Com intervalo de 30 minutos, isso sustenta no máximo 18 dispositivos no intervalo nominal.
-- Acima disso, a fila continua justa: todos são atendidos em rodízio, e o intervalo efetivo de cada dispositivo passa a ser `dispositivos / 36` horas. Com 1.000 dispositivos, isso dá cerca de 28 h.
-- Nenhum dispositivo fica esquecido. A frequência é limitada pela capacidade, não pela seleção.
+### Coletor (`backend/src/modules/energy/energy-collector.ts`)
 
-Para aumentar a frequência:
+- **Pool de workers**: `concurrency` workers, cada um repetindo reservar, ler e concluir. Para ao atingir o orçamento de dispositivos (`maxDevices`), o prazo ou o fim da fila. Nunca começa um dispositivo que não termine antes do prazo (timeout da requisição + 1,5 s).
+- **Uma sessão por usuário por execução**: o token é resolvido uma vez e a lista de dispositivos com medição de energia (`listEnergyDeviceIds`) é buscada uma vez, sem nomes de cômodos. Cada leitura faz só `GET /devices/{id}/status` (`getDeviceReading`), sem a chamada de saúde. Resultado: cerca de 1,2 chamada externa por leitura, contra 3 ou mais antes.
+- **Concorrência por usuário** (`perUserConcurrency`): a reserva exclui usuários que já estão no limite. Se dois workers pegarem o mesmo usuário ao mesmo tempo, o segundo devolve o dispositivo sem mudar o agendamento.
+- **429**: lê `X-RateLimit-Reset` (ou `Retry-After`, se vier), adia todos os dispositivos vencidos daquele usuário até o reset sem contar falha, e exclui o usuário pelo resto da execução. Os outros usuários seguem.
+- **404**: dispositivo some da conta; nova tentativa em 24 h.
+- **401/403/424**: token inválido; o usuário fica desativado no resto da execução e o dispositivo é tentado de novo em 6 h. O estado aparece como `error`.
+- **Outras falhas**: backoff exponencial, como antes (máximo de 6 h).
+- **Dispositivo sem medição de energia**: não é lido.
 
-- elevar `ENERGY_COLLECTION_BATCH_SIZE` e o teto de 3 no código;
-- ou agendar com mais frequência.
+### Reserva e lease
 
-Os dois respeitando os limites de requisições da SmartThings. Essa decisão de capacidade não foi tomada aqui.
+- A reserva é atômica e tem um `leaseId` único.
+- A conclusão só vale se o `leaseId` ainda for o mesmo. Se uma execução passar do lease e outra pegar o dispositivo, a conclusão atrasada é descartada (testado). A leitura duplicada também é barrada pelo `sampleKey`.
+- Lease de `max(60 s, 3 × timeout + 10 s)`. O pior caso de um dispositivo é renovação de token + lista + leitura, todos com timeout de 4 s, abaixo de 60 s. Por isso não foi preciso renovar o lease.
 
-## 5. Testes
+### Limites rígidos (`COLLECTION_LIMITS`)
 
-| Arquivo | O que prova |
+| Limite | Valor |
 |---|---|
-| `tests/energy-starvation-mongo.test.cjs` | Regressão: 250 dispositivos; falha no código antigo (18 de 250), passa no novo |
-| `tests/energy-queue-mongo.test.cjs` | Todos atendidos para 1, 50, 199, 200, 201, 250, 500 e 1.000 dispositivos, sem atender ninguém duas vezes antes de todos quando a rodada cabe no intervalo. Também cobre: dispositivo não vencido; erro com backoff sem bloquear os outros; dois workers simultâneos; ativação, desativação durante o processamento e reativação; dispositivo novo sem registro; aparelho excluído; intervalos diferentes; recuperação após interrupção; linhas antigas; coleta de ponta a ponta sem leitura duplicada; `explain` com índice |
-| `tests/energy-claim-mongo.test.cjs` | Usuários sem opt-in não bloqueiam a coleta (ajustado: registra a fila antes de reservar) |
-| `tests/energy-collector.test.cjs` | Comportamento existente do coletor, inalterado |
+| Dispositivos por execução | 500 |
+| Workers | 16 |
+| Workers por usuário | 4 |
+| Prazo por execução | 25 s |
+| Timeout por requisição | 4 s |
 
-Todos exigem `TEST_MONGO_URL` apontando para um MongoDB local e isolado. Sem ele, são pulados.
+O ambiente só escolhe valores dentro desses limites:
 
-## 6. Pendências
+| Variável | Padrão |
+|---|---|
+| `ENERGY_COLLECTION_BATCH_SIZE` | 60 |
+| `ENERGY_COLLECTION_CONCURRENCY` | 4 |
+| `ENERGY_COLLECTION_PER_USER` | 2 |
+| `ENERGY_COLLECTION_INTERVAL_MINUTES` | 30 |
 
-- A capacidade de 3 dispositivos por execução é o limite efetivo acima de 18 dispositivos (seção 4).
-- O cursor de registro é global. Usuários com milhares de aparelhos não atrasam os outros na reserva, mas no registro todos dividem a mesma página de 500.
-- Linhas de dispositivos removidos só saem da fila quando chegam à frente dela. O custo é uma reserva descartada.
+### Como escolher
+
+```
+orçamento por execução ≥ dispositivos × (5 min / intervalo) × 1,25
+concorrência ≥ orçamento × latência média por leitura / 20 s
+```
+
+### Capacidade medida
+
+MongoDB 7.0.14 local, SmartThings simulada, uma execução sobre uma fila de 2.000 dispositivos (`CAPACITY`):
+
+| Configuração | Latência simulada | Leituras por execução | Duração | Leituras por hora | Dispositivos sustentáveis em 30 min |
+|---|---|---|---|---|---|
+| Antiga (3, 1 worker) | 50 ms | 3 | 0,35 s | 36 | 18 |
+| Padrão (60, 4, 2/usuário) | 50 ms | 60 | 1,4 s | 720 | 360 |
+| Grande (200, 8, 2) | 50 ms | 200 | 2,2 s | 2.400 | 1.200 |
+| Máxima (500, 16, 2) | 50 ms | 496 | 2,9 s | ~5.950 | ~2.980 |
+| Antiga | 300 ms | 3 | 1,3 s | 36 | 18 |
+| Padrão | 300 ms | 60 | 6,4 s | 720 | 360 |
+| Grande | 300 ms | 200 | 10,8 s | 2.400 | 1.200 |
+| Máxima | 300 ms | 498 | 14,1 s | ~5.980 | ~2.990 |
+
+Com latência real de 300 ms por chamada, a configuração máxima usa cerca de 14 s dos 23 s do prazo.
+
+### Capacidade máxima com o código atual
+
+Cerca de 6.000 leituras por hora (500 por execução, 12 execuções por hora). Isso sustenta cerca de 3.000 dispositivos no intervalo de 30 minutos. Acima disso, o limite é o teto de 500 por execução e a duração da função agendada.
+
+### Regime permanente
+
+Duas horas simuladas, orçamento calculado pela fórmula (`STEADY`):
+
+| Dispositivos | Orçamento / workers | Intervalo real p95 | Atrasados | Execução média / máxima |
+|---|---|---|---|---|
+| 50 | 11 / 8 | 30 min | 0 | 0,2 s / 0,25 s |
+| 250 | 53 / 8 | 30 min | 0 | 0,56 s / 0,76 s |
+| 500 | 105 / 8 | 30 min | 0 | 0,98 s / 1,2 s |
+| 1.000 | 209 / 8 | 30 min | 0 | 1,9 s / 2,4 s |
+| 5.000 | 500 (teto) / 16 | **50 min** | — | 2,9 s / 3,0 s; `capacityShort: true` |
+
+Com 5.000 dispositivos, o intervalo planejado de 30 min não é cumprido: o teto de 500 por execução dá cerca de 50 min. A métrica sinaliza isso. Ninguém fica sem leitura, mas os dados ficam mais espaçados. Isso não deve ser confundido com monitoramento dentro do intervalo.
+
+### Intervalo esperado em produção, com 30 minutos planejados
+
+| Dispositivos | Orçamento por execução | Workers | Intervalo esperado |
+|---|---|---|---|
+| 250 | 53 (ou o padrão de 60) | 4 a 8 | 30 min |
+| 500 | 105 | 8 | 30 min |
+| 1.000 | 210 | 8 | 30 min |
+
+Com a configuração padrão (60 por execução, 720 leituras por hora), o intervalo efetivo é de 30 min até 360 dispositivos. Acima disso, fica em `dispositivos / 12` minutos: cerca de 42 min com 500 e 83 min com 1.000. Para 500 ou mais, ajuste as variáveis conforme a tabela.
+
+### Custo
+
+- **Netlify**: o tempo de função por execução sobe de menos de 1 s para cerca de 1 a 3 s (1.000 dispositivos, 50 ms) ou cerca de 6 a 14 s (latência de 300 ms), com 12 execuções por hora.
+- **MongoDB**: cerca de 5 operações por dispositivo lido, mais 5 por execução. Com 1.000 dispositivos a cada 30 min, são cerca de 10.000 operações por hora, todas por índice.
+- **SmartThings**: cerca de 1,2 chamada por leitura, contra 3 ou mais antes. O custo externo por leitura caiu.
+
+## 6. Métricas
+
+- **Por dispositivo** (em `energy_collection`): `lastSuccessAt`, `lastIntervalMs` (intervalo real entre leituras), `lastLagMs` (atraso na fila ao ser atendido), `lastDurationMs`, `lastStatus`, `failures`.
+- **Por execução** (`energy_collection_runs`, TTL de 30 dias): reservados, salvos, falhas, ignorados, `rateLimited`, chamadas externas, duração, média por dispositivo, motivo da parada e configuração.
+- **`energyCollectionStats`**, em `GET /api/energy/collection-stats` (só e-mails em `AI_ADMIN_EMAILS`, sem IDs de dispositivo):
+  - na fila, vencidos, atrasados (mais de um intervalo após vencer), antigos (última leitura com mais de 2 intervalos), nunca lidos, com falha;
+  - idade do mais atrasado, intervalo, atraso e duração médios;
+  - totais da última hora e leituras por hora necessárias;
+  - **`capacityShort`**: verdadeiro quando há dispositivos atrasados, quando o mais antigo espera mais de meio intervalo ou quando o intervalo médio passa de 1,25 vez o planejado.
+
+A cota externa consumida não é medida: a SmartThings só a informa nos cabeçalhos de 429. O coletor usa o valor de reset desses cabeçalhos para descansar o usuário.
+
+## 7. Contrato para o WattStatus AI
+
+`GET /api/energy/collection-status` (usuário autenticado; `MongoDatabase.energyCollectionStatus(userId, now, intervalMs)`):
+
+```json
+{ "enabled": true, "intervalMs": 1800000,
+  "devices": [{ "applianceId": "...", "state": "recent|delayed|missing|disabled|error",
+    "lastReadingAt": "ISO|null", "ageMs": 0, "nextAt": "ISO|null", "lastStatus": "ok|...", "failures": 0 }] }
+```
+
+| Estado | Regra |
+|---|---|
+| `recent` | Última leitura com até 2 intervalos |
+| `delayed` | Leitura mais antiga que 2 intervalos |
+| `missing` | Habilitado e nunca lido |
+| `disabled` | Coleta desativada pelo usuário |
+| `error` | Token inválido, dispositivo removido ou 3 falhas seguidas |
+
+O módulo de IA não foi alterado. Integração recomendada para o agente da IA:
+
+- incluir `getCollectionStatus` no `AIDataSource`;
+- na cobertura (`measurement_coverage`, `coverage`), tratar `delayed`, `missing`, `disabled` e `error` como limitações explícitas, por exemplo "a última leitura da TV tem 3 h";
+- não apresentar como atual uma leitura `delayed`.
+
+## 8. Testes
+
+| Arquivo | Resultado |
+|---|---|
+| `tests/energy-capacity-mongo.test.cjs` (novo) | 14 de 14: capacidade por configuração (2 latências); regime permanente com 50, 250, 500, 1.000 e 5.000 dispositivos; 429 com reset; 404, 401 e falhas repetidas; lease expirado com conclusão atrasada descartada; prazo curto sem reserva perdida e retomada; estados para a IA; crescimento da fila com `capacityShort`; rotas de status e métricas |
+| `tests/energy-queue-mongo.test.cjs` | 18 de 18 (fila justa, de 1 a 1.000 dispositivos) |
+| `tests/energy-starvation-mongo.test.cjs` | 1 de 1 (regressão de starvation) |
+| `tests/energy-collector.test.cjs`, `energy-claim-mongo` | Passam (compatibilidade com clientes antigos) |
+| Todos os testes Mongo | 42 de 42 |
+| Backend completo | 136 passam, 0 falham, 42 pulados sem MongoDB |
+| Frontend | `tsc` e ESLint sem erros, build, 45 de 45 |
+
+## 9. Pendências
+
+- As latências são simuladas. Medir a latência real da SmartThings em homologação (`avgDurationMs` das métricas) e ajustar orçamento e workers com a fórmula da seção 5.
+- Acima de cerca de 3.000 dispositivos a 30 min, é preciso mais de uma função agendada ou uma função de fundo (background), já que o limite de 30 s da função agendada passa a mandar.
+- `X-RateLimit-Remaining` não é usado para desacelerar antes do 429. O coletor reage ao 429.
+- O cursor de registro é global, com páginas de 500.
+- A IA ainda não consome `collection-status` (contrato na seção 7).

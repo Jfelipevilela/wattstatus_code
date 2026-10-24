@@ -44,6 +44,14 @@ const ENERGY_SAMPLE_FIELDS = {
   readingType: 1, startAt: 1, propertyId: 1, roomId: 1,
 } as const;
 
+export type EnergyCollectionStatus = "ok" | "no_reading" | "failed" | "rate_limited" | "gone" | "unauthorized";
+export interface EnergyCollectionOutcome { status: EnergyCollectionStatus; retryAfterMs?: number; durationMs?: number; lagMs?: number }
+interface EnergyQueueRow {
+  key: string; userId?: string; deviceId?: string; nextAt: Date; leaseUntil: Date; leaseId?: string | null;
+  failures?: number; lastSuccessAt?: Date; lastStatus?: EnergyCollectionStatus; lastIntervalMs?: number;
+  lastLagMs?: number; lastDurationMs?: number | null; claimedAt?: Date; createdAt?: Date;
+}
+
 export class MongoDatabase {
   private client: MongoClient;
   private db!: Db;
@@ -117,6 +125,8 @@ export class MongoDatabase {
       ["energy_collection", () => this.db.collection("energy_collection").createIndex({ key: 1 }, { unique: true })],
       // Queue order for claimEnergyCollection: most overdue first.
       ["energy_collection", () => this.db.collection("energy_collection").createIndex({ nextAt: 1, key: 1 })],
+      ["energy_collection", () => this.db.collection("energy_collection").createIndex({ userId: 1, nextAt: 1 })],
+      ["energy_collection_runs", () => this.db.collection("energy_collection_runs").createIndex({ at: 1 }, { expireAfterSeconds: 30 * 86400 })],
       // Opted-in users for syncEnergyCollection.
       ["user_settings", () => this.db.collection("user_settings").createIndex({ energyCollectionEnabled: 1, userId: 1 }, { partialFilterExpression: { energyCollectionEnabled: true } })],
       ["properties", () => this.db.collection("properties").createIndex({ id: 1 }, { unique: true })],
@@ -415,12 +425,15 @@ export class MongoDatabase {
   // Takes the most overdue device whose lease is free. Rows whose device was
   // removed or whose owner turned collection off are dropped on the way (a
   // later sync re-registers them if collection is turned back on).
-  async claimEnergyCollection(now: Date, leaseMs: number, maxSkips = 20) {
-    const queue = this.db.collection<{ key: string; userId?: string; deviceId?: string; nextAt: Date; leaseUntil: Date; failures?: number }>("energy_collection");
+  async claimEnergyCollection(now: Date, leaseMs: number, maxSkips = 20, excludeUserIds: string[] = []) {
+    const queue = this.db.collection<EnergyQueueRow>("energy_collection");
     for (let skipped = 0; skipped <= maxSkips; skipped++) {
+      // A lease id makes the claim ownable: a late finish from a worker whose
+      // lease expired (and was re-claimed) is ignored.
+      const leaseId = crypto.randomUUID();
       const row = await queue.findOneAndUpdate(
-        { nextAt: { $lte: now }, leaseUntil: { $lte: now } },
-        { $set: { leaseUntil: new Date(now.getTime() + leaseMs) } },
+        { nextAt: { $lte: now }, leaseUntil: { $lte: now }, ...(excludeUserIds.length ? { userId: { $nin: excludeUserIds } } : {}) },
+        { $set: { leaseUntil: new Date(now.getTime() + leaseMs), leaseId, claimedAt: now } },
         { sort: { nextAt: 1, key: 1 }, returnDocument: "after", projection: { _id: 0 } },
       );
       if (!row) return null;
@@ -435,19 +448,136 @@ export class MongoDatabase {
         ),
       ]);
       if (settings?.energyCollectionEnabled === true && appliance) {
-        return { appliance: appliance as Pick<ApplianceRecord, "id" | "userId" | "integrationDeviceId">, key: row.key };
+        return {
+          appliance: appliance as Pick<ApplianceRecord, "id" | "userId" | "integrationDeviceId">,
+          key: row.key, leaseId,
+          // How late the device was when served (queue lag).
+          // A device never collected is due since it was registered, not since 1970.
+          lagMs: Math.max(0, now.getTime() - Math.max(new Date(row.nextAt).getTime(), row.createdAt ? new Date(row.createdAt).getTime() : 0)),
+          neverCollected: !row.lastSuccessAt,
+        };
       }
-      await queue.deleteOne({ key: row.key, leaseUntil: { $gt: now } });
+      await queue.deleteOne({ key: row.key, leaseId });
     }
     return null;
   }
 
-  async finishEnergyCollection(key: string, now: Date, intervalMs: number, success: boolean) {
-    const collection = this.db.collection("energy_collection");
-    const row = await collection.findOne({ key });
-    const failures = success ? 0 : Math.min(6, Number(row?.failures ?? 0) + 1);
-    const delay = success ? intervalMs : Math.max(intervalMs, Math.min(6 * 3600000, 60000 * 2 ** failures));
-    await collection.updateOne({ key }, { $set: { nextAt: new Date(now.getTime() + delay), leaseUntil: new Date(0), failures } });
+  // Outcome of one claimed device. `success` keeps the old boolean form.
+  async finishEnergyCollection(key: string, now: Date, intervalMs: number, outcome: boolean | EnergyCollectionOutcome, leaseId?: string) {
+    const result: EnergyCollectionOutcome = typeof outcome === "boolean" ? { status: outcome ? "ok" : "failed" } : outcome;
+    const queue = this.db.collection<EnergyQueueRow>("energy_collection");
+    const row = await queue.findOne({ key }, { projection: { failures: 1, lastSuccessAt: 1, leaseId: 1, _id: 0 } });
+    if (!row || (leaseId && row.leaseId && row.leaseId !== leaseId)) return false;
+    const ok = result.status === "ok" || result.status === "no_reading";
+    const failures = ok ? 0 : result.status === "rate_limited" ? Number(row.failures ?? 0) : Math.min(6, Number(row.failures ?? 0) + 1);
+    let delay: number;
+    if (ok) delay = intervalMs;
+    else if (result.status === "rate_limited") delay = Math.max(60000, Math.min(3600000, result.retryAfterMs ?? 60000));
+    else if (result.status === "gone") delay = 24 * 3600000;
+    else if (result.status === "unauthorized") delay = 6 * 3600000;
+    else delay = Math.max(intervalMs, Math.min(6 * 3600000, 60000 * 2 ** failures));
+    const set: Record<string, unknown> = {
+      nextAt: new Date(now.getTime() + delay), leaseUntil: new Date(0), leaseId: null, failures,
+      lastAttemptAt: now, lastStatus: result.status, lastDurationMs: result.durationMs ?? null,
+      ...(typeof result.lagMs === "number" ? { lastLagMs: result.lagMs } : {}),
+    };
+    if (result.status === "ok") {
+      set.lastSuccessAt = now;
+      if (row.lastSuccessAt) set.lastIntervalMs = now.getTime() - new Date(row.lastSuccessAt).getTime();
+    }
+    const updated = await queue.updateOne({ key, ...(leaseId ? { leaseId } : {}) }, { $set: set });
+    return updated.matchedCount > 0;
+  }
+
+  // Gives a claimed device back without touching its schedule.
+  async releaseEnergyCollection(key: string, leaseId: string) {
+    await this.db.collection<EnergyQueueRow>("energy_collection").updateOne({ key, leaseId }, { $set: { leaseUntil: new Date(0), leaseId: null } });
+  }
+
+  // After a 429 for one account: move its due devices past the reset, so no
+  // run spends calls on a token that is resting.
+  async postponeEnergyCollectionForUser(userId: string, now: Date, until: Date) {
+    const result = await this.db.collection<EnergyQueueRow>("energy_collection").updateMany(
+      { userId, nextAt: { $lt: until }, leaseUntil: { $lte: now } },
+      { $set: { nextAt: until, lastStatus: "rate_limited" } },
+    );
+    return result.modifiedCount;
+  }
+
+  async recordEnergyCollectionRun(summary: Record<string, unknown>) {
+    await this.db.collection("energy_collection_runs").insertOne({ ...summary, at: summary.at instanceof Date ? summary.at : new Date() });
+  }
+
+  // Queue health for operators: is capacity keeping up with the interval?
+  async energyCollectionStats(now: Date, intervalMs: number) {
+    const queue = this.db.collection<EnergyQueueRow>("energy_collection");
+    const [totals] = await queue.aggregate([
+      { $set: { dueSince: { $max: ["$nextAt", { $ifNull: ["$createdAt", "$nextAt"] }] } } },
+      { $group: {
+        _id: null,
+        queued: { $sum: 1 },
+        due: { $sum: { $cond: [{ $lte: ["$nextAt", now] }, 1, 0] } },
+        // Waiting more than one interval past their due time.
+        late: { $sum: { $cond: [{ $and: [{ $lte: ["$nextAt", now] }, { $lte: ["$dueSince", new Date(now.getTime() - intervalMs)] }] }, 1, 0] } },
+        neverCollected: { $sum: { $cond: [{ $ifNull: ["$lastSuccessAt", false] }, 0, 1] } },
+        // Last good reading older than two intervals (never-read rows counted apart).
+        stale: { $sum: { $cond: [{ $and: [{ $ifNull: ["$lastSuccessAt", false] }, { $lt: ["$lastSuccessAt", new Date(now.getTime() - 2 * intervalMs)] }] }, 1, 0] } },
+        failing: { $sum: { $cond: [{ $gte: ["$failures", 3] }, 1, 0] } },
+        oldestDue: { $min: { $cond: [{ $lte: ["$nextAt", now] }, "$dueSince", null] } },
+        avgIntervalMs: { $avg: "$lastIntervalMs" },
+        avgLagMs: { $avg: "$lastLagMs" },
+        avgDurationMs: { $avg: "$lastDurationMs" },
+      } },
+    ]).toArray();
+    const runs = await this.db.collection("energy_collection_runs").find({ at: { $gte: new Date(now.getTime() - 3600000) } }, { projection: { _id: 0 } }).toArray();
+    const lastHour = runs.reduce<{ runs: number; claimed: number; saved: number; failed: number; rateLimited: number }>((sum, run) => ({
+      runs: sum.runs + 1, claimed: sum.claimed + Number(run.claimed ?? 0), saved: sum.saved + Number(run.saved ?? 0),
+      failed: sum.failed + Number(run.failed ?? 0), rateLimited: sum.rateLimited + Number(run.rateLimited ?? 0),
+    }), { runs: 0, claimed: 0, saved: 0, failed: 0, rateLimited: 0 });
+    const queued = Number(totals?.queued ?? 0);
+    const neededPerHour = intervalMs > 0 ? Math.ceil(queued * 3600000 / intervalMs) : 0;
+    return {
+      at: now.toISOString(), intervalMs, queued,
+      due: Number(totals?.due ?? 0), late: Number(totals?.late ?? 0), stale: Number(totals?.stale ?? 0),
+      neverCollected: Number(totals?.neverCollected ?? 0), failing: Number(totals?.failing ?? 0),
+      oldestDueAgeMs: totals?.oldestDue ? now.getTime() - new Date(totals.oldestDue).getTime() : 0,
+      avgIntervalMs: totals?.avgIntervalMs ?? null, avgLagMs: totals?.avgLagMs ?? null, avgDurationMs: totals?.avgDurationMs ?? null,
+      lastHour, neededPerHour,
+      // Devices waiting more than one interval past due: capacity is not keeping
+      // up (processing fewer than neededPerHour is fine when little is due).
+      capacityShort: Number(totals?.late ?? 0) > 0
+        || (totals?.oldestDue ? now.getTime() - new Date(totals.oldestDue).getTime() > intervalMs / 2 : false)
+        || (typeof totals?.avgIntervalMs === "number" && totals.avgIntervalMs > 1.25 * intervalMs),
+    };
+  }
+
+  // Per-device freshness for one user, for the UI and the AI (see docs/COLETA_ENERGIA.md).
+  async energyCollectionStatus(userId: string, now: Date, intervalMs: number) {
+    const [settings, appliances, rows] = await Promise.all([
+      this.settings().findOne({ userId }, { projection: { energyCollectionEnabled: 1, _id: 0 } }),
+      this.appliances().find({ userId, integrationProvider: "smartthings", integrationDeviceId: { $type: "string" } }, { projection: { id: 1, integrationDeviceId: 1, _id: 0 } }).toArray(),
+      this.db.collection<EnergyQueueRow>("energy_collection").find({ userId }, { projection: { _id: 0 } }).toArray(),
+    ]);
+    const enabled = settings?.energyCollectionEnabled === true;
+    const byKey = new Map(rows.map((row) => [row.key, row]));
+    return {
+      enabled, intervalMs,
+      devices: appliances.map((appliance) => {
+        const row = byKey.get(`${userId}:smartthings:${appliance.integrationDeviceId}`);
+        const last = row?.lastSuccessAt ? new Date(row.lastSuccessAt) : null;
+        const age = last ? now.getTime() - last.getTime() : null;
+        let state: "recent" | "delayed" | "missing" | "disabled" | "error";
+        if (!enabled) state = "disabled";
+        else if (row && (row.lastStatus === "unauthorized" || row.lastStatus === "gone" || Number(row.failures ?? 0) >= 3)) state = "error";
+        else if (!last) state = "missing";
+        else state = age! <= 2 * intervalMs ? "recent" : "delayed";
+        return {
+          applianceId: appliance.id, state, lastReadingAt: last?.toISOString() ?? null, ageMs: age,
+          nextAt: row?.nextAt ? new Date(row.nextAt).toISOString() : null,
+          lastStatus: row?.lastStatus ?? null, failures: Number(row?.failures ?? 0),
+        };
+      }),
+    };
   }
 
   async getUserByEmail(email: string) {

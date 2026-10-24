@@ -26,5 +26,25 @@ export const createEnergyRouter = (db: MongoDatabase) => {
       res.json({ intervals: intervalsBody(intervals, query.format) });
     } catch (err) { next(err); }
   });
+  // Freshness of the signed-in user's readings, per device: recent, delayed,
+  // missing, disabled or error. Contract for the UI and WattStatus AI
+  // (docs/COLETA_ENERGIA.md § Contrato).
+  const intervalMs = () => Math.max(5, Number(process.env.ENERGY_COLLECTION_INTERVAL_MINUTES || 30)) * 60000;
+  router.get("/collection-status", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      if (!req.userId) throw new ApiError(401, "Não autenticado");
+      res.json(await db.energyCollectionStatus(req.userId, new Date(), intervalMs()));
+    } catch (err) { next(err); }
+  });
+  // Queue health for operators only (same allowlist as the AI admin).
+  router.get("/collection-stats", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      if (!req.userId) throw new ApiError(401, "Não autenticado");
+      const admins = (process.env.AI_ADMIN_EMAILS || "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+      const email = (await db.getUserById(req.userId))?.email?.toLowerCase();
+      if (!email || !admins.includes(email)) throw new ApiError(403, "Acesso restrito");
+      res.json(await db.energyCollectionStats(new Date(), intervalMs()));
+    } catch (err) { next(err); }
+  });
   return router;
 };
