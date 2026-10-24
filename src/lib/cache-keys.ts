@@ -28,6 +28,9 @@ export const refreshAfterApplianceChange = (client: QueryClient) => Promise.all(
   client.invalidateQueries({ queryKey: propertyKeys.all }),
   client.invalidateQueries({ queryKey: ["wattai", "insights"] }),
   client.invalidateQueries({ queryKey: ["wattai", "report-summary"] }),
+  // A plan's progress is recomputed from the current snapshot on every read.
+  // The saved plan list and alerts are stored records and stay as they are.
+  client.invalidateQueries({ queryKey: ["wattai", "plan"] }),
 ]);
 
 // Rooms or properties removed or changed move appliances on the server.

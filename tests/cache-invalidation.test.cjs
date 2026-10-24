@@ -27,6 +27,9 @@ const seeded = () => {
     insights: ['wattai', 'insights', 'primary'],
     reportSummary: ['wattai', 'report-summary', 'p1', 2026, 10],
     aiPreferences: ['wattai', 'preferences'],
+    planProgress: ['wattai', 'plan', 'plan-1'],
+    planList: ['wattai', 'plans'],
+    alerts: ['wattai', 'alerts'],
     settings: ['integration-usage', 'u1'],
   };
   for (const key of Object.values(keys)) client.setQueryData(key, { cached: true });
@@ -55,6 +58,7 @@ test('alterar aparelho (potência, horas, tarifa, imóvel) invalida tudo o que d
     appliances: false, // the list itself is written from the server's answer
     properties: true, layout: true, propertyEnergy: true, history: true,
     insights: true, reportSummary: true, aiPreferences: false, settings: false,
+    planProgress: true, planList: false, alerts: false,
   });
 });
 
