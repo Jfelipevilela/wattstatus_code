@@ -1,0 +1,651 @@
+{
+  "profile": "mobile",
+  "base": "http://127.0.0.1:4521",
+  "runs": 5,
+  "at": "2026-10-24T18:21:35.517Z",
+  "loads": {
+    "home:cold": {
+      "ttfb": 6,
+      "fcp": 3040,
+      "lcp": 4448,
+      "lcpElement": "SPAN.font-bold text-xl text-energy-white dark:text-ener WATTSTATUS",
+      "cls": 0,
+      "tbt": 36,
+      "domContentLoaded": 2825,
+      "heapMB": 3.7,
+      "usableMs": 4721,
+      "requests": 34,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 695.7,
+      "jsKB": 424.3,
+      "jsFiles": 28,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "home:warm": {
+      "ttfb": 3,
+      "fcp": 328,
+      "lcp": 464,
+      "lcpElement": "H1.text-4xl md:text-5xl lg:text-6xl font-bold text-en Monitore e Economize Energia de Forma In",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 253,
+      "heapMB": 5.3,
+      "usableMs": 665,
+      "requests": 34,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 2.3,
+      "jsKB": 0,
+      "jsFiles": 28,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "login:cold": {
+      "ttfb": 4,
+      "fcp": 2832,
+      "lcp": 3280,
+      "lcpElement": "H1.text-3xl font-bold tracking-tight Bem-vindo de volta",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 2764,
+      "heapMB": 7.2,
+      "usableMs": 3918,
+      "requests": 24,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 613.1,
+      "jsKB": 358,
+      "jsFiles": 19,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "login:warm": {
+      "ttfb": 3,
+      "fcp": 328,
+      "lcp": 388,
+      "lcpElement": "H1.text-3xl font-bold tracking-tight Bem-vindo de volta",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 247,
+      "heapMB": 7.6,
+      "usableMs": 690,
+      "requests": 24,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 2.3,
+      "jsKB": 0,
+      "jsFiles": 19,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "signup:cold": {
+      "ttfb": 5,
+      "fcp": 2856,
+      "lcp": 3488,
+      "lcpElement": "P.text-muted-foreground Comece a entender e reduzir seu consumo ",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 2789,
+      "heapMB": 9.6,
+      "usableMs": 4086,
+      "requests": 28,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 621.4,
+      "jsKB": 366.3,
+      "jsFiles": 23,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "signup:warm": {
+      "ttfb": 3,
+      "fcp": 340,
+      "lcp": 436,
+      "lcpElement": "P.text-muted-foreground Comece a entender e reduzir seu consumo ",
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 238,
+      "heapMB": 10.9,
+      "usableMs": 665,
+      "requests": 28,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 2.3,
+      "jsKB": 0,
+      "jsFiles": 23,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "dashboard:cold": {
+      "ttfb": 5,
+      "fcp": 2860,
+      "lcp": 7044,
+      "lcpElement": "P.mt-2 max-w-xl text-muted-foreground Estimativas, medições e custos do períod",
+      "cls": 0,
+      "tbt": 1760,
+      "domContentLoaded": 2778,
+      "heapMB": 21,
+      "usableMs": 8823,
+      "requests": 65,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 1393.4,
+      "jsKB": 946.5,
+      "jsFiles": 55,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "dashboard:warm": {
+      "ttfb": 3,
+      "fcp": 424,
+      "lcp": 944,
+      "lcpElement": "P.mt-2 max-w-xl text-muted-foreground Estimativas, medições e custos do períod",
+      "cls": 0,
+      "tbt": 961,
+      "domContentLoaded": 287,
+      "heapMB": 29,
+      "usableMs": 1653,
+      "requests": 65,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 8,
+      "jsKB": 0,
+      "jsFiles": 55,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "properties:cold": {
+      "ttfb": 5,
+      "fcp": 2828,
+      "lcp": 4280,
+      "lcpElement": "P.mt-2 max-w-xl text-muted-foreground Cada imóvel com seus ambientes, aparelho",
+      "cls": 0.0004,
+      "shifts": [
+        {
+          "value": 0.0003,
+          "at": 4732,
+          "nodes": [
+            "#text. y 527→527 h 16→16",
+            "#text. y 567→567 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0002,
+          "at": 5704,
+          "nodes": [
+            "#text. y 527→527 h 16→16"
+          ]
+        }
+      ],
+      "tbt": 4,
+      "domContentLoaded": 2771,
+      "heapMB": 17.9,
+      "usableMs": 5557,
+      "requests": 45,
+      "apiRequests": 5,
+      "api429": 0,
+      "transferKB": 851.8,
+      "jsKB": 473.1,
+      "jsFiles": 38,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/appliances": 1,
+        "GET /api/energy/history": 1
+      }
+    },
+    "properties:warm": {
+      "ttfb": 4,
+      "fcp": 332,
+      "lcp": 732,
+      "lcpElement": "P.mt-2 max-w-xl text-muted-foreground Cada imóvel com seus ambientes, aparelho",
+      "cls": 0.0002,
+      "shifts": [
+        {
+          "value": 0.0002,
+          "at": 931,
+          "nodes": [
+            "#text. y 527→527 h 16→16"
+          ]
+        }
+      ],
+      "tbt": 118,
+      "domContentLoaded": 246,
+      "heapMB": 19.3,
+      "usableMs": 897,
+      "requests": 45,
+      "apiRequests": 5,
+      "api429": 0,
+      "transferKB": 5.2,
+      "jsKB": 0,
+      "jsFiles": 38,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/appliances": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "property-3d:cold": {
+      "ttfb": 4,
+      "fcp": 2840,
+      "lcp": 5404,
+      "lcpElement": "H1.truncate text-3xl font-bold tracking-tight Meu imóvel",
+      "cls": 0.0001,
+      "shifts": [
+        {
+          "value": 0.0001,
+          "at": 4937,
+          "nodes": [
+            "svg.[object SVGAnimatedString] y 23.5→23.5 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0001,
+          "at": 6951,
+          "nodes": [
+            "DD.text-2xl font-bold tabular-nums y 184→180 h 20→32"
+          ]
+        }
+      ],
+      "tbt": 1154,
+      "domContentLoaded": 2768,
+      "heapMB": 25.5,
+      "usableMs": 10715,
+      "requests": 58,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 1809.4,
+      "jsKB": 1420.7,
+      "jsFiles": 49,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties/:id/energy": 1
+      },
+      "canvas": true,
+      "drawCallsTotal": 723
+    },
+    "property-3d:warm": {
+      "ttfb": 5,
+      "fcp": 440,
+      "lcp": 1204,
+      "lcpElement": "H1.truncate text-3xl font-bold tracking-tight Meu imóvel",
+      "cls": 0.0001,
+      "shifts": [
+        {
+          "value": 0.0001,
+          "at": 1025,
+          "nodes": [
+            "svg.[object SVGAnimatedString] y 23.5→23.5 h 16→16"
+          ]
+        }
+      ],
+      "tbt": 1031,
+      "domContentLoaded": 308,
+      "heapMB": 32.2,
+      "usableMs": 1180,
+      "requests": 58,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 7.1,
+      "jsKB": 0,
+      "jsFiles": 49,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties/:id/energy": 1,
+        "GET /api/user-settings": 1
+      },
+      "canvas": true,
+      "drawCallsTotal": 723
+    },
+    "appliances:cold": {
+      "ttfb": 5,
+      "fcp": 2892,
+      "lcp": 5340,
+      "lcpElement": "P.mt-2 max-w-md text-white/60 Veja quem pesa na conta e ajuste o uso p",
+      "cls": 0,
+      "tbt": 70,
+      "domContentLoaded": 2797,
+      "heapMB": 33.9,
+      "usableMs": 4996,
+      "requests": 45,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 732.9,
+      "jsKB": 569.9,
+      "jsFiles": 40,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1
+      }
+    },
+    "appliances:warm": {
+      "ttfb": 3,
+      "fcp": 404,
+      "lcp": 1188,
+      "lcpElement": "P.mt-2 max-w-md text-white/60 Veja quem pesa na conta e ajuste o uso p",
+      "cls": 0,
+      "tbt": 180,
+      "domContentLoaded": 262,
+      "heapMB": 26.3,
+      "usableMs": 929,
+      "requests": 45,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 3.3,
+      "jsKB": 0,
+      "jsFiles": 40,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "reports:cold": {
+      "ttfb": 5,
+      "fcp": 2852,
+      "lcp": 5604,
+      "lcpElement": "LI. Recomendação: Usar Ar-condicionado 17 1 ",
+      "cls": 0.0364,
+      "shifts": [
+        {
+          "value": 0.0364,
+          "at": 5770,
+          "nodes": [
+            "ARTICLE.overflow-hidden rounded-[32px] border bg-card shadow-sm y 647→788 h 197→56"
+          ]
+        }
+      ],
+      "tbt": 285,
+      "domContentLoaded": 2785,
+      "heapMB": 24.9,
+      "usableMs": 6820,
+      "requests": 53,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 868.6,
+      "jsKB": 486.5,
+      "jsFiles": 43,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/ai/report-summary": 1,
+        "GET /api/auth/csrf": 1,
+        "POST /api/reports/events": 1
+      }
+    },
+    "reports:warm": {
+      "ttfb": 3,
+      "fcp": 360,
+      "lcp": 1728,
+      "lcpElement": "LI. Recomendação: Usar Ar-condicionado 17 1 ",
+      "cls": 0.0364,
+      "shifts": [
+        {
+          "value": 0.0364,
+          "at": 1604,
+          "nodes": [
+            "ARTICLE.overflow-hidden rounded-[32px] border bg-card shadow-sm y 647→788 h 197→56"
+          ]
+        }
+      ],
+      "tbt": 228,
+      "domContentLoaded": 285,
+      "heapMB": 25.3,
+      "usableMs": 1742,
+      "requests": 53,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 8,
+      "jsKB": 0,
+      "jsFiles": 43,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/auth/csrf": 1,
+        "GET /api/ai/report-summary": 1,
+        "POST /api/reports/events": 1
+      }
+    },
+    "calculator:cold": {
+      "ttfb": 5,
+      "fcp": 2848,
+      "lcp": 4400,
+      "lcpElement": "P.-mt-2 text-xs text-muted-foreground Está na etiqueta ou no manual, em watts ",
+      "cls": 0,
+      "tbt": 82,
+      "domContentLoaded": 2779,
+      "heapMB": 27,
+      "usableMs": 4609,
+      "requests": 38,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 632,
+      "jsKB": 469.1,
+      "jsFiles": 33,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1
+      }
+    },
+    "calculator:warm": {
+      "ttfb": 3,
+      "fcp": 408,
+      "lcp": 880,
+      "lcpElement": "P.-mt-2 text-xs text-muted-foreground Está na etiqueta ou no manual, em watts ",
+      "cls": 0,
+      "tbt": 203,
+      "domContentLoaded": 273,
+      "heapMB": 23.8,
+      "usableMs": 997,
+      "requests": 38,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 3.3,
+      "jsKB": 0,
+      "jsFiles": 33,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "smartthings:cold": {
+      "ttfb": 5,
+      "fcp": 2828,
+      "lcp": 4912,
+      "lcpElement": "P.relative mt-2 max-w-md text-white/70 Controle aparelhos SmartThings e veja po",
+      "cls": 0,
+      "tbt": 3,
+      "domContentLoaded": 2779,
+      "heapMB": 25.6,
+      "usableMs": 4852,
+      "requests": 52,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 670.1,
+      "jsKB": 527.8,
+      "jsFiles": 47,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/integrations/smartthings/token": 1
+      }
+    },
+    "smartthings:warm": {
+      "ttfb": 3,
+      "fcp": 352,
+      "lcp": 852,
+      "lcpElement": "P.relative mt-2 max-w-md text-white/70 Controle aparelhos SmartThings e veja po",
+      "cls": 0,
+      "tbt": 36,
+      "domContentLoaded": 252,
+      "heapMB": 26.1,
+      "usableMs": 786,
+      "requests": 52,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 3.3,
+      "jsKB": 0,
+      "jsFiles": 47,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/integrations/smartthings/token": 1,
+        "GET /api/user-settings": 1
+      }
+    }
+  },
+  "spa": [
+    {
+      "path": "/imoveis",
+      "settledMs": 1083,
+      "requests": 6,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 6,
+      "apiPaths": {}
+    },
+    {
+      "path": "/imoveis/d11059be-3145-4db1-a8c1-bd9bff681a90",
+      "settledMs": 1220,
+      "requests": 11,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 2.9,
+      "jsKB": 0,
+      "jsFiles": 8,
+      "apiPaths": {
+        "GET /api/properties/:id/floors": 1,
+        "GET /api/properties/:id/rooms": 1,
+        "GET /api/properties/:id/energy": 1
+      }
+    },
+    {
+      "path": "/aparelhos",
+      "settledMs": 111,
+      "requests": 0,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 0,
+      "apiPaths": {}
+    },
+    {
+      "path": "/dashboard",
+      "settledMs": 1003,
+      "requests": 3,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 3,
+      "apiPaths": {}
+    },
+    {
+      "path": "/imoveis",
+      "settledMs": 54,
+      "requests": 0,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 0,
+      "apiPaths": {}
+    },
+    {
+      "path": "/relatorios",
+      "settledMs": 226,
+      "requests": 0,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 0,
+      "apiPaths": {}
+    },
+    {
+      "path": "/dashboard",
+      "settledMs": 273,
+      "requests": 0,
+      "apiRequests": 0,
+      "api429": 0,
+      "transferKB": 0,
+      "jsKB": 0,
+      "jsFiles": 0,
+      "apiPaths": {}
+    }
+  ],
+  "three": {
+    "canvasMs": 2163,
+    "frameMsP50": 16.7,
+    "frameMsP95": 216.7,
+    "fpsDuringOrbit": 59.9,
+    "drawCallsPerFrame": 108,
+    "trianglesPerFrame": 4470,
+    "idleDrawCalls2s": 0,
+    "heapMB": 30.5,
+    "nodes": 3930
+  },
+  "memory": {
+    "cycles": 20,
+    "heapMBAfterGc": [
+      20.54,
+      21.81,
+      22.32,
+      22.56,
+      22.64
+    ]
+  }
+}
