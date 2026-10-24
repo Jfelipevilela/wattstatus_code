@@ -240,7 +240,7 @@ O módulo de IA não foi alterado. Integração recomendada para o agente da IA:
 
 | Arquivo | Resultado |
 |---|---|
-| `tests/energy-capacity-mongo.test.cjs` (novo) | 14 de 14: capacidade por configuração (2 latências); regime permanente com 50, 250, 500, 1.000 e 5.000 dispositivos; 429 com reset; 404, 401 e falhas repetidas; lease expirado com conclusão atrasada descartada; prazo curto sem reserva perdida e retomada; estados para a IA; crescimento da fila com `capacityShort`; rotas de status e métricas |
+| `tests/energy-capacity-mongo.test.cjs` (novo) | 13 de 13: capacidade por configuração (2 latências); regime permanente com 50, 250, 500, 1.000 e 5.000 dispositivos; 429 com reset; 404, 401 e falhas repetidas; lease expirado com conclusão atrasada descartada; prazo curto sem reserva perdida e retomada; estados para a IA; crescimento da fila com `capacityShort`; rotas de status e métricas |
 | `tests/energy-queue-mongo.test.cjs` | 18 de 18 (fila justa, de 1 a 1.000 dispositivos) |
 | `tests/energy-starvation-mongo.test.cjs` | 1 de 1 (regressão de starvation) |
 | `tests/energy-collector.test.cjs`, `energy-claim-mongo` | Passam (compatibilidade com clientes antigos) |
