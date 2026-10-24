@@ -2,7 +2,7 @@
 
 Camada de inteligência energética do WattStatus. Este documento cobre a arquitetura, os cálculos, os contratos, a configuração, a segurança, os custos, os testes e o que ainda falta.
 
-Versão atual: fase 2 (provedor pelo SDK oficial, guarda de narração ampliada, persistência validada em MongoDB, explicação de gráficos, preferências, administração, resumo nos relatórios e base de alertas).
+Versão atual: fase 3 (investigação multietapas com ferramentas controladas, planos de economia salvos e acompanhados, guarda com fatos estruturados, alertas com prioridade, estado e varredura para agendador, teto de gasto em USD e suíte de homologação real). A fase 3 está na seção 14; as seções 1 a 13 continuam valendo.
 
 ## 1. Princípio central
 
@@ -412,3 +412,150 @@ Etapas: explicar gráfico, chat com etapas, parar resposta, histórico de conver
 | Destaque de vários cômodos na maquete | Inalterado: seleção única. |
 | Rótulo "Taxa de erro" | Inclui recusas da guarda e falhas do provedor; não separa as duas. |
 | Concorrência entre agentes no repositório | Outra sessão editou `ai.engine.ts` (cache de formatadores) entre as fases. As mudanças foram preservadas. |
+
+## 14. Fase 3: investigação, planos, guarda estruturada e alertas
+
+Branch `feature/watt-ai-hardening`, em worktree próprio, a partir de `c7bc152`. Arquivos alterados: só `backend/src/modules/ai/**`, componentes e páginas da IA, testes de IA e este documento. Nenhum arquivo compartilhado (`App.tsx`, `Dashboard.tsx`, `app.ts`, `mongo-db.ts`, `api.ts`) foi alterado.
+
+### 14.1 Investigação com ferramentas controladas (`ai.tools.ts`)
+
+Pergunta típica: "Minha conta aumentou muito. Descubra o motivo e me ajude a economizar R$ 80." A intenção `investigate` responde por "descubra", "investigue", "motivo", "por que a conta aumentou", "aumentou muito", "disparou" e "está alta".
+
+| Ferramenta | O que faz | Evidência |
+|---|---|---|
+| `measurement_coverage` | Quantos aparelhos têm leitura e a cobertura do consumo. Sempre roda. | medido ou sem dados |
+| `period_comparison` | Média diária medida deste mês contra o anterior | medido |
+| `appliance_changes` | Por aparelho medido: kWh/dia agora contra o mês anterior, com variação mínima de 20% e 0,3 kWh/dia | medido |
+| `registration_changes` | Aparelhos cadastrados desde o início do mês anterior | estimado |
+| `top_consumers` | Três maiores custos estimados | estimado |
+| `room_breakdown` | Ambientes dos aparelhos envolvidos (profundidade 2) | estimado |
+| `anomalies` | Anomalias do motor | medido ou sem dados |
+| `savings_plan` | Plano para a meta, quando há valor em reais | simulado |
+
+Regras:
+
+- As ferramentas são funções puras sobre o snapshot do usuário, já carregado. Não fazem consultas ao banco e não recebem IDs vindos do modelo.
+- Cada ferramenta roda no máximo uma vez. Ferramentas rasas rodam antes das profundas.
+- Orçamento: 8 chamadas, 1.500 ms e profundidade 2 (`DEFAULT_BUDGET`). O que passa do orçamento fica marcado como "não executada".
+- Planejamento: o plano padrão é determinístico. Com o modelo ligado, uma chamada curta propõe a lista de ferramentas em JSON; `sanitizePlan` mantém só as da lista permitida, remove repetidas, respeita a profundidade e o orçamento e sempre inclui a cobertura. JSON inválido usa o plano padrão.
+- Conclusão determinística:
+  - com medição e mudança por aparelho: "as leituras mostram onde a mudança se concentra… os dados não provam a causa";
+  - só com mudança no cadastro: "não há medições para confirmar um aumento real; no cadastro, a estimativa subiu com X";
+  - sem nada: "Não tenho informações suficientes para determinar o motivo".
+- O card "Evidências encontradas" mostra até 4 achados com origem e confiança. Os demais ficam recolhidos em "Mais evidências", e "Como investiguei" lista as consultas feitas.
+
+### 14.2 Planos de economia (`ai.plans.ts`)
+
+`buildSavingsPlan(snapshot, meta, opções)`:
+
+- **Referência**: o custo estimado do cadastro. Se o usuário informa outro valor ("de R$ 350 para R$ 250"), a diferença aparece como incerteza e o cálculo usa o cadastro.
+- **Candidatos**: aparelhos não essenciais, não protegidos e acima do mínimo de conforto. O corte é de até `maxReductionPercent` das horas (mínimo de 1 h), e cada valor vem de `simulateForAppliance`.
+- **Ordenação**: economia por hora cortada, ou seja, mais impacto com menos esforço.
+- **Sem dupla contagem**: cada aparelho entra uma vez, e a soma nunca passa da referência.
+- **Esforço por ação**: baixo, médio ou alto, conforme as horas e a parte do uso cortadas.
+- **Faixa**: aparelhos de ciclo têm cenário conservador; a soma aparece como "R$ X a R$ Y".
+- **Meta inalcançável**: o plano diz quanto falta. Trocas de equipamento aparecem como ideias, fora da soma.
+- **Salvar**: a ação `save_plan` envia só o imóvel e a meta. O servidor recalcula o plano e salva em `ai_savings_plans` (até 20 por usuário).
+- **Acompanhamento**: cada ação fica pendente, aplicada ou ignorada. O progresso também mostra se o cadastro já está no número de horas planejado. "Aplicada" é o que o usuário declarou, não economia observada.
+
+### 14.3 Guarda com fatos estruturados
+
+Além das regras da seção 8.1, o orquestrador passa `claims` para a guarda:
+
+| Regra | Fato estruturado | Exemplo recusado |
+|---|---|---|
+| Percentual inconsistente | Só percentuais de `share`, `coverage`, `change` ou do rascunho | "representa 70% do imóvel" |
+| Direção da tendência | `trend` (up/down/flat/null), calculada pela comparação medida | "o consumo aumentou" sem tendência medida |
+| Superlativo | `topName` | "a TV é o maior consumidor" |
+| Medido × estimado por aparelho | `measuredNames` | "o Ar condicionado medido…" quando só a TV tem leitura |
+| Restrição do usuário | `protectedNames` (essenciais, preferências, "não quero") | "reduza o Computador" |
+| Recomendação fora dos dados | `actionableNames` | "troque a TV" quando o plano não inclui a TV |
+
+O sujeito de cada afirmação é o nome mais próximo, na mesma oração, no lado esperado: antes para "é medido" e "é o maior", depois para "reduza" e "troque". Quando uma afirmação qualitativa aparece e não pode ser verificada, a reescrita é recusada e vale o texto do motor.
+
+### 14.4 Alertas (`ai.alerts.ts`, `ai.scheduler.ts`)
+
+| Tipo | Prioridade | Regra |
+|---|---|---|
+| `goal_risk` | alta | Previsão ≥ 90% da meta de R$ ou kWh |
+| `consumption_increase` | alta | Média diária medida 20% acima do mês anterior |
+| `appliance_anomaly` | alta | Leitura incompatível com a potência cadastrada |
+| `forecast` | média | Projeção 15% acima do mês anterior medido |
+| `persistent_anomaly` | média | Mediana de 7 dias 25% acima das 3 semanas anteriores |
+| `missing_reading` | média | Aparelho conectado sem leitura há 48 h |
+| `savings_opportunity` | baixa | Melhor redução de uso ≥ R$ 10/mês. Ignora recomendações dispensadas ou aplicadas e respeita essenciais e mínimos. |
+
+- **Estado**: novo, lido ou dispensado (cancelado), via `PATCH /alerts/:key`. O histórico fica na aba Alertas.
+- **Deduplicação**: chave única por usuário e intervalo mínimo por tipo, diário ou semanal.
+- **Consentimento**: `proactiveInsights` e uma frequência diferente de "off". Categorias filtram os tipos.
+- **Varredura para agendador**: `sweepAlerts({ store, data, delivery })` percorre usuários com consentimento em páginas ordenadas por `userId`, grava os alertas novos e só envia por um canal `AlertDelivery` com `ready: true` e `AI_ALERTS_DELIVERY=on`. Alertas de prioridade baixa nunca são enviados, só aparecem no app. Sem canal, nada sai do servidor.
+- **Integração pendente** (arquivo compartilhado, não alterado): criar uma função agendada no Netlify, ao lado do coletor de energia, que monte `MongoAIStore(db)` e o `data` como em `app.ts` e chame `sweepAlerts`. Nenhum canal de envio foi validado.
+
+### 14.5 Provedor: homologação
+
+| Item | Situação |
+|---|---|
+| Modelos | `claude-haiku-5-5` e `claude-sonnet-5-5`, tirados da lista atual de modelos do provedor. A suíte real confere cada ID com `models.retrieve`. |
+| Timeout, cancelamento | Testados com cliente simulado e com o SDK real contra endpoint inacessível |
+| Retentativa | Uma, para 429, 5xx e falha de conexão. **Corrigido na fase 3**: `APIConnectionError` do SDK herda de `APIError` sem status e era tratado como não retentável. |
+| Truncamento, recusa | Tratados como falha de narração; vale o texto do motor |
+| Tokens e custo | `meta.inputTokens`, `meta.outputTokens` e `estimatedCostUsd` testados |
+| Teto em USD | Novo `AI_MONTHLY_COST_LIMIT_USD`, que soma `estimatedCostUsd` do mês (cache de 60 s). Ao atingir o teto, a resposta sai do motor. Testado. |
+| Chamada real | **Não executada**: não há chave neste ambiente. |
+
+Suíte real pronta: `backend/tests/homolog/ai-live.homolog.cjs`. Ela não faz parte do `npm test` e só roda com `AI_LIVE_API_KEY`, `AI_LIVE_CONFIRM=consumir-creditos`, `AI_LIVE_MAX_CALLS` (padrão 12) e `AI_LIVE_MAX_USD` (padrão 0,05). Ela verifica:
+
+- os IDs de modelo;
+- uma chamada básica;
+- truncamento;
+- timeout;
+- cancelamento;
+- 4 conversas pela guarda (maiores consumidores, simulação, investigação, plano).
+
+O relatório traz só valores de respostas reais.
+
+### 14.6 Novos endpoints
+
+| Rota | Uso |
+|---|---|
+| `POST /plans` | `{ propertyId, target, statedCurrent?, protectedApplianceIds? }`: o servidor calcula e salva |
+| `GET /plans`, `GET /plans/:id` | Lista; detalhe com progresso |
+| `PATCH /plans/:id/actions/:applianceId` | `{ status: pending \| applied \| skipped }` |
+| `DELETE /plans/:id` | Exclui |
+| `PATCH /alerts/:key` | `{ state: new \| read \| dismissed }` |
+| `PATCH /recommendations/:id` | Aceita `feedback: useful \| not_useful`, com ou sem `state` |
+
+Todas as rotas verificam o dono. Os testes cobrem plano, ação, exclusão e alerta de outro usuário (404).
+
+### 14.7 Experiência
+
+- Card de investigação com evidências, origem e confiança, mais "Como investiguei".
+- Card de plano com esforço por ação, faixa conservadora, quanto falta e ideias fora da soma.
+- Botão "Salvar este plano".
+- Comparação de aparelhos ("Compare a TV e o computador").
+- Retorno "Útil? Sim/Não" nas recomendações do dashboard.
+- Abas Preferências, Planos e Alertas em `/ia/preferencias`, sem nova rota.
+
+### 14.8 Validação da fase 3
+
+| Verificação | Resultado |
+|---|---|
+| Testes de IA | `ai.test` 24, `ai-guard` 11, `ai-phase2` 21, `ai-phase3` 16, `ai-eval` 5: todos passam |
+| Backend completo | 131 passam, 0 falham, 7 pulados sem MongoDB |
+| MongoDB 7.0.14 isolado | 6 de 6 (3 de IA, incluindo planos, estados, destinatários, retorno e gasto; 3 já existentes) |
+| Frontend | `tsc` e ESLint sem erros, build, 40 testes |
+| Avaliação | 17 cenários com 100% em todas as métricas; investigação e planos 5 de 5; guarda v1 11 de 11; guarda v2 7 de 7, com reescrita fiel aceita |
+| Ferramentas e consultas | 15 chamadas de ferramenta em 5 casos; 4 consultas ao banco por mensagem (a investigação não acrescenta nenhuma) |
+| Custo estimado | 384 tokens de entrada por resposta narrada, US$ 0,000078 por resposta (Haiku 5.5, preço de tabela) |
+| Navegador, IA desligada | Desktop e mobile: investigação ~0,9 s na primeira (compilação) e ~0,14 s depois; plano ~0,1 s; salvar plano, aba Planos, marcar aplicada, alertas (ler, dispensar), retorno |
+| Navegador, provedor inacessível | Mesmo fluxo: investigação ~2,9 s e plano ~5 s (com a retentativa de conexão); fallback correto, sem erros de console |
+
+Tamanho do bundle principal: 172,87 kB (base `c7bc152`, mesmo ambiente) → 173,49 kB. A ação de salvar plano carrega o cliente da IA sob demanda.
+
+### 14.9 Pendências
+
+- Chamada real ao provedor: rodar `ai-live.homolog.cjs` com chave de homologação e orçamento autorizado.
+- Agendamento dos alertas e canal de envio (seção 14.4).
+- Mesmo nome de aparelho em dois imóveis: a guarda não distingue. O snapshot é sempre de um imóvel só.
+- A guarda qualitativa é heurística por proximidade na oração. Frases muito longas ou indiretas podem ser recusadas por precaução, e nesse caso vale o texto do motor.
+- Histórico de investigações: as investigações ficam no histórico de conversas comum, sem filtro próprio.

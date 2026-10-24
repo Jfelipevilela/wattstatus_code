@@ -2,6 +2,7 @@ import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useSta
 import { useLocation, useNavigate } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/components/ui/use-toast";
 import type { ChartRequest, WattAIAction, WattAIContext } from "@/lib/wattai";
 
 // The panel and simulator are loaded only when first opened, so the AI adds
@@ -63,6 +64,13 @@ export function WattAIProvider({ children }: { children: ReactNode }) {
         break;
       case "ask":
         openAssistant({ message: action.message });
+        break;
+      case "save_plan":
+        // The server recomputes the plan from the target; nothing else is sent.
+        // Loaded on demand so the AI client stays out of the main bundle.
+        void import("@/lib/wattai").then(({ wattAIPlans }) => wattAIPlans.save({ propertyId: action.propertyId, target: action.target, ...(action.statedCurrent ? { statedCurrent: action.statedCurrent } : {}) }))
+          .then(() => toast({ title: "Plano salvo", description: "Acompanhe em Preferências da IA › Planos." }))
+          .catch((error) => toast({ title: "Não foi possível salvar o plano", description: error instanceof Error ? error.message : undefined, variant: "destructive" }));
         break;
     }
   }, [navigate, openAssistant]);

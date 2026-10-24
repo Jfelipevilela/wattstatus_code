@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Sparkles, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { brl, wattAI, SOURCE_LABEL } from "@/lib/wattai";
+import { useState } from "react";
+import { brl, wattAI, wattAIPlans, SOURCE_LABEL } from "@/lib/wattai";
 import { useWattAI } from "./WattAI";
 
 // Token-free insights computed by the engine. Hidden when the AI endpoint is
@@ -23,6 +24,11 @@ export function AIInsights({ propertyId, title = "Análises do WattStatus AI" }:
     onSuccess: () => client.invalidateQueries({ queryKey: ["wattai", "insights"] }),
   });
 
+  const [rated, setRated] = useState<Record<string, boolean>>({});
+  const rate = (id: string, feedback: "useful" | "not_useful", propertyId: string) => {
+    setRated((current) => ({ ...current, [id]: true }));
+    void wattAIPlans.feedback(id, feedback, propertyId).catch(() => setRated((current) => ({ ...current, [id]: false })));
+  };
   const data = query.data;
   if (query.isError || !data?.property || (!data.insights.length && !data.recommendations.length)) return null;
   const property = data.property;
@@ -67,6 +73,13 @@ export function AIInsights({ propertyId, title = "Análises do WattStatus AI" }:
                   <button type="button" disabled={setState.isPending} onClick={() => setState.mutate({ id: item.id, state: "dismissed", property: property.id })} className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
                     <X className="h-3 w-3" aria-hidden /> Dispensar
                   </button>
+                  <span className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground">
+                    {rated[item.id] ? "Obrigado pelo retorno" : (<>
+                      Útil?
+                      <button type="button" className="rounded px-1 hover:text-foreground" onClick={() => rate(item.id, "useful", property.id)}>Sim</button>
+                      <button type="button" className="rounded px-1 hover:text-foreground" onClick={() => rate(item.id, "not_useful", property.id)}>Não</button>
+                    </>)}
+                  </span>
                 </div>
               </li>
             ))}

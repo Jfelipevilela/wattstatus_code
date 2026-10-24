@@ -24,7 +24,8 @@ export type WattAIAction =
   | { type: "open_property"; label: string; propertyId: string; roomId?: string; applianceId?: string }
   | { type: "open_simulator"; label: string; propertyId: string; applianceId: string; proposedHours?: number }
   | { type: "open_page"; label: string; path: string }
-  | { type: "ask"; label: string; message: string };
+  | { type: "ask"; label: string; message: string }
+  | { type: "save_plan"; label: string; propertyId: string; target: number; statedCurrent?: number };
 
 export interface WattAIMetric { label: string; value: number; unit: "kWh" | "R$" | "%" | "h" | "W" | "dias"; source: EnergyDataSource; coverage?: number }
 
@@ -70,13 +71,20 @@ export interface Recommendation {
 export type WattAICard =
   | { type: "ranking"; title: string; source: EnergyDataSource; items: Array<{ id: string; label: string; sublabel: string | null; kWh: number; cost: number; share: number; kind: "appliance" | "room" | "property" }> }
   | { type: "simulation"; simulation: UsageSimulation | Record<string, unknown> }
-  | { type: "budget"; plan: { target: number; current: number; gap: number; reachable: boolean; achieved: number; actions: Array<{ applianceId: string; applianceName: string; roomName: string | null; fromHours: number; toHours: number; monthlyCost: number }>; excluded: Array<{ applianceName: string; reason: string }> } }
+  | { type: "budget"; plan: {
+      target: number; current: number; gap: number; reachable: boolean; achieved: number;
+      achievedConservative?: number; remaining?: number;
+      actions: Array<{ applianceId: string; applianceName: string; roomName: string | null; fromHours: number; toHours: number; monthlyCost: number; conservativeCost?: number; effort?: "baixo" | "medio" | "alto" }>;
+      excluded: Array<{ applianceName: string; reason: string }>;
+      ideas?: Array<{ applianceName: string; monthlyCost: number; note: string }>;
+    } }
   | { type: "forecast"; forecast: { source: EnergyDataSource; kWh: number | null; cost: number | null; low: number | null; high: number | null; method: string } }
   | { type: "recommendations"; items: Recommendation[] }
   | { type: "anomalies"; items: Array<{ id: string; kind: string; title: string; detail: string; severity: string }> }
   | { type: "choices"; title: string; items: Array<{ id: string; label: string; sublabel: string | null }> }
   | { type: "trend"; title: string; points: Array<{ month: string; estimatedKWh: number; estimatedCost: number; measuredKWh: number | null }> }
-  | { type: "comparison"; title: string; source: EnergyDataSource; items: Array<{ label: string; value: number; unit: "kWh" | "R$" | "%" }> };
+  | { type: "comparison"; title: string; source: EnergyDataSource; items: Array<{ label: string; value: number; unit: "kWh" | "R$" | "%" }> }
+  | InvestigationCard;
 
 export interface WattAIResponse {
   message: string;
@@ -223,4 +231,48 @@ export const wattAIAccount = {
   adminSettings: () => apiRequest<{ settings: Record<string, unknown>; effective: Record<string, unknown>; allowedModels: string[] }>("/api/ai/admin/settings", quiet),
   saveAdminSettings: (patch: Record<string, unknown>) => apiRequest("/api/ai/admin/settings", { method: "PUT", body: JSON.stringify(patch) }),
   adminUsage: (days = 30) => apiRequest<{ usage: Record<string, unknown> }>(`/api/ai/admin/usage?days=${days}`, quiet),
+};
+
+// ---------------------------------------------------------------- phase 3
+
+export interface InvestigationCard {
+  type: "investigation";
+  steps: Array<{ tool: string; ok: boolean; skipped: string | null; findings: number }>;
+  findings: Array<{ id: string; text: string; evidence: EnergyDataSource; confidence: "alta" | "media" | "baixa"; applianceId: string | null }>;
+}
+export interface PlanActionView {
+  applianceId: string; applianceName: string; roomName: string | null; fromHours: number; toHours: number;
+  monthlyCost: number; conservativeCost: number; effort: "baixo" | "medio" | "alto"; status?: "pending" | "applied" | "skipped";
+}
+export interface SavedPlanView {
+  id: string; propertyId: string; target: number; reference: number; gap: number; reachable: boolean; achieved: number;
+  achievedConservative: number; remaining: number; actions: PlanActionView[]; uncertainty: string[]; createdAt: string;
+}
+export interface PlanProgress { applianceId: string; applianceName: string; status: string; registeredHours: number | null; registeredAtTarget: boolean; expectedMonthlyCost: number; missing: boolean }
+export interface AlertView extends AlertItem { priority: "alta" | "media" | "baixa"; state?: "new" | "read" | "dismissed" }
+
+export const TOOL_LABEL: Record<string, string> = {
+  measurement_coverage: "Cobertura de medição",
+  period_comparison: "Comparação com o mês anterior",
+  appliance_changes: "Mudanças por aparelho",
+  registration_changes: "Mudanças no cadastro",
+  top_consumers: "Maiores consumidores",
+  room_breakdown: "Ambientes envolvidos",
+  anomalies: "Anomalias",
+  savings_plan: "Plano de economia",
+};
+
+export const wattAIPlans = {
+  save: (body: { propertyId: string; target: number; statedCurrent?: number }) =>
+    apiRequest<{ plan: SavedPlanView }>("/api/ai/plans", { method: "POST", body: JSON.stringify(body) }).then((data) => data.plan),
+  list: () => apiRequest<{ plans: SavedPlanView[] }>("/api/ai/plans", quiet).then((data) => data.plans),
+  get: (id: string) => apiRequest<{ plan: SavedPlanView; progress: PlanProgress[] }>(`/api/ai/plans/${encodeURIComponent(id)}`, quiet),
+  setAction: (id: string, applianceId: string, status: "pending" | "applied" | "skipped") =>
+    apiRequest<{ plan: SavedPlanView }>(`/api/ai/plans/${encodeURIComponent(id)}/actions/${encodeURIComponent(applianceId)}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  remove: (id: string) => apiRequest(`/api/ai/plans/${encodeURIComponent(id)}`, { method: "DELETE", body: "{}" }),
+  alerts: () => apiRequest<{ alerts: AlertView[] }>("/api/ai/alerts", quiet).then((data) => data.alerts),
+  setAlert: (key: string, state: "new" | "read" | "dismissed") =>
+    apiRequest(`/api/ai/alerts/${encodeURIComponent(key)}`, { ...quiet, method: "PATCH", body: JSON.stringify({ state }) }),
+  feedback: (id: string, feedback: "useful" | "not_useful", propertyId: string) =>
+    apiRequest(`/api/ai/recommendations/${encodeURIComponent(id)}?propertyId=${encodeURIComponent(propertyId)}`, { ...quiet, method: "PATCH", body: JSON.stringify({ feedback }) }),
 };

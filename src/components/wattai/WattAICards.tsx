@@ -1,5 +1,5 @@
 import { AlertTriangle, ArrowRight, Info } from "lucide-react";
-import { brl, formatMetric, SOURCE_LABEL, type EnergyDataSource, type UsageSimulation, type WattAIAction, type WattAICard, type WattAIResponse } from "@/lib/wattai";
+import { brl, formatMetric, SOURCE_LABEL, TOOL_LABEL, type EnergyDataSource, type UsageSimulation, type WattAIAction, type WattAICard, type WattAIResponse } from "@/lib/wattai";
 
 export const SourceBadge = ({ source }: { source: EnergyDataSource }) => (
   <span className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -7,6 +7,7 @@ export const SourceBadge = ({ source }: { source: EnergyDataSource }) => (
   </span>
 );
 
+const EFFORT_LABEL = { baixo: "baixo", medio: "médio", alto: "alto" } as const;
 const pct = (value: number) => `${Math.round(value * 100)}%`;
 const kwh = (value: number) => `${value.toLocaleString("pt-BR", { maximumFractionDigits: value >= 10 ? 0 : 1 })} kWh`;
 
@@ -72,24 +73,65 @@ function Card({ card, onAsk }: { card: WattAICard; onAsk: (text: string) => void
           <dt className="text-muted-foreground">Economia por ano</dt><dd className="text-right tabular-nums">{brl(Number(card.simulation.annualCost ?? 0))}</dd>
         </dl>
       );
-    case "budget":
+    case "budget": {
+      const plan = card.plan;
+      const ranged = plan.achievedConservative !== undefined && plan.achievedConservative < plan.achieved;
       return (
         <div className="space-y-2 text-xs">
-          <div className="flex justify-between"><span className="text-muted-foreground">Atual estimado</span><span className="tabular-nums">{brl(card.plan.current)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Meta</span><span className="tabular-nums">{brl(card.plan.target)}</span></div>
-          {card.plan.actions.length > 0 && (
-            <ul className="space-y-1 border-t pt-2">
-              {card.plan.actions.map((item) => (
-                <li key={item.applianceId} className="flex justify-between gap-2">
-                  <span className="min-w-0 truncate">{item.applianceName}: {item.fromHours} h → {item.toHours} h</span>
+          <div className="flex justify-between"><span className="text-muted-foreground">Atual estimado</span><span className="tabular-nums">{brl(plan.current)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Meta</span><span className="tabular-nums">{brl(plan.target)}</span></div>
+          {plan.actions.length > 0 && (
+            <ul className="space-y-1.5 border-t pt-2">
+              {plan.actions.map((item) => (
+                <li key={item.applianceId} className="flex items-baseline justify-between gap-2">
+                  <span className="min-w-0">
+                    <span className="block truncate">{item.applianceName}: {item.fromHours.toLocaleString("pt-BR")} h → {item.toHours.toLocaleString("pt-BR")} h/dia</span>
+                    {item.effort && <span className="text-[10px] text-muted-foreground">Esforço {EFFORT_LABEL[item.effort]}{item.conservativeCost !== undefined && item.conservativeCost < item.monthlyCost ? ` · pode ser ${brl(item.conservativeCost)}` : ""}</span>}
+                  </span>
                   <span className="shrink-0 tabular-nums text-primary">−{brl(item.monthlyCost)}</span>
                 </li>
               ))}
             </ul>
           )}
-          <p className={card.plan.reachable ? "text-primary" : "text-muted-foreground"}>
-            {card.plan.reachable ? "Meta alcançável com o plano." : "O plano não alcança a meta sozinho."}
+          <div className="flex justify-between border-t pt-2 font-medium">
+            <span>Soma do plano</span>
+            <span className="tabular-nums">{ranged ? `${brl(plan.achievedConservative!)} a ${brl(plan.achieved)}` : brl(plan.achieved)}</span>
+          </div>
+          <p className={plan.reachable ? "text-primary" : "text-muted-foreground"}>
+            {plan.gap <= 0 ? "Já dentro da meta." : plan.reachable ? "Meta alcançável com o plano, no cenário do cadastro." : `Faltam ${brl(plan.remaining ?? Math.max(0, plan.gap - plan.achieved))} com as mudanças permitidas.`}
           </p>
+          {plan.ideas && plan.ideas.length > 0 && (
+            <p className="text-[11px] text-muted-foreground">Fora da soma: {plan.ideas.map((idea) => `trocar ${idea.applianceName} (cerca de ${brl(idea.monthlyCost)}/mês, exige investimento)`).join("; ")}.</p>
+          )}
+        </div>
+      );
+    }
+    case "investigation":
+      return (
+        <div className="space-y-2">
+          <p className="text-xs font-medium">Evidências encontradas</p>
+          <ul className="space-y-1.5">
+            {card.findings.slice(0, 4).map((finding) => (
+              <li key={finding.id} className="flex gap-2 text-xs">
+                <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${finding.confidence === "alta" ? "bg-primary" : finding.confidence === "media" ? "bg-amber-500" : "bg-muted-foreground/50"}`} aria-hidden />
+                <span>{finding.text} <span className="text-[10px] uppercase tracking-wide text-muted-foreground">· {SOURCE_LABEL[finding.evidence]}</span></span>
+              </li>
+            ))}
+          </ul>
+          {card.findings.length > 4 && (
+            <details className="text-xs">
+              <summary className="cursor-pointer select-none text-[11px] text-muted-foreground">Mais {card.findings.length - 4} evidência(s)</summary>
+              <ul className="mt-1.5 space-y-1.5">
+                {card.findings.slice(4).map((finding) => <li key={finding.id} className="text-muted-foreground">{finding.text} <span className="text-[10px] uppercase tracking-wide">· {SOURCE_LABEL[finding.evidence]}</span></li>)}
+              </ul>
+            </details>
+          )}
+          <details className="text-[11px] text-muted-foreground">
+            <summary className="cursor-pointer select-none">Como investiguei ({card.steps.filter((step) => step.ok).length} consultas)</summary>
+            <ol className="mt-1 list-decimal space-y-0.5 pl-4">
+              {card.steps.map((step) => <li key={step.tool}>{TOOL_LABEL[step.tool] ?? step.tool}{step.skipped ? ` — não executada (${step.skipped})` : ` — ${step.findings} achado(s)`}</li>)}
+            </ol>
+          </details>
         </div>
       );
     case "forecast":

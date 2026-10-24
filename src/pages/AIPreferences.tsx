@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { AIAlertsPanel, AIPlansPanel } from "@/components/wattai/AIPlansAlerts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellRing, Loader2, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import { AppSidebar, SidebarProvider, SidebarTrigger } from "@/components/Sidebar";
@@ -29,6 +30,8 @@ const ALERTS: Array<[string, string]> = [
   ["forecast", "Previsão mensal relevante"],
   ["missing_reading", "Aparelho sem leitura"],
   ["persistent_anomaly", "Anomalia persistente"],
+  ["appliance_anomaly", "Aparelho com consumo anormal"],
+  ["savings_opportunity", "Oportunidade de economia"],
 ];
 
 const Section = ({ title, description, children }: { title: string; description?: string; children: ReactNode }) => (
@@ -54,6 +57,8 @@ const toggle = (list: string[] | undefined, value: string, on: boolean) => {
 };
 
 export default function AIPreferences() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("aba") === "planos" ? "planos" : params.get("aba") === "alertas" ? "alertas" : "preferencias";
   const client = useQueryClient();
   const { properties } = useProperties();
   const { appliances } = useAppliances();
@@ -115,6 +120,16 @@ export default function AIPreferences() {
           <span className="font-semibold">Preferências do WattStatus AI</span>
         </header>
         <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 pb-16 pt-6 md:px-6">
+          <nav className="flex gap-1 rounded-full border bg-card p-1 text-sm" aria-label="Seções do WattStatus AI">
+            {([["preferencias", "Preferências"], ["planos", "Planos"], ["alertas", "Alertas"]] as const).map(([value, label]) => (
+              <button key={value} type="button" aria-current={tab === value ? "page" : undefined}
+                onClick={() => setParams(value === "preferencias" ? {} : { aba: value }, { replace: true })}
+                className={`flex-1 rounded-full px-3 py-1.5 font-medium transition ${tab === value ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
+                {label}
+              </button>
+            ))}
+          </nav>
+          {tab === "planos" ? <AIPlansPanel /> : tab === "alertas" ? <AIAlertsPanel /> : (<>
           <p className="text-sm text-muted-foreground">
             Só o que você define aqui vira preferência. O assistente nunca salva suposições sobre você sem esta página.
           </p>
@@ -212,14 +227,9 @@ export default function AIPreferences() {
                   <span className="text-xs text-muted-foreground">Salve antes de verificar.</span>
                 </div>
                 {(alerts.data?.length ?? 0) > 0 && (
-                  <ul className="space-y-2">
-                    {alerts.data!.slice(0, 6).map((item) => (
-                      <li key={item.key} className="rounded-lg border px-3 py-2 text-sm">
-                        <p className="font-medium">{item.title}</p>
-                        <p className="text-xs text-muted-foreground">{item.detail} · {new Date(item.createdAt).toLocaleDateString("pt-BR")}</p>
-                      </li>
-                    ))}
-                  </ul>
+                  <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setParams({ aba: "alertas" }, { replace: true })}>
+                    Ver {alerts.data!.length} alerta(s)
+                  </button>
                 )}
               </Section>
 
@@ -249,6 +259,7 @@ export default function AIPreferences() {
               <p className="text-xs text-muted-foreground">Administração da IA: <Link to="/ia/admin" className="underline underline-offset-2">painel</Link> (somente administradores).</p>
             </form>
           )}
+          </>)}
         </main>
       </SidebarInset>
     </SidebarProvider>
