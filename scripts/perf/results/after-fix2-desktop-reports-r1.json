@@ -1,0 +1,79 @@
+{
+  "profile": "desktop",
+  "base": "http://127.0.0.1:4511",
+  "runs": 1,
+  "at": "2026-10-24T13:54:29.443Z",
+  "loads": {
+    "reports:cold": {
+      "ttfb": 6,
+      "fcp": 1180,
+      "lcp": 1180,
+      "cls": 0.0015,
+      "shifts": [
+        {
+          "value": 0.0015,
+          "at": 377,
+          "nodes": [
+            "SECTION.p-4 sm:p-6 y 578→570.5 h 322→329.5"
+          ]
+        }
+      ],
+      "tbt": 0,
+      "domContentLoaded": 40,
+      "heapMB": 10.4,
+      "usableMs": 449,
+      "requests": 46,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 1910.3,
+      "jsKB": 474.8,
+      "jsFiles": 37,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/auth/csrf": 1,
+        "POST /api/reports/events": 1
+      }
+    },
+    "reports:warm": {
+      "ttfb": 3,
+      "fcp": 440,
+      "lcp": 440,
+      "cls": 0.0015,
+      "shifts": [
+        {
+          "value": 0.0015,
+          "at": 233,
+          "nodes": [
+            "SECTION.p-4 sm:p-6 y 578→570.5 h 322→329.5"
+          ]
+        }
+      ],
+      "tbt": 0,
+      "domContentLoaded": 17,
+      "heapMB": 13,
+      "usableMs": 232,
+      "requests": 46,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 7,
+      "jsKB": 0,
+      "jsFiles": 37,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/auth/csrf": 1,
+        "POST /api/reports/events": 1
+      }
+    }
+  },
+  "spa": [],
+  "three": null,
+  "memory": null
+}

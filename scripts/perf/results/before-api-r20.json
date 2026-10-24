@@ -1,0 +1,155 @@
+{
+  "base": "http://127.0.0.1:4511",
+  "at": "2026-10-24T04:56:52.076Z",
+  "endpoints": {
+    "/api/auth/me": {
+      "p50": 27.5,
+      "p95": 36.5,
+      "p99": 36.5,
+      "responseKB": 0.1,
+      "statuses": [
+        200
+      ],
+      "mongoCommands": 4,
+      "commands": {
+        "findAndModify:auth_limits": 1,
+        "find:auth_sessions": 1,
+        "find:users": 2
+      }
+    },
+    "/api/properties": {
+      "p50": 39.9,
+      "p95": 70.7,
+      "p99": 70.7,
+      "responseKB": 0.3,
+      "statuses": [
+        200
+      ],
+      "mongoCommands": 7,
+      "commands": {
+        "findAndModify:auth_limits": 1,
+        "find:auth_sessions": 1,
+        "find:users": 1,
+        "find:properties": 2,
+        "aggregate:property_rooms": 1,
+        "update:appliances": 1
+      }
+    },
+    "/api/appliances": {
+      "p50": 59.2,
+      "p95": 87,
+      "p99": 87,
+      "responseKB": 20.6,
+      "statuses": [
+        200
+      ],
+      "mongoCommands": 7,
+      "commands": {
+        "findAndModify:auth_limits": 1,
+        "find:auth_sessions": 1,
+        "find:users": 1,
+        "find:properties": 2,
+        "update:appliances": 1,
+        "find:appliances": 1
+      }
+    },
+    "/api/user-settings": {
+      "p50": 25.7,
+      "p95": 50.2,
+      "p99": 50.2,
+      "responseKB": 0.2,
+      "statuses": [
+        200
+      ],
+      "mongoCommands": 4,
+      "commands": {
+        "findAndModify:auth_limits": 1,
+        "find:auth_sessions": 1,
+        "find:users": 1,
+        "findAndModify:user_settings": 1
+      }
+    },
+    "/api/energy/history": {
+      "p50": 206,
+      "p95": 251.6,
+      "p99": 251.6,
+      "responseKB": 1622.7,
+      "statuses": [
+        200
+      ],
+      "mongoCommands": 15,
+      "commands": {
+        "findAndModify:auth_limits": 1,
+        "find:auth_sessions": 1,
+        "find:users": 1,
+        "find:energy_samples": 7,
+        "getMore:8081205169436089374": 5
+      }
+    },
+    "/api/properties/:id/floors": {
+      "p50": 24.6,
+      "p95": 37.6,
+      "p99": 37.6,
+      "responseKB": 0.3,
+      "statuses": [
+        200
+      ],
+      "mongoCommands": 5,
+      "commands": {
+        "findAndModify:auth_limits": 1,
+        "find:auth_sessions": 1,
+        "find:users": 1,
+        "find:properties": 1,
+        "find:property_floors": 1
+      }
+    },
+    "/api/properties/:id/rooms": {
+      "p50": 27.5,
+      "p95": 46.4,
+      "p99": 46.4,
+      "responseKB": 7.7,
+      "statuses": [
+        200
+      ],
+      "mongoCommands": 5,
+      "commands": {
+        "findAndModify:auth_limits": 1,
+        "find:auth_sessions": 1,
+        "find:users": 1,
+        "find:properties": 1,
+        "find:property_rooms": 1
+      }
+    },
+    "/api/properties/:id/energy": {
+      "p50": 184,
+      "p95": 264.8,
+      "p99": 264.8,
+      "responseKB": 1622.8,
+      "statuses": [
+        200
+      ],
+      "mongoCommands": 16,
+      "commands": {
+        "findAndModify:auth_limits": 1,
+        "find:auth_sessions": 1,
+        "find:users": 1,
+        "find:properties": 1,
+        "find:energy_samples": 7,
+        "getMore:7750840047279137771": 5
+      }
+    }
+  },
+  "load": {
+    "users": 8,
+    "seconds": 30,
+    "requests": 570,
+    "throughputRps": 19,
+    "p50": 11.1,
+    "p95": 251.3,
+    "p99": 1086.6,
+    "statuses": {
+      "200": 120,
+      "429": 450
+    }
+  }
+}

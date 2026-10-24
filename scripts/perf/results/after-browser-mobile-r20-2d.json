@@ -1,0 +1,307 @@
+{
+  "profile": "mobile",
+  "base": "http://127.0.0.1:4511",
+  "runs": 3,
+  "at": "2026-10-24T13:55:05.380Z",
+  "loads": {
+    "home:cold": {
+      "ttfb": 6,
+      "fcp": 3072,
+      "lcp": 4352,
+      "cls": 0,
+      "tbt": 3,
+      "domContentLoaded": 2777,
+      "heapMB": 3.7,
+      "usableMs": 4597,
+      "requests": 33,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 692.6,
+      "jsKB": 421.8,
+      "jsFiles": 27,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "home:warm": {
+      "ttfb": 4,
+      "fcp": 364,
+      "lcp": 512,
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 251,
+      "heapMB": 5.3,
+      "usableMs": 698,
+      "requests": 33,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 2.3,
+      "jsKB": 0,
+      "jsFiles": 27,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "login:cold": {
+      "ttfb": 4,
+      "fcp": 2844,
+      "lcp": 3280,
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 2762,
+      "heapMB": 7.2,
+      "usableMs": 3947,
+      "requests": 23,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 610.3,
+      "jsKB": 355.7,
+      "jsFiles": 18,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "login:warm": {
+      "ttfb": 3,
+      "fcp": 344,
+      "lcp": 412,
+      "cls": 0,
+      "tbt": 0,
+      "domContentLoaded": 248,
+      "heapMB": 7.7,
+      "usableMs": 644,
+      "requests": 23,
+      "apiRequests": 2,
+      "api429": 0,
+      "transferKB": 2.3,
+      "jsKB": 0,
+      "jsFiles": 18,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "dashboard:cold": {
+      "ttfb": 4,
+      "fcp": 2800,
+      "lcp": 6812,
+      "cls": 0,
+      "tbt": 1358,
+      "domContentLoaded": 2745,
+      "heapMB": 23.1,
+      "usableMs": 15207,
+      "requests": 59,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 2734.7,
+      "jsKB": 936,
+      "jsFiles": 49,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "dashboard:warm": {
+      "ttfb": 3,
+      "fcp": 348,
+      "lcp": 732,
+      "cls": 0,
+      "tbt": 474,
+      "domContentLoaded": 255,
+      "heapMB": 26.2,
+      "usableMs": 1406,
+      "requests": 59,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 8,
+      "jsKB": 0,
+      "jsFiles": 49,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "properties:cold": {
+      "ttfb": 6,
+      "fcp": 2848,
+      "lcp": 4228,
+      "cls": 0.0004,
+      "shifts": [
+        {
+          "value": 0.0003,
+          "at": 4583,
+          "nodes": [
+            "#text. y 527→527 h 16→16",
+            "#text. y 567→567 h 16→16"
+          ]
+        },
+        {
+          "value": 0.0002,
+          "at": 10914,
+          "nodes": [
+            "#text. y 527→527 h 16→16"
+          ]
+        }
+      ],
+      "tbt": 9,
+      "domContentLoaded": 2778,
+      "heapMB": 15.5,
+      "usableMs": 10880,
+      "requests": 40,
+      "apiRequests": 5,
+      "api429": 0,
+      "transferKB": 1901.2,
+      "jsKB": 467.5,
+      "jsFiles": 33,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/appliances": 1,
+        "GET /api/energy/history": 1
+      }
+    },
+    "properties:warm": {
+      "ttfb": 3,
+      "fcp": 312,
+      "lcp": 632,
+      "cls": 0.0002,
+      "shifts": [
+        {
+          "value": 0.0002,
+          "at": 899,
+          "nodes": [
+            "#text. y 527→527 h 16→16"
+          ]
+        }
+      ],
+      "tbt": 51,
+      "domContentLoaded": 230,
+      "heapMB": 13.7,
+      "usableMs": 836,
+      "requests": 40,
+      "apiRequests": 5,
+      "api429": 0,
+      "transferKB": 5.2,
+      "jsKB": 0,
+      "jsFiles": 33,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/properties": 1,
+        "GET /api/appliances": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "appliances:cold": {
+      "ttfb": 5,
+      "fcp": 2808,
+      "lcp": 4976,
+      "cls": 0,
+      "tbt": 25,
+      "domContentLoaded": 2751,
+      "heapMB": 16.8,
+      "usableMs": 4714,
+      "requests": 40,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 727.5,
+      "jsKB": 565,
+      "jsFiles": 35,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1
+      }
+    },
+    "appliances:warm": {
+      "ttfb": 3,
+      "fcp": 388,
+      "lcp": 1208,
+      "cls": 0,
+      "tbt": 219,
+      "domContentLoaded": 273,
+      "heapMB": 16.2,
+      "usableMs": 977,
+      "requests": 40,
+      "apiRequests": 3,
+      "api429": 0,
+      "transferKB": 3.3,
+      "jsKB": 0,
+      "jsFiles": 35,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1
+      }
+    },
+    "reports:cold": {
+      "ttfb": 6,
+      "fcp": 2836,
+      "lcp": 5004,
+      "cls": 0,
+      "tbt": 144,
+      "domContentLoaded": 2763,
+      "heapMB": 20.5,
+      "usableMs": 11759,
+      "requests": 46,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 1910.3,
+      "jsKB": 474.8,
+      "jsFiles": 37,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/auth/csrf": 1,
+        "POST /api/reports/events": 1
+      }
+    },
+    "reports:warm": {
+      "ttfb": 3,
+      "fcp": 328,
+      "lcp": 1028,
+      "cls": 0,
+      "tbt": 93,
+      "domContentLoaded": 254,
+      "heapMB": 21,
+      "usableMs": 1525,
+      "requests": 46,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 7,
+      "jsKB": 0,
+      "jsFiles": 37,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/auth/csrf": 1,
+        "POST /api/reports/events": 1
+      }
+    }
+  },
+  "spa": [],
+  "three": null,
+  "memory": null
+}
