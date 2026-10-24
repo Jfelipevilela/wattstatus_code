@@ -201,7 +201,7 @@ test('prazo curto: para sem deixar reservas e retoma na execução seguinte', { 
     assert.ok(short.durationMs < 7000);
     assert.equal(await raw.collection('energy_collection').countDocuments({ leaseUntil: { $gt: now } }), 0);
     const next = await collectEnergy(db, { enabled: true, intervalMinutes: 30, deadlineMs: 20000, now: () => new Date(now.getTime() + RUN_EVERY), integration: st.integration, token: st.token, maxDevices: 100, concurrency: 8, perUserConcurrency: 2 });
-    assert.equal(short.saved + next.saved, 100);
+    assert.equal(short.saved + next.saved, 100, JSON.stringify({ short, next }));
   });
 });
 
@@ -264,5 +264,22 @@ test('rotas de status da coleta: por usuário e métricas só para administrador
       assert.equal(stats.queued, 10);
       assert.ok(!JSON.stringify(stats).includes('dev'), 'no device ids in operator metrics');
     } finally { server.close(); delete process.env.AI_ADMIN_EMAILS; }
+  });
+});
+
+test('lista de ocupados desatualizada não encerra a execução com dispositivo vencido', { skip: !uri, timeout: 60000 }, async () => {
+  await withDb(async (db, raw) => {
+    await seed(raw, 2); // one user, two devices
+    const st = fakeSmartThings({ latencyMs: 10 });
+    const now = new Date('2026-10-24T12:00:00Z');
+    // Slow claims and finishes make the race deterministic: worker B takes the
+    // busy list while A reads, A's read ends during B's claim, and A is still
+    // finishing when B sees no row.
+    const claim = db.claimEnergyCollection.bind(db);
+    const finish = db.finishEnergyCollection.bind(db);
+    db.claimEnergyCollection = async (...args) => { const row = await claim(...args); await new Promise((r) => setTimeout(r, 50)); return row; };
+    db.finishEnergyCollection = async (...args) => { await new Promise((r) => setTimeout(r, 100)); return finish(...args); };
+    const result = await collectEnergy(db, { enabled: true, intervalMinutes: 30, deadlineMs: 20000, now: () => now, integration: st.integration, token: st.token, maxDevices: 10, concurrency: 2, perUserConcurrency: 1 });
+    assert.equal(result.saved, 2, JSON.stringify(result));
   });
 });

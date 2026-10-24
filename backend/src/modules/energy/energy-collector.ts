@@ -127,8 +127,12 @@ export async function collectEnergy(db: MongoDatabase, options: CollectOptions):
         reserved--;
         // Rows left may belong to users busy right now: wait for their reads
         // to finish instead of ending the run, until nothing is in flight.
-        if ([...inFlight.values()].some((count) => count > 0) && Date.now() + COLLECTION_LIMITS.requestTimeoutMs + 1500 <= stopAt) {
-          await new Promise((resolve) => setTimeout(resolve, 20));
+        // The busy list was taken before the claim; if those reads finished
+        // meanwhile, look again with a fresh list instead of ending the run
+        // for every worker while due rows remain.
+        const waiting = [...inFlight.values()].some((count) => count > 0);
+        if ((waiting || busy.length > 0) && Date.now() + COLLECTION_LIMITS.requestTimeoutMs + 1500 <= stopAt) {
+          if (waiting) await new Promise((resolve) => setTimeout(resolve, 20));
           continue;
         }
         stop = "queue";
