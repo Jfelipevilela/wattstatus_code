@@ -30,6 +30,11 @@ const getApp = () => {
 export default async (request: Request, context: Context) => {
   const path = new URL(request.url).pathname;
   if (path !== STREAM_PATH) return new Response(JSON.stringify({ error: "Recurso não encontrado" }), { status: 404 });
+  // Rate limits are keyed by client address; never let requests without one
+  // share a fallback bucket (or get a fresh one each time).
+  if (!context.ip) return new Response(JSON.stringify({ error: "Serviço temporariamente indisponível." }), {
+    status: 503, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
   try {
     return await runStreaming(await getApp(), { request, ip: context.ip, path });
   } catch {

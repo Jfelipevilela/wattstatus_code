@@ -1,8 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-// Every cached server answer is keyed by the signed-in user, so one account
-// can never be served another account's data, even before the cache is
-// cleared on a user change (useAuth).
+// Appliance, property and energy answers are keyed by the signed-in user, so
+// one account is never served another account's data, even before the cache
+// is cleared on a user change (useAuth). The ["wattai", ...] keys belong to the
+// AI module and do not carry the user; they rely on that clear.
 export const applianceKeys = {
   all: ["appliances"] as const,
   list: (userId: string) => ["appliances", userId] as const,

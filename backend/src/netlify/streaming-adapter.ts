@@ -23,10 +23,14 @@ const MAX_BODY = 256 * 1024;
 const toBuffer = (chunk: unknown, encoding?: BufferEncoding) =>
   Buffer.isBuffer(chunk) ? chunk : typeof chunk === "string" ? Buffer.from(chunk, encoding) : Buffer.from(chunk as Uint8Array);
 
+const tooLarge = () => new Response(JSON.stringify({ error: "Requisição muito grande." }),
+  { status: 413, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+
 export const runStreaming = async (app: RequestListener, { request, ip, path }: StreamRequestInfo): Promise<Response> => {
   const url = new URL(request.url);
+  if (Number(request.headers.get("content-length")) > MAX_BODY) return tooLarge();
   const body = request.body ? Buffer.from(await request.arrayBuffer()) : Buffer.alloc(0);
-  if (body.length > MAX_BODY) return new Response(JSON.stringify({ error: "Requisição muito grande." }), { status: 413 });
+  if (body.length > MAX_BODY) return tooLarge();
 
   const socket = new Socket();
   Object.defineProperty(socket, "remoteAddress", { value: ip ?? "127.0.0.1" });
