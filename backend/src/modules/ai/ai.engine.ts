@@ -82,6 +82,15 @@ export interface MonthPeriod {
   previousDays: number;
   timeZone: string;
 }
+// A given calendar month; past months count as fully elapsed.
+export const monthPeriodFor = (year: number, month: number, timeZone: string, now = new Date()): MonthPeriod => {
+  const current = zonedDay(now, timeZone);
+  if (year === current.year && month === current.month) return monthPeriod(now, timeZone);
+  const period = monthPeriod(zonedMidnight(year, month, 15, timeZone), timeZone);
+  const future = year > current.year || (year === current.year && month > current.month);
+  return { ...period, daysElapsed: future ? 0 : period.daysInMonth };
+};
+
 export const monthPeriod = (now: Date, timeZone: string): MonthPeriod => {
   const { year, month, day } = zonedDay(now, timeZone);
   const prevYear = month === 1 ? year - 1 : year;
@@ -734,7 +743,15 @@ export interface BudgetPlan {
 
 // Greedy plan: cut up to 30% (at least 1 h) of the most expensive appliances
 // the user did not protect, never touching essential ones.
-export const planBudget = (snapshot: PropertySnapshot, target: number, protectedIds: string[] = []): BudgetPlan => {
+export interface BudgetOptions {
+  protectedIds?: string[];
+  // Largest share of an appliance's daily hours the plan may cut (0.1-0.5).
+  maxReduction?: number;
+  // Comfort floor: hours per day an appliance must keep.
+  minHours?: Record<string, number>;
+}
+export const planBudget = (snapshot: PropertySnapshot, target: number, options: string[] | BudgetOptions = []): BudgetPlan => {
+  const { protectedIds = [], maxReduction = 0.3, minHours = {} } = Array.isArray(options) ? { protectedIds: options } : options;
   const current = snapshot.totals.estimatedCost;
   const gap = Math.max(0, current - target);
   const actions: BudgetPlan["actions"] = [];
@@ -745,7 +762,9 @@ export const planBudget = (snapshot: PropertySnapshot, target: number, protected
     if (protectedIds.includes(item.id)) { excluded.push({ applianceName: item.name, reason: "preservado por você" }); continue; }
     if (item.essential) { excluded.push({ applianceName: item.name, reason: "aparelho essencial ou de funcionamento contínuo" }); continue; }
     if (!(item.usageHours > 0) || !(item.power > 0) || item.estimatedCost <= 0) continue;
-    const cut = Math.min(item.usageHours, Math.max(1, Math.round(item.usageHours * 0.3 * 2) / 2));
+    const floor = Math.max(0, minHours[item.id] ?? 0);
+    const cut = Math.min(item.usageHours - floor, Math.max(1, Math.round(item.usageHours * maxReduction * 2) / 2));
+    if (cut <= 0) { excluded.push({ applianceName: item.name, reason: `mínimo de conforto de ${floor} h por dia` }); continue; }
     const sim = simulateForAppliance(item, item.usageHours - cut, snapshot.period.daysElapsed);
     const saving = sim.savings.monthlyCost;
     if (saving <= 0) continue;
@@ -767,7 +786,7 @@ export const planBudget = (snapshot: PropertySnapshot, target: number, protected
     excluded,
     assumptions: [
       "Custo atual estimado pelas potências e horas cadastradas.",
-      "Cada redução limita-se a 30% do tempo de uso (mínimo de 1 h) para manter o plano realista.",
+      `Cada redução limita-se a ${Math.round(maxReduction * 100)}% do tempo de uso (mínimo de 1 h) para manter o plano realista.`,
       "Aparelhos essenciais, como geladeira e freezer, não entram no corte de horas.",
     ],
   };
@@ -799,13 +818,18 @@ export interface Recommendation {
 export const buildRecommendations = (
   snapshot: PropertySnapshot,
   anomalies: Anomaly[],
-  options: { hasGoal?: boolean; protectedIds?: string[] } = {},
+  options: { hasGoal?: boolean; protectedIds?: string[]; minHours?: Record<string, number>; categories?: RecommendationKind[]; roomIds?: string[] } = {},
 ): Recommendation[] => {
   const list: Recommendation[] = [];
   const propertyId = snapshot.property.id;
   const total = snapshot.totals.estimatedCost;
-  for (const item of snapshot.appliances.slice(0, 3)) {
+  // Usage cuts: the three biggest costs, or every appliance of the rooms asked about.
+  const candidates = options.roomIds?.length
+    ? snapshot.appliances.filter((item) => item.roomId && options.roomIds!.includes(item.roomId))
+    : snapshot.appliances.slice(0, 3);
+  for (const item of candidates) {
     if (item.essential || options.protectedIds?.includes(item.id) || item.usageHours < 1.5 || item.estimatedCost <= 0) continue;
+    if (item.usageHours - 1 < (options.minHours?.[item.id] ?? 0)) continue;
     const sim = simulateForAppliance(item, item.usageHours - 1, snapshot.period.daysElapsed);
     if (sim.savings.monthlyCost < 1) continue;
     list.push({
@@ -895,6 +919,7 @@ export const buildRecommendations = (
   }
   const seen = new Set<string>();
   return list
+    .filter((item) => !options.categories?.length || options.categories.includes(item.kind))
     .filter((item) => (seen.has(item.id) ? false : (seen.add(item.id), true)))
     .sort((a, b) => b.score - a.score);
 };
@@ -930,4 +955,175 @@ export const evaluateApplied = (
       "Variação observada não prova que a ação foi a causa.",
     ],
   };
+};
+
+// ---------------------------------------------------------------- charts
+
+export interface TrendPoint { month: string; estimatedKWh: number; estimatedCost: number; measuredKWh: number | null }
+export interface ChartExplanation {
+  status: "ok" | "insufficient_data";
+  points: TrendPoint[];
+  facts: Array<{ kind: string; text: string; month?: string; applianceId?: string; roomId?: string }>;
+  limitations: string[];
+}
+
+const monthLabel = (year: number, month: number) =>
+  new Date(Date.UTC(year, month - 1, 15)).toLocaleDateString("pt-BR", { month: "short", year: "2-digit", timeZone: "UTC" });
+
+// Same series as the dashboard trend chart: per month, the estimate of the
+// appliances that existed by then, and the measured total when there is one.
+export const buildTrend = (
+  appliances: ApplianceRecord[],
+  measuredByMonth: Map<string, number>,
+  year: number,
+  month: number,
+  property?: PropertyRecord | null,
+): TrendPoint[] =>
+  Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(Date.UTC(year, month - 6 + index, 1));
+    const y = date.getUTCFullYear();
+    const m = date.getUTCMonth() + 1;
+    const end = new Date(Date.UTC(y, m, 1));
+    const days = daysInMonth(y, m);
+    let kWhTotal = 0, cost = 0;
+    for (const appliance of appliances) {
+      const created = new Date(appliance.createdAt);
+      if (!(created < end)) continue;
+      const estimate = estimateMonthly(appliance, days);
+      kWhTotal += estimate.consumption;
+      cost += estimate.consumption * applianceRate(appliance, property).rate;
+    }
+    const key = `${y}-${String(m).padStart(2, "0")}`;
+    return { month: monthLabel(y, m), estimatedKWh: kWhTotal, estimatedCost: cost, measuredKWh: measuredByMonth.get(key) ?? null };
+  });
+
+// Verifiable facts about the trend and the selected month, for "Explicar
+// este gráfico". Every sentence is built from the series itself.
+export const explainTrend = (points: TrendPoint[], snapshot: PropertySnapshot | null): ChartExplanation => {
+  const facts: ChartExplanation["facts"] = [];
+  const limitations: string[] = [];
+  const withData = points.filter((point) => point.estimatedKWh > 0 || (point.measuredKWh ?? 0) > 0);
+  if (!withData.length) {
+    return { status: "insufficient_data", points, facts, limitations: ["Não há aparelhos nem medições nos meses do gráfico."] };
+  }
+  const last = points[points.length - 1];
+  const previous = points[points.length - 2];
+  if (previous && previous.estimatedKWh > 0) {
+    const change = (last.estimatedKWh - previous.estimatedKWh) / previous.estimatedKWh;
+    facts.push({
+      kind: "estimate_change",
+      text: Math.abs(change) < 0.01
+        ? `A estimativa de ${last.month} (${kwh(last.estimatedKWh)} kWh) é praticamente igual à de ${previous.month}: o cadastro não mudou.`
+        : `A estimativa foi de ${kwh(previous.estimatedKWh)} kWh em ${previous.month} para ${kwh(last.estimatedKWh)} kWh em ${last.month} (${change > 0 ? "+" : ""}${Math.round(change * 100)}%), por aparelhos cadastrados ou dias do mês.`,
+      month: last.month,
+    });
+  }
+  let biggest: { from: TrendPoint; to: TrendPoint; delta: number } | null = null;
+  for (let i = 1; i < points.length; i++) {
+    const delta = points[i].estimatedKWh - points[i - 1].estimatedKWh;
+    if (!biggest || Math.abs(delta) > Math.abs(biggest.delta)) biggest = { from: points[i - 1], to: points[i], delta };
+  }
+  if (biggest && Math.abs(biggest.delta) >= 1) {
+    facts.push({
+      kind: "biggest_change",
+      text: `A maior mudança da série foi de ${biggest.from.month} para ${biggest.to.month}: ${biggest.delta > 0 ? "+" : ""}${kwh(biggest.delta)} kWh na estimativa.`,
+      month: biggest.to.month,
+    });
+  }
+  const measured = points.filter((point) => point.measuredKWh !== null);
+  if (measured.length >= 2) {
+    const a = measured[measured.length - 2];
+    const b = measured[measured.length - 1];
+    facts.push({ kind: "measured_change", text: `Medido: ${kwh(a.measuredKWh!)} kWh em ${a.month} e ${kwh(b.measuredKWh!)} kWh em ${b.month}. Meses incompletos ou com aparelhos sem leitura não são comparáveis diretamente.`, month: b.month });
+  } else if (measured.length === 1) {
+    limitations.push("Só um mês tem medição; não há como comparar o medido entre meses.");
+  } else {
+    limitations.push("A série é só estimada: ela muda quando o cadastro muda, não quando o uso real muda.");
+  }
+  if (snapshot) {
+    const top = snapshot.appliances[0];
+    if (top && top.estimatedCost > 0) facts.push({ kind: "top_appliance", text: `${top.name} é o maior peso do mês: ${Math.round(top.share * 100)}% do custo estimado.`, applianceId: top.id, roomId: top.roomId ?? undefined });
+    for (const anomaly of detectAnomalies(snapshot).filter((item) => item.kind !== "measurement_gap").slice(0, 2)) {
+      facts.push({ kind: "anomaly", text: anomaly.detail, applianceId: anomaly.applianceId });
+    }
+  }
+  return { status: "ok", points, facts, limitations };
+};
+
+// ---------------------------------------------------------------- reports
+
+// Deterministic summary for the monthly report and its PDF. No model involved.
+export const buildReportSummary = (snapshot: PropertySnapshot, recommendations: Recommendation[]) => {
+  const lines: string[] = [];
+  const { totals } = snapshot;
+  if (!totals.applianceCount) return { lines: ["Nenhum aparelho cadastrado neste imóvel."], quality: "sem dados" };
+  const top = snapshot.appliances.slice(0, 3).filter((item) => item.estimatedCost > 0);
+  if (top.length) lines.push(`Maior impacto: ${top.map((item) => `${item.name} (${Math.round(item.share * 100)}%)`).join(", ")}.`);
+  const comparison = comparePeriods(snapshot);
+  if (comparison.status === "ok" && comparison.change !== null) {
+    lines.push(`Média diária medida ${Math.abs(comparison.change) < 0.05 ? "estável em relação ao" : `${Math.round(Math.abs(comparison.change) * 100)}% ${comparison.change > 0 ? "acima" : "abaixo"} do`} mês anterior (${kwh(comparison.currentPerDay!)} contra ${kwh(comparison.previousPerDay!)} kWh/dia).`);
+  } else {
+    lines.push("Sem medições suficientes para comparar com o mês anterior.");
+  }
+  const source = measuredSource(snapshot);
+  const quality = source === "measured" ? "medição completa" : source === "measured_partial" ? "medição parcial" : "somente estimativa";
+  lines.push(source === "unavailable"
+    ? "Qualidade dos dados: somente estimativa pelo cadastro."
+    : `Qualidade dos dados: ${totals.measuredApplianceCount} de ${totals.applianceCount} aparelhos medidos, cerca de ${Math.round(totals.coverage * 100)}% do consumo estimado.`);
+  for (const item of recommendations.filter((rec) => rec.impactMonthly).slice(0, 2)) {
+    lines.push(`Recomendação: ${item.title} (economia simulada de R$ ${brlRate(item.impactMonthly!)} por mês).`);
+  }
+  return { lines, quality };
+};
+
+// ---------------------------------------------------------------- alerts
+
+export type AlertKind = "consumption_increase" | "goal_risk" | "forecast" | "missing_reading" | "persistent_anomaly";
+export interface AlertCandidate { key: string; kind: AlertKind; title: string; detail: string; propertyId: string; applianceId?: string }
+
+// Deterministic alert candidates; dedupe and frequency are applied by the store.
+export const evaluateAlerts = (
+  snapshot: PropertySnapshot,
+  preferences: { monthlyGoal?: number | null; monthlyKWhGoal?: number | null },
+  now = new Date(),
+): AlertCandidate[] => {
+  const out: AlertCandidate[] = [];
+  const pid = snapshot.property.id;
+  const month = snapshot.period.start.slice(0, 7);
+  const forecast = forecastMonth(snapshot);
+  if (forecast.status === "ok" && forecast.cost !== null && preferences.monthlyGoal && forecast.cost >= preferences.monthlyGoal * 0.9) {
+    out.push({
+      key: `goal_risk:${pid}:${month}`, kind: "goal_risk", propertyId: pid,
+      title: forecast.cost > preferences.monthlyGoal ? "Previsão acima da meta" : "Previsão perto da meta",
+      detail: `Previsão de cerca de R$ ${Math.round(forecast.cost)} para uma meta de R$ ${Math.round(preferences.monthlyGoal)} (${forecast.source === "projected" ? "pelo ritmo medido" : "pelo cadastro"}).`,
+    });
+  }
+  if (forecast.status === "ok" && forecast.kWh !== null && preferences.monthlyKWhGoal && forecast.kWh >= preferences.monthlyKWhGoal * 0.9) {
+    out.push({
+      key: `kwh_goal_risk:${pid}:${month}`, kind: "goal_risk", propertyId: pid, title: "Consumo previsto perto da meta",
+      detail: `Previsão de ${kwh(forecast.kWh)} kWh para uma meta de ${kwh(preferences.monthlyKWhGoal)} kWh.`,
+    });
+  }
+  if (forecast.source === "projected" && forecast.cost !== null && snapshot.totals.previousMeasuredCost > 0 && forecast.cost > snapshot.totals.previousMeasuredCost * 1.15) {
+    out.push({
+      key: `forecast:${pid}:${month}`, kind: "forecast", propertyId: pid, title: "Mês deve fechar acima do anterior",
+      detail: `Projeção de R$ ${Math.round(forecast.cost)} contra R$ ${Math.round(snapshot.totals.previousMeasuredCost)} medidos no mês anterior.`,
+    });
+  }
+  const comparison = comparePeriods(snapshot);
+  if (comparison.status === "ok" && comparison.change !== null && comparison.change >= 0.2) {
+    out.push({
+      key: `increase:${pid}:${month}`, kind: "consumption_increase", propertyId: pid, title: "Aumento incomum do consumo medido",
+      detail: `Média diária ${Math.round(comparison.change * 100)}% acima do mês anterior.`,
+    });
+  }
+  for (const anomaly of detectAnomalies(snapshot, now)) {
+    if (anomaly.kind === "measurement_gap") {
+      out.push({ key: `missing:${anomaly.applianceId}:${month}`, kind: "missing_reading", propertyId: pid, applianceId: anomaly.applianceId, title: anomaly.title, detail: anomaly.detail });
+    }
+    if (anomaly.kind === "baseline_increase") {
+      out.push({ key: `persistent:${pid}:${month}`, kind: "persistent_anomaly", propertyId: pid, title: anomaly.title, detail: anomaly.detail });
+    }
+  }
+  return out;
 };

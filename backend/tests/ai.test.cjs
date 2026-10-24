@@ -291,6 +291,10 @@ const createStore = () => {
     recordUsage: async (u, r) => { usage.push({ ...r, userId: u }); },
     usageSummary: async () => ({ requests: usage.length }),
     deleteUserData: async () => {},
+    appendConversation: async () => '00000000-0000-4000-8000-000000000000',
+    listConversations: async () => [], getConversation: async () => null, deleteConversation: async () => false,
+    saveAlerts: async () => [], listAlerts: async () => [],
+    getSettings: async () => ({}), saveSettings: async (p) => p,
   };
 };
 const serve = async (userId = 'u1', overrides = {}) => {

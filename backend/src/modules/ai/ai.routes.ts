@@ -10,13 +10,15 @@ import type { MongoDatabase } from "../../storage/mongo-db";
 import {
   buildRecommendations, detectAnomalies, evaluateApplied, forecastMonth, measuredSource, planBudget,
   simulateForAppliance, simulateUsage, comparePeriods, money, kwh, measuredAveragePower, brlRate,
+  evaluateAlerts, buildReportSummary, monthPeriodFor,
 } from "./ai.engine";
-import { AIDataSource, Orchestrator } from "./ai.orchestrator";
+import { AIDataSource, ChatOptions, Orchestrator, loadSnapshot } from "./ai.orchestrator";
 import { aiConfig, createProvider, AIConfig, ModelProvider } from "./ai.provider";
 import {
   budgetRequestSchema, chatRequestSchema, preferencesSchema, recommendationStateSchema, simulateRequestSchema,
+  settingsSchema, ALLOWED_MODELS, type ChatRequest,
 } from "./ai.schemas";
-import type { AIStore } from "./ai.store";
+import type { AISettings, AIStore } from "./ai.store";
 
 const userKey = (userId: string) => createHmac("sha256", env.jwtSecret).update(`ai:${userId}`).digest("hex");
 
@@ -51,9 +53,9 @@ const idSchema = z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/);
 const recommendationId = z.string().min(3).max(200).regex(/^[a-z_]+:[A-Za-z0-9_:.-]+$/);
 
 export const createAIRouter = (deps: AIRouterDeps) => {
-  const config = deps.config ?? aiConfig();
-  const provider = deps.provider === undefined ? createProvider(config) : deps.provider;
-  const semaphore = new Semaphore(config.maxConcurrent);
+  const baseConfig = deps.config ?? aiConfig();
+  const baseProvider = deps.provider === undefined ? createProvider(baseConfig) : deps.provider;
+  const semaphore = new Semaphore(baseConfig.maxConcurrent);
   const router = Router();
 
   // Separate from auth and the global limiter: a 429 here only means "wait",
@@ -64,27 +66,52 @@ export const createAIRouter = (deps: AIRouterDeps) => {
     router.use((req, res, next) => (req.method === "GET" ? next() : limiter(req, res, next)));
   }
 
-  const reserveModelCall = async (userId: string) => {
-    const [user, global] = await Promise.all([
-      deps.limits.consumeRateLimit("ai-model-user-day", userKey(userId), 86400000),
-      deps.limits.consumeRateLimit("ai-model-global-month", "global", 30 * 86400000),
-    ]);
-    if (user.totalHits > config.dailyUserBudget || global.totalHits > config.monthlyGlobalBudget) {
-      logger.warn("ai.budget_exhausted", { reason: user.totalHits > config.dailyUserBudget ? "user_daily" : "global_monthly" });
-      return false;
-    }
-    return true;
+  // Environment holds the secret and the ceiling; admin settings can switch
+  // the model off, pick an allowed model or lower the budgets.
+  const effective = async () => {
+    const settings = await deps.store.getSettings().catch(() => ({} as AISettings));
+    const config: AIConfig = {
+      ...baseConfig,
+      modelFast: settings.modelFast ?? baseConfig.modelFast,
+      modelReasoning: settings.modelReasoning ?? baseConfig.modelReasoning,
+      dailyUserBudget: settings.dailyUserBudget ?? baseConfig.dailyUserBudget,
+      monthlyGlobalBudget: settings.monthlyGlobalBudget ?? baseConfig.monthlyGlobalBudget,
+    };
+    const provider = settings.enabled === false ? null : baseProvider;
+    return { config, provider, settings };
   };
 
-  const orchestrator = new Orchestrator({
+  const isAdmin = async (userId: string) => {
+    const admins = (process.env.AI_ADMIN_EMAILS || "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+    const email = (await deps.getUserEmail?.(userId))?.toLowerCase();
+    return Boolean(email && admins.includes(email));
+  };
+  const requireAdmin = async (userId: string) => {
+    if (!(await isAdmin(userId))) throw new ApiError(403, "Acesso restrito");
+  };
+
+  const buildOrchestrator = (config: AIConfig, provider: ModelProvider | null, limited: { hit: boolean }) => new Orchestrator({
     data: deps.data,
     config,
     provider,
-    reserveModelCall,
     preferences: (userId) => deps.store.getPreferences(userId),
+    reserveModelCall: async (userId: string) => {
+      const [user, global] = await Promise.all([
+        deps.limits.consumeRateLimit("ai-model-user-day", userKey(userId), 86400000),
+        deps.limits.consumeRateLimit("ai-model-global-month", "global", 30 * 86400000),
+      ]);
+      if (user.totalHits > config.dailyUserBudget || global.totalHits > config.monthlyGlobalBudget) {
+        limited.hit = true;
+        logger.warn("ai.budget_exhausted", { reason: user.totalHits > config.dailyUserBudget ? "user_daily" : "global_monthly" });
+        return false;
+      }
+      return true;
+    },
   });
+  // Token-free paths (simulate, insights, reports) never call the model.
+  const orchestrator = buildOrchestrator(baseConfig, null, { hit: false });
 
-  const record = (userId: string, feature: string, usage: Parameters<AIStore["recordUsage"]>[1] | Omit<Parameters<AIStore["recordUsage"]>[1], "feature">) =>
+  const record = (userId: string, feature: string, usage: Omit<Parameters<AIStore["recordUsage"]>[1], "feature"> & { limited?: boolean }) =>
     deps.store.recordUsage(userId, { feature, ...usage } as Parameters<AIStore["recordUsage"]>[1])
       .catch((error) => logger.warn("ai.usage_record_failed", { reason: error instanceof Error ? error.name : "unknown" }));
 
@@ -94,32 +121,182 @@ export const createAIRouter = (deps: AIRouterDeps) => {
     return loaded;
   };
 
-  router.get("/status", (_req, res) => {
-    res.json({
-      enabled: true,
-      generative: Boolean(provider),
-      provider: provider ? config.provider : null,
-      limits: { perMinute: 20, modelCallsPerDay: config.dailyUserBudget, maxToolCalls: config.maxToolCalls },
-    });
+  router.get("/status", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const userId = requireUser(req);
+      const { config, provider, settings } = await effective();
+      res.json({
+        enabled: true,
+        generative: Boolean(provider),
+        provider: provider ? config.provider : null,
+        admin: await isAdmin(userId),
+        experimental: settings.experimental ?? {},
+        limits: { perMinute: 20, modelCallsPerDay: config.dailyUserBudget, maxToolCalls: config.maxToolCalls },
+      });
+    } catch (error) { next(error); }
   });
 
-  router.post("/chat", async (req: AuthenticatedRequest, res, next) => {
-    const userId = requireUser(req);
-    let acquired = false;
+  // One chat turn. Shared by the JSON and the streaming endpoints.
+  const runChat = async (userId: string, body: ChatRequest, options: ChatOptions) => {
+    const { config, provider, settings } = await effective();
+    // Experimental features an admin switched off fall back to plain chat.
+    if (body.chart && settings.experimental?.chartExplain === false) body = { ...body, chart: undefined };
+    if (settings.experimental?.streaming === false) options = { ...options, onStage: undefined };
+    const acquired = provider ? semaphore.tryAcquire() : false;
+    const limited = { hit: false };
     try {
-      const body = chatRequestSchema.parse(req.body);
-      acquired = semaphore.tryAcquire();
-      const run = acquired ? orchestrator : new Orchestrator({ data: deps.data, config, provider: null, preferences: (id) => deps.store.getPreferences(id) });
-      const { response, usage } = await run.chat(userId, body);
-      if (!acquired && provider) response.limitations.push("IA muito requisitada agora: resposta gerada pelo motor de cálculo.");
-      void record(userId, "chat", usage);
-      logger.info("ai.chat", { intent: usage.intent, generated: usage.generated, latencyMs: usage.latencyMs, tokens: usage.inputTokens + usage.outputTokens });
-      res.json(response);
-    } catch (error) {
-      next(error);
+      const run = buildOrchestrator(config, acquired ? provider : null, limited);
+      const { response, usage } = await run.chat(userId, body, options);
+      if (provider && !acquired) response.limitations.push("IA muito requisitada agora: resposta gerada pelo motor de cálculo.");
+      const preferences = await deps.store.getPreferences(userId);
+      const retention = preferences.conversationRetentionDays ?? 30;
+      if (retention > 0) {
+        response.conversationId = await deps.store.appendConversation(userId, body.conversationId ?? null, retention, response.context.propertyId ?? null, [
+          { role: "user", content: body.message },
+          { role: "assistant", content: response.message, response },
+        ]).catch(() => null);
+      }
+      void record(userId, body.chart ? "chart" : "chat", { ...usage, limited: limited.hit });
+      logger.info("ai.chat", { intent: usage.intent, generated: usage.generated, latencyMs: usage.latencyMs, tokens: usage.inputTokens + usage.outputTokens, guard: usage.guardViolations?.length ?? 0 });
+      return response;
     } finally {
       if (acquired) semaphore.release();
     }
+  };
+
+  router.post("/chat", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const userId = requireUser(req);
+      const body = chatRequestSchema.parse(req.body);
+      const controller = new AbortController();
+      res.on("close", () => { if (!res.writableEnded) controller.abort(); });
+      res.json(await runChat(userId, body, { signal: controller.signal }));
+    } catch (error) { next(error); }
+  });
+
+  // Server-sent events: progress stages first, then the validated response.
+  // No model text is ever sent before it passes the guard.
+  router.post("/chat/stream", async (req: AuthenticatedRequest, res, next) => {
+    let started = false;
+    const controller = new AbortController();
+    res.on("close", () => { if (!res.writableEnded) controller.abort(); });
+    try {
+      const userId = requireUser(req);
+      const body = chatRequestSchema.parse(req.body);
+      res.status(200).set({ "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" });
+      res.flushHeaders?.();
+      started = true;
+      const send = (event: string, data: unknown) => {
+        if (!res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+      const response = await runChat(userId, body, { signal: controller.signal, onStage: (stage) => send("stage", { stage }) });
+      send("response", response);
+      res.end();
+    } catch (error) {
+      if (!started) return next(error);
+      const status = error instanceof ApiError ? error.status : 500;
+      if (!res.writableEnded) {
+        res.write(`event: error\ndata: ${JSON.stringify({ status, error: status === 500 ? "Não foi possível responder agora." : (error as Error).message })}\n\n`);
+        res.end();
+      }
+    }
+  });
+
+  router.get("/conversations", async (req: AuthenticatedRequest, res, next) => {
+    try { res.json({ conversations: await deps.store.listConversations(requireUser(req)) }); } catch (error) { next(error); }
+  });
+  router.get("/conversations/:id", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const conversation = await deps.store.getConversation(requireUser(req), z.string().uuid().parse(req.params.id));
+      if (!conversation) throw new ApiError(404, "Conversa não encontrada");
+      res.json({ conversation: { id: conversation.id, title: conversation.title, propertyId: conversation.propertyId, messages: conversation.messages } });
+    } catch (error) { next(error); }
+  });
+  router.delete("/conversations/:id", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const ok = await deps.store.deleteConversation(requireUser(req), z.string().uuid().parse(req.params.id));
+      if (!ok) throw new ApiError(404, "Conversa não encontrada");
+      res.json({ ok: true });
+    } catch (error) { next(error); }
+  });
+
+  // Alerts: deterministic, stored with dedupe and a per-kind minimum interval.
+  // Nothing is sent anywhere; delivery needs a channel and the user's consent.
+  router.get("/alerts", async (req: AuthenticatedRequest, res, next) => {
+    try { res.json({ alerts: await deps.store.listAlerts(requireUser(req)) }); } catch (error) { next(error); }
+  });
+  router.post("/alerts/evaluate", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const userId = requireUser(req);
+      const [preferences, { settings }] = await Promise.all([deps.store.getPreferences(userId), effective()]);
+      if (settings.experimental?.alerts === false) return res.json({ created: [], skipped: "disabled_by_admin" });
+      if (!preferences.proactiveInsights || (preferences.alertFrequency ?? "off") === "off") {
+        return res.json({ created: [], skipped: "consent_required" });
+      }
+      const properties = await deps.data.listProperties(userId);
+      const created = [];
+      for (const property of properties.slice(0, 5)) {
+        const loaded = await orchestrator.snapshotFor(userId, property.id);
+        if (!loaded) continue;
+        const candidates = evaluateAlerts(loaded.snapshot, preferences)
+          .filter((item) => !preferences.alertCategories?.length || preferences.alertCategories.includes(item.kind));
+        created.push(...await deps.store.saveAlerts(userId, candidates, preferences.alertFrequency === "weekly" ? 7 * 86400000 : 86400000));
+      }
+      res.json({ created });
+    } catch (error) { next(error); }
+  });
+
+  // Deterministic summary for the monthly report and its PDF.
+  router.get("/report-summary", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const userId = requireUser(req);
+      const query = z.object({
+        propertyId: idSchema.optional(),
+        year: z.coerce.number().int().min(2000).max(2100),
+        month: z.coerce.number().int().min(1).max(12),
+      }).parse(req.query);
+      const [properties, appliances, preferences] = await Promise.all([
+        deps.data.listProperties(userId), deps.data.listAppliances(userId), deps.store.getPreferences(userId),
+      ]);
+      const property = query.propertyId ? properties.find((item) => item.id === query.propertyId) : properties.find((item) => item.isPrimary) ?? properties[0];
+      if (!property) throw new ApiError(404, "Imóvel não encontrado");
+      const snapshot = await loadSnapshot(deps.data, userId, property, appliances, new Date(), monthPeriodFor(query.year, query.month, property.timezone || "America/Sao_Paulo"));
+      const recommendations = buildRecommendations(snapshot, detectAnomalies(snapshot), {
+        hasGoal: Boolean(preferences.monthlyGoal), protectedIds: preferences.essentialApplianceIds,
+        minHours: preferences.minHoursByAppliance, categories: preferences.recommendationCategories,
+      });
+      res.json({ property: { id: property.id, name: property.name }, ...buildReportSummary(snapshot, recommendations) });
+    } catch (error) { next(error); }
+  });
+
+  router.get("/admin/settings", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      await requireAdmin(requireUser(req));
+      const { config, provider, settings } = await effective();
+      res.json({
+        settings,
+        effective: {
+          generative: Boolean(provider), keyConfigured: Boolean(baseConfig.apiKey), envEnabled: baseConfig.enabled,
+          modelFast: config.modelFast, modelReasoning: config.modelReasoning,
+          dailyUserBudget: config.dailyUserBudget, monthlyGlobalBudget: config.monthlyGlobalBudget,
+          maxConcurrent: config.maxConcurrent, smartThingsCommands: false,
+        },
+        allowedModels: ALLOWED_MODELS,
+      });
+    } catch (error) { next(error); }
+  });
+  router.put("/admin/settings", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const userId = requireUser(req);
+      await requireAdmin(userId);
+      const patch = settingsSchema.parse(req.body);
+      // Budgets can be lowered from the environment ceiling, never raised.
+      if (patch.dailyUserBudget !== undefined && patch.dailyUserBudget > baseConfig.dailyUserBudget) throw new ApiError(400, `Limite diário máximo: ${baseConfig.dailyUserBudget}.`);
+      if (patch.monthlyGlobalBudget !== undefined && patch.monthlyGlobalBudget > baseConfig.monthlyGlobalBudget) throw new ApiError(400, `Teto mensal máximo: ${baseConfig.monthlyGlobalBudget}.`);
+      const settings = await deps.store.saveSettings(patch, userKey(userId).slice(0, 16));
+      logger.info("ai.settings_updated", { fields: Object.keys(patch).join(",") });
+      res.json({ settings });
+    } catch (error) { next(error); }
   });
 
   // Deterministic; the simulator sliders call this without spending tokens.
@@ -151,7 +328,11 @@ export const createAIRouter = (deps: AIRouterDeps) => {
       const body = budgetRequestSchema.parse(req.body);
       const { snapshot, preferences } = await loadOwned(userId, body.propertyId);
       const protectedIds = [...(body.protectedApplianceIds ?? []), ...(preferences.essentialApplianceIds ?? [])];
-      res.json({ plan: planBudget(snapshot, body.target, protectedIds) });
+      res.json({ plan: planBudget(snapshot, body.target, {
+        protectedIds,
+        maxReduction: (preferences.maxReductionPercent ?? 30) / 100,
+        minHours: preferences.minHoursByAppliance,
+      }) });
     } catch (error) { next(error); }
   });
 
@@ -167,6 +348,7 @@ export const createAIRouter = (deps: AIRouterDeps) => {
       const states = new Map((await deps.store.listRecommendationStates(userId)).map((row) => [row.recommendationId, row]));
       const recommendations = buildRecommendations(snapshot, anomalies, {
         hasGoal: Boolean(preferences.monthlyGoal), protectedIds: preferences.essentialApplianceIds,
+        minHours: preferences.minHoursByAppliance, categories: preferences.recommendationCategories,
       }).map((item) => {
         const state = states.get(item.id);
         const tracking = state?.state === "applied" && state.appliedAt
@@ -257,11 +439,9 @@ export const createAIRouter = (deps: AIRouterDeps) => {
   // Aggregated cost and quality metrics. Never exposes conversation content.
   router.get("/admin/usage", async (req: AuthenticatedRequest, res, next) => {
     try {
-      const userId = requireUser(req);
-      const admins = (process.env.AI_ADMIN_EMAILS || "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
-      const email = (await deps.getUserEmail?.(userId))?.toLowerCase();
-      if (!email || !admins.includes(email)) throw new ApiError(403, "Acesso restrito");
+      await requireAdmin(requireUser(req));
       const days = z.coerce.number().int().min(1).max(90).default(30).parse(req.query.days);
+      const { config, provider } = await effective();
       res.json({
         usage: await deps.store.usageSummary(new Date(Date.now() - days * 86400000)),
         config: { generative: Boolean(provider), modelFast: config.modelFast, modelReasoning: config.modelReasoning, dailyUserBudget: config.dailyUserBudget, monthlyGlobalBudget: config.monthlyGlobalBudget, maxConcurrent: config.maxConcurrent, smartThingsCommands: false },

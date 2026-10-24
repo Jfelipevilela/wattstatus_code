@@ -14,9 +14,20 @@ export const chatContextSchema = z.object({
   lastReductionHours: z.number().min(0).max(24).optional(),
 }).strict();
 
+// "Explicar este gráfico": the client names the chart and its filters only;
+// the backend recomputes the series itself.
+export const chartRequestSchema = z.object({
+  kind: z.enum(["consumption_trend"]),
+  propertyId: id.optional(),
+  year: z.number().int().min(2000).max(2100),
+  month: z.number().int().min(1).max(12),
+}).strict();
+
 export const chatRequestSchema = z.object({
   message: z.string().trim().min(1).max(600),
   context: chatContextSchema.optional(),
+  conversationId: z.string().uuid().optional(),
+  chart: chartRequestSchema.optional(),
   history: z.array(z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string().max(1200),
@@ -41,11 +52,37 @@ export const recommendationStateSchema = z.object({
   state: z.enum(["new", "viewed", "saved", "tracking", "applied", "dismissed"]),
 }).strict();
 
+export const RECOMMENDATION_KINDS = [
+  "reduce_usage", "review_power", "enable_measurement", "check_device", "investigate_increase",
+  "set_goal", "review_continuous", "consider_replacement",
+] as const;
+export const ALERT_KINDS = ["consumption_increase", "goal_risk", "forecast", "missing_reading", "persistent_anomaly"] as const;
+
+// Only what the user sets explicitly. Nothing the model infers is saved here.
 export const preferencesSchema = z.object({
   monthlyGoal: z.number().positive().max(100000).nullable().optional(),
+  monthlyKWhGoal: z.number().positive().max(100000).nullable().optional(),
   primaryPropertyId: id.nullable().optional(),
   essentialApplianceIds: z.array(id).max(100).optional(),
+  maxReductionPercent: z.number().int().min(10).max(50).optional(),
+  minHoursByAppliance: z.record(id, z.number().min(0).max(24)).refine((value) => Object.keys(value).length <= 100).optional(),
+  comfortNotes: z.string().trim().max(300).optional(),
+  recommendationCategories: z.array(z.enum(RECOMMENDATION_KINDS)).max(RECOMMENDATION_KINDS.length).optional(),
   proactiveInsights: z.boolean().optional(),
+  alertFrequency: z.enum(["off", "daily", "weekly"]).optional(),
+  alertCategories: z.array(z.enum(ALERT_KINDS)).max(ALERT_KINDS.length).optional(),
+  conversationRetentionDays: z.union([z.literal(0), z.literal(7), z.literal(30), z.literal(90)]).optional(),
+}).strict();
+
+// Models an admin may pick. Ids from the provider's current model list.
+export const ALLOWED_MODELS = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"] as const;
+export const settingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  modelFast: z.enum(ALLOWED_MODELS).optional(),
+  modelReasoning: z.enum(ALLOWED_MODELS).optional(),
+  dailyUserBudget: z.number().int().min(0).max(1000).optional(),
+  monthlyGlobalBudget: z.number().int().min(0).max(1000000).optional(),
+  experimental: z.object({ chartExplain: z.boolean().optional(), alerts: z.boolean().optional(), streaming: z.boolean().optional() }).strict().optional(),
 }).strict();
 
 // Actions are discriminated and validated: the frontend only ever performs
@@ -81,12 +118,15 @@ export const cardSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("recommendations"), items: z.array(z.record(z.unknown())) }),
   z.object({ type: z.literal("anomalies"), items: z.array(z.record(z.unknown())) }),
   z.object({ type: z.literal("choices"), title: z.string(), items: z.array(z.object({ id: z.string(), label: z.string(), sublabel: z.string().nullable() })) }),
+  z.object({ type: z.literal("trend"), title: z.string(), points: z.array(z.object({ month: z.string(), estimatedKWh: z.number(), estimatedCost: z.number(), measuredKWh: z.number().nullable() })) }),
+  z.object({ type: z.literal("comparison"), title: z.string(), source, items: z.array(z.object({ label: z.string(), value: z.number(), unit: z.enum(["kWh", "R$", "%"]) })) }),
 ]);
 
 export const responseSchema = z.object({
   message: z.string().max(4000),
   intent: z.string(),
   context: chatContextSchema,
+  conversationId: z.string().uuid().nullable().optional(),
   metrics: z.array(metricSchema),
   cards: z.array(cardSchema),
   limitations: z.array(z.string()),

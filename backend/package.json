@@ -12,6 +12,7 @@
     "migrate:properties": "npm run build && node scripts/migrate-properties.cjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.132.0",
     "@netlify/functions": "^5.1.2",
     "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",

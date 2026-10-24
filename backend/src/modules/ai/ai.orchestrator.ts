@@ -8,11 +8,14 @@ import {
   ENGINE_VERSION, PropertySnapshot, ApplianceFacts, buildSnapshot, monthPeriod, normalize, kwh, money,
   forecastMonth, comparePeriods, detectAnomalies, buildRecommendations, simulateForAppliance, planBudget,
   simulateReplacement, measuredSource, EnergyDataSource, brlRate,
+  buildTrend, explainTrend, zonedDay, zonedMidnight, type ChartExplanation, type MonthPeriod,
 } from "./ai.engine";
 import type { ChatContext, ChatRequest, WattAIAction, WattAICard, WattAIMetric, WattAIResponse } from "./ai.schemas";
-import { responseSchema } from "./ai.schemas";
+import { responseSchema, preferencesSchema } from "./ai.schemas";
+import type { z } from "zod";
 import { AIConfig, ModelProvider, completeWithLimits } from "./ai.provider";
 import { SYSTEM_PROMPT, narrationPrompt, classificationPrompt } from "./ai.prompts";
+import { validateNarration, type GuardViolation } from "./ai.guard";
 
 export interface AIDataSource {
   listProperties(userId: string): Promise<PropertyRecord[]>;
@@ -21,23 +24,18 @@ export interface AIDataSource {
   getEnergyHistory(userId: string, start: Date, end: Date): Promise<EnergyInterval[]>;
 }
 
-export interface AIPreferences {
-  monthlyGoal?: number | null;
-  primaryPropertyId?: string | null;
-  essentialApplianceIds?: string[];
-  proactiveInsights?: boolean;
-}
+export type AIPreferences = z.infer<typeof preferencesSchema>;
 
 export type Intent =
   | "greeting" | "property_summary" | "top_consumers" | "room_ranking" | "appliance_detail"
   | "forecast" | "compare_periods" | "coverage" | "anomalies" | "recommendations"
   | "simulate_reduction" | "simulate_annual" | "simulate_replacement" | "budget"
-  | "compare_properties" | "device_command" | "unknown";
+  | "compare_properties" | "device_command" | "explain_chart" | "unknown";
 
 export const INTENTS: Intent[] = [
   "greeting", "property_summary", "top_consumers", "room_ranking", "appliance_detail", "forecast",
   "compare_periods", "coverage", "anomalies", "recommendations", "simulate_reduction", "simulate_annual",
-  "simulate_replacement", "budget", "compare_properties", "device_command", "unknown",
+  "simulate_replacement", "budget", "compare_properties", "device_command", "explain_chart", "unknown",
 ];
 
 // ---------------------------------------------------------------- parsing
@@ -70,6 +68,12 @@ export const parseHours = (text: string) => {
 export const classifyIntent = (text: string, context?: ChatContext): Intent => {
   const t = normalize(text);
   const hours = parseHours(text);
+  // Out of reach of the user's data: other places, weather, future years.
+  const years = (t.match(/\b20\d\d\b/g) ?? []).map(Number);
+  if (years.some((year) => year > new Date().getFullYear()) ||
+      /(vizinh|outros? (pais|paises|cidades?)|no japao|nos eua|na europa|clima|previsao do tempo|bandeira (do|no) proximo|bitcoin|acoes)/.test(t)) {
+    return "unknown";
+  }
   if (/\b(liga|desliga|ligue|desligue|acione|acender|apagar)\b/.test(t) && !/quanto|economi|se eu/.test(t)) return "device_command";
   if (/(em|por|num) (um )?ano|anual/.test(t) && (context?.lastIntent?.startsWith("simulate") || /economiz/.test(t)) && !hours) return "simulate_annual";
   if (hours && /(economi|menos|reduz|diminu|se eu|quanto|antes|cortar)/.test(t)) return "simulate_reduction";
@@ -209,7 +213,7 @@ export const handleIntent = (
   intent: Intent,
   request: ChatRequest,
   snapshot: PropertySnapshot,
-  all: { snapshots: PropertySnapshot[]; preferences: AIPreferences },
+  all: { snapshots: PropertySnapshot[]; preferences: AIPreferences; chart?: ChartExplanation },
 ): Draft => {
   const context = request.context ?? {};
   const draft = emptyDraft(intent, snapshot, context);
@@ -456,7 +460,11 @@ export const handleIntent = (
           for (const item of matchAppliances(clause, snapshot)) protectedIds.push(item.id);
         }
       }
-      const plan = planBudget(snapshot, target, protectedIds);
+      const plan = planBudget(snapshot, target, {
+        protectedIds,
+        maxReduction: (all.preferences.maxReductionPercent ?? 30) / 100,
+        minHours: all.preferences.minHoursByAppliance,
+      });
       if (plan.gap <= 0) {
         draft.message = `O custo estimado atual (${brl(money(plan.current))}) já está dentro da meta de ${brl(money(target))}. Posso avisar se a previsão do mês passar desse valor.`;
       } else {
@@ -505,7 +513,7 @@ export const handleIntent = (
     case "compare_periods": {
       const comparison = comparePeriods(snapshot);
       if (comparison.status !== "ok" || comparison.currentPerDay === null || comparison.previousPerDay === null) {
-        draft.message = `Ainda não dá para comparar com o mês passado: ${comparison.reason} Hoje há ${comparison.currentDays} dia(s) medidos neste mês e ${comparison.previousDays} no anterior.`
+        draft.message = `Não tenho informações suficientes para determinar isso. Ainda não dá para comparar com o mês passado: ${comparison.reason} Hoje há ${comparison.currentDays} dia(s) medidos neste mês e ${comparison.previousDays} no anterior.`
           + (limitation ? " O cadastro estimado não muda de um mês para outro, então ele não mostra tendência." : "");
         draft.limitations.push("Comparação de períodos exige medições reais.");
         return draft;
@@ -549,6 +557,8 @@ export const handleIntent = (
       const roomHits = matchRooms(request.message, snapshot);
       const recs = buildRecommendations(snapshot, detectAnomalies(snapshot), {
         hasGoal: Boolean(all.preferences.monthlyGoal), protectedIds: [...essential],
+        minHours: all.preferences.minHoursByAppliance, categories: all.preferences.recommendationCategories,
+        roomIds: roomHits.map((room) => room.id),
       }).filter((item) => !roomHits.length || roomHits.some((room) => room.id === item.roomId));
       if (!recs.length) {
         draft.message = roomHits.length
@@ -596,8 +606,55 @@ export const handleIntent = (
       draft.limitations.push("Comandos de dispositivos exigem confirmação explícita e ainda não estão habilitados.");
       return draft;
     }
+    case "explain_chart": {
+      const chart = all.chart;
+      if (!chart || chart.status !== "ok") {
+        draft.message = `Não tenho informações suficientes para explicar este gráfico. ${chart?.limitations[0] ?? ""}`.trim();
+        draft.limitations.push(...(chart?.limitations ?? []));
+        return draft;
+      }
+      const t = normalize(request.message);
+      const wanted = /(economiz|fazer|reduzir)/.test(t) ? ["top_appliance"]
+        : /(incomum|estranh|anomal)/.test(t) ? ["anomaly"]
+        : /(maior mudanca|mudou)/.test(t) ? ["biggest_change", "estimate_change"]
+        : /(anterior|compar|aument|por que)/.test(t) ? ["estimate_change", "measured_change"]
+        : ["estimate_change", "biggest_change", "measured_change", "top_appliance", "anomaly"];
+      const picked = chart.facts.filter((fact) => wanted.includes(fact.kind));
+      const unusual = /(incomum|estranh|anomal)/.test(t);
+      const shown = picked.length ? picked : unusual ? [] : chart.facts.slice(0, 3);
+      if (unusual && !picked.length) draft.message = "Não encontrei nada incomum nos dados deste gráfico. ";
+      if (/por que/.test(t)) {
+        draft.limitations.push("O gráfico mostra o que mudou, não a causa. Mudanças na estimativa vêm do cadastro; só a medição mostra mudanças de uso.");
+      }
+      draft.message += shown.map((fact) => fact.text).join(" ");
+      draft.limitations.push(...chart.limitations);
+      const last = chart.points[chart.points.length - 1];
+      const prev = chart.points[chart.points.length - 2];
+      if (last && prev) {
+        draft.cards.push({
+          type: "comparison", title: `${prev.month} × ${last.month}`, source: "estimated",
+          items: [
+            { label: prev.month, value: kwh(prev.estimatedKWh), unit: "kWh" },
+            { label: last.month, value: kwh(last.estimatedKWh), unit: "kWh" },
+          ],
+        });
+      }
+      draft.cards.push({
+        type: "trend", title: "Série do gráfico",
+        points: chart.points.map((point) => ({
+          ...point, estimatedKWh: kwh(point.estimatedKWh), estimatedCost: money(point.estimatedCost),
+          measuredKWh: point.measuredKWh === null ? null : kwh(point.measuredKWh),
+        })),
+      });
+      const related = shown.find((fact) => fact.applianceId);
+      const relatedAppliance = related && snapshot.appliances.find((item) => item.id === related.applianceId);
+      if (relatedAppliance) draft.actions.push(openAppliance(snapshot, relatedAppliance), openSimulator(snapshot, relatedAppliance));
+      draft.suggestions.push("Qual foi a maior mudança?", "Existe algo incomum?", "O que posso fazer para economizar?");
+      draft.facts = { chart: { points: chart.points, facts: shown } };
+      return draft;
+    }
     default: {
-      draft.message = "Posso responder sobre os dados do seu imóvel: maiores consumidores, ambientes mais caros, previsão do mês, simulações de economia, metas e anomalias. Tente uma das sugestões.";
+      draft.message = "Não tenho informações suficientes para responder isso com os seus dados. Posso responder sobre maiores consumidores, ambientes mais caros, previsão do mês, simulações de economia, metas e anomalias.";
       draft.suggestions.push("Qual aparelho mais gasta?", "Prever a conta deste mês", "Onde posso economizar?", "Quero gastar no máximo R$ 200 por mês");
       return draft;
     }
@@ -643,6 +700,15 @@ export interface UsageRecord {
   estimatedCostUsd: number;
   latencyMs: number;
   error?: string;
+  guardViolations?: GuardViolation[];
+}
+
+export type ChatStage = "context" | "data" | "compute" | "narrate";
+export interface ChatOptions {
+  // Cancels model calls when the client goes away.
+  signal?: AbortSignal;
+  // Progress for streaming clients. Stages carry no numbers.
+  onStage?: (stage: ChatStage) => void;
 }
 
 export interface OrchestratorDeps {
@@ -666,8 +732,8 @@ const resolveProperty = (properties: PropertyRecord[], context: ChatContext | un
     ?? null;
 };
 
-export const loadSnapshot = async (data: AIDataSource, userId: string, property: PropertyRecord, appliances: ApplianceRecord[], now: Date) => {
-  const period = monthPeriod(now, property.timezone || "America/Sao_Paulo");
+export const loadSnapshot = async (data: AIDataSource, userId: string, property: PropertyRecord, appliances: ApplianceRecord[], now: Date, forPeriod?: MonthPeriod) => {
+  const period = forPeriod ?? monthPeriod(now, property.timezone || "America/Sao_Paulo");
   const [rooms, history] = await Promise.all([
     data.listRooms(userId, property.id),
     data.getEnergyHistory(userId, period.previousStart, period.end),
@@ -698,7 +764,9 @@ export class Orchestrator {
     return { snapshot: await loadSnapshot(this.deps.data, userId, property, appliances, now), preferences, properties, appliances };
   }
 
-  async chat(userId: string, request: ChatRequest): Promise<{ response: WattAIResponse; usage: UsageRecord }> {
+  async chat(userId: string, request: ChatRequest, options: ChatOptions = {}): Promise<{ response: WattAIResponse; usage: UsageRecord }> {
+    const stage = (name: ChatStage) => options.onStage?.(name);
+    stage("context");
     const started = Date.now();
     const now = this.deps.now?.() ?? new Date();
     const [properties, appliances, preferences] = await Promise.all([
@@ -729,10 +797,32 @@ export class Orchestrator {
       }, usage, started);
       return { response, usage };
     }
+    stage("data");
     const snapshot = await loadSnapshot(this.deps.data, userId, property, appliances, now);
     if (context.roomId && !snapshot.rooms.some((room) => room.id === context.roomId)) delete context.roomId;
 
-    let intent = classifyIntent(request.message, context);
+    let intent: Intent = request.chart ? "explain_chart" : classifyIntent(request.message, context);
+    let chart: ChartExplanation | undefined;
+    if (request.chart) {
+      // The chart's series is recomputed here; nothing from the client is trusted.
+      const scope = request.chart.propertyId && owned.has(request.chart.propertyId) ? request.chart.propertyId : null;
+      const tz = property.timezone || "America/Sao_Paulo";
+      const { year, month } = request.chart;
+      const fromDate = new Date(Date.UTC(year, month - 6, 1));
+      const from = zonedMidnight(fromDate.getUTCFullYear(), fromDate.getUTCMonth() + 1, 1, tz);
+      const to = zonedMidnight(month === 12 ? year + 1 : year, month === 12 ? 1 : month + 1, 1, tz);
+      const history = await this.deps.data.getEnergyHistory(userId, from, to);
+      const byMonth = new Map<string, number>();
+      for (const item of history) {
+        if (scope && item.propertyId !== scope) continue;
+        const day = zonedDay(new Date(item.endAt), tz);
+        const key = `${day.year}-${String(day.month).padStart(2, "0")}`;
+        byMonth.set(key, (byMonth.get(key) ?? 0) + item.consumptionKWh);
+      }
+      const scoped = scope ? appliances.filter((item) => item.propertyId === scope) : appliances;
+      const scopedProperty = scope ? properties.find((item) => item.id === scope) ?? null : null;
+      chart = explainTrend(buildTrend(scoped, byMonth, year, month, scopedProperty), scope === property.id || properties.length === 1 ? snapshot : null);
+    }
     let modelAllowed = Boolean(this.deps.provider);
     let toolCalls = 0;
     if (intent === "unknown" && modelAllowed && toolCalls < this.deps.config.maxToolCalls) {
@@ -745,6 +835,7 @@ export class Orchestrator {
             system: classificationPrompt(INTENTS),
             messages: [{ role: "user", content: request.message }],
             maxTokens: 20,
+            signal: options.signal,
           }, this.deps.config.timeoutMs, 0);
           this.addTokens(usage, result);
           const picked = result.text.trim().toLowerCase().replace(/[^a-z_]/g, "") as Intent;
@@ -758,7 +849,8 @@ export class Orchestrator {
     const snapshots = intent === "compare_properties"
       ? await Promise.all(properties.map((item) => (item.id === property.id ? snapshot : loadSnapshot(this.deps.data, userId, item, appliances, now))))
       : [snapshot];
-    const draft = handleIntent(intent, safeRequest, snapshot, { snapshots, preferences });
+    stage("compute");
+    const draft = handleIntent(intent, safeRequest, snapshot, { snapshots, preferences, chart });
     usage.intent = intent;
     if (!Object.keys(draft.facts).length) {
       draft.facts = { metrics: draft.metrics, cards: draft.cards };
@@ -769,7 +861,9 @@ export class Orchestrator {
     if (narrate && ((toolCalls > 0) || ((await this.deps.reserveModelCall?.(userId)) ?? true))) {
       const model = draft.complex || (request.history?.length ?? 0) > 4 ? this.deps.config.modelReasoning : this.deps.config.modelFast;
       try {
+        stage("narrate");
         const result = await completeWithLimits(this.deps.provider!, {
+          signal: options.signal,
           model,
           system: SYSTEM_PROMPT,
           messages: [
@@ -780,14 +874,27 @@ export class Orchestrator {
         }, this.deps.config.timeoutMs, 1);
         this.addTokens(usage, result);
         usage.model = result.model;
-        if (result.text && result.text.length <= 1500 && numbersAreGrounded(result.text, { draft: draft.message, facts: draft.facts, metrics: draft.metrics })) {
+        const violations = result.truncated ? ["length" as const] : validateNarration(result.text, {
+          draft: draft.message,
+          values: { facts: draft.facts, metrics: draft.metrics, cards: draft.cards },
+          allowedNames: [],
+          forbiddenNames: [
+            ...appliances.map((item) => item.name),
+            ...properties.map((item) => item.name),
+            ...snapshot.rooms.map((item) => item.name),
+          ],
+          measured: snapshot.totals.measuredApplianceCount > 0,
+        });
+        usage.guardViolations = violations;
+        if (!violations.length) {
           draft.message = result.text;
           usage.generated = "llm";
         } else {
-          usage.error = "ungrounded_or_empty";
+          usage.error = `guard:${violations.join(",")}`;
         }
       } catch (error) {
         usage.error = error instanceof Error ? error.message : "provider_error";
+        draft.limitations.push("IA generativa indisponível agora: resposta montada pelo motor de cálculo, com os mesmos números.");
       }
     } else if (narrate) {
       draft.limitations.push("Limite de uso da IA atingido: resposta gerada pelo motor de cálculo.");
