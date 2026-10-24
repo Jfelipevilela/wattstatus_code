@@ -7,6 +7,7 @@ export const SourceBadge = ({ source }: { source: EnergyDataSource }) => (
   </span>
 );
 
+const QUALITY_DOT = { recent: "bg-primary", delayed: "bg-amber-500", missing: "bg-muted-foreground/40", disabled: "bg-muted-foreground/40", error: "bg-destructive" } as const;
 const EFFORT_LABEL = { baixo: "baixo", medio: "médio", alto: "alto" } as const;
 const pct = (value: number) => `${Math.round(value * 100)}%`;
 const kwh = (value: number) => `${value.toLocaleString("pt-BR", { maximumFractionDigits: value >= 10 ? 0 : 1 })} kWh`;
@@ -236,6 +237,17 @@ export function WattAIMessageBody({ response, onAction, onAsk }: { response: Wat
             </div>
           ))}
         </div>
+      )}
+      {response.dataQuality && response.dataQuality.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Atualização das medições">
+          {response.dataQuality.map((item) => (
+            <li key={item.applianceId} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
+              title={item.lastReadingAt ? `Última leitura: ${new Date(item.lastReadingAt).toLocaleString("pt-BR")}` : undefined}>
+              <span className={`h-1.5 w-1.5 rounded-full ${QUALITY_DOT[item.state]}`} aria-hidden />
+              {item.name}: {item.label}{item.age && item.state !== "recent" ? ` (${item.age})` : ""}
+            </li>
+          ))}
+        </ul>
       )}
       {response.cards.map((card, index) => (
         <div key={index} className="rounded-xl border bg-card p-3"><Card card={card} onAsk={onAsk} /></div>

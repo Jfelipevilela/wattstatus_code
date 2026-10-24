@@ -92,6 +92,8 @@ export interface WattAIResponse {
   context: WattAIContext;
   conversationId?: string | null;
   metrics: WattAIMetric[];
+  // Freshness of the readings the answer is about (collector status).
+  dataQuality?: Array<{ applianceId: string; name: string; state: "recent" | "delayed" | "missing" | "disabled" | "error"; label: string; lastReadingAt: string | null; age: string | null }>;
   cards: WattAICard[];
   limitations: string[];
   suggestions: string[];

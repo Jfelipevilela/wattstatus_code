@@ -149,6 +149,11 @@ export const responseSchema = z.object({
   limitations: z.array(z.string()),
   suggestions: z.array(z.string().max(120)).max(6),
   actions: z.array(actionSchema).max(6),
+  dataQuality: z.array(z.object({
+    applianceId: z.string(), name: z.string(),
+    state: z.enum(["recent", "delayed", "missing", "disabled", "error"]),
+    label: z.string(), lastReadingAt: z.string().nullable(), age: z.string().nullable(),
+  })).max(6).optional(),
   meta: z.object({
     engine: z.string(),
     generated: z.enum(["deterministic", "llm"]),

@@ -40,7 +40,9 @@ export class Semaphore {
 export interface AIRouterDeps {
   data: AIDataSource;
   store: AIStore;
-  limits: Pick<MongoDatabase, "consumeRateLimit">;
+  // The app passes the MongoDatabase here; its stored collection status
+  // (energyCollectionStatus) feeds measurement freshness when available.
+  limits: Pick<MongoDatabase, "consumeRateLimit"> & Partial<Pick<MongoDatabase, "energyCollectionStatus">>;
   getUserEmail?: (userId: string) => Promise<string | null>;
   config?: AIConfig;
   provider?: ModelProvider | null;
@@ -54,7 +56,13 @@ const requireUser = (req: AuthenticatedRequest) => {
 const idSchema = z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/);
 const recommendationId = z.string().min(3).max(200).regex(/^[a-z_]+:[A-Za-z0-9_:.-]+$/);
 
-export const createAIRouter = (deps: AIRouterDeps) => {
+export const createAIRouter = (input: AIRouterDeps) => {
+  // Freshness comes from what the collector already stored for this user:
+  // no SmartThings call per question, and only the signed-in user's rows.
+  const collectionStatus = input.data.getCollectionStatus ?? (input.limits.energyCollectionStatus
+    ? (userId: string) => input.limits.energyCollectionStatus!(userId, new Date(), Math.max(5, Number(process.env.ENERGY_COLLECTION_INTERVAL_MINUTES || 30)) * 60000)
+    : undefined);
+  const deps: AIRouterDeps = { ...input, data: { ...input.data, ...(collectionStatus ? { getCollectionStatus: collectionStatus } : {}) } };
   const baseConfig = deps.config ?? aiConfig();
   const baseProvider = deps.provider === undefined ? createProvider(baseConfig) : deps.provider;
   const semaphore = new Semaphore(baseConfig.maxConcurrent);

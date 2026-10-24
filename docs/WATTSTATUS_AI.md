@@ -559,3 +559,95 @@ Tamanho do bundle principal: 172,87 kB (base `c7bc152`, mesmo ambiente) → 173,
 - Mesmo nome de aparelho em dois imóveis: a guarda não distingue. O snapshot é sempre de um imóvel só.
 - A guarda qualitativa é heurística por proximidade na oração. Frases muito longas ou indiretas podem ser recusadas por precaução, e nesse caso vale o texto do motor.
 - Histórico de investigações: as investigações ficam no histórico de conversas comum, sem filtro próprio.
+
+## 15. Confiabilidade das medições (atualização da coleta)
+
+Branch `feature/watt-ai-measurement-quality`, a partir de `0ade3d3` (`fix/energy-collection-fairness`, que contém a IA da fase 3 e o contrato da coleta). Nenhum arquivo do coletor foi alterado.
+
+### 15.1 Fonte e contrato
+
+A IA usa `MongoDatabase.energyCollectionStatus(userId, agora, intervalo)`, descrito em `docs/COLETA_ENERGIA.md`, seção 7. São dados já gravados pelo coletor; não há chamada à SmartThings durante a pergunta.
+
+| Estado | Regra do contrato | Indicador na IA |
+|---|---|---|
+| `recent` | Última leitura com até 2 intervalos | Atualizado |
+| `delayed` | Leitura mais antiga que 2 intervalos | Leitura atrasada |
+| `missing` | Coleta habilitada e dispositivo nunca lido | Sem medição |
+| `disabled` | Coleta desativada pelo usuário | Coleta desativada |
+| `error` | Token inválido, dispositivo removido ou 3 falhas seguidas | Erro de coleta |
+
+Ligação com o restante do app:
+
+- `AIDataSource.getCollectionStatus` é opcional.
+- `createAIRouter` usa `deps.limits.energyCollectionStatus` quando o data source não fornece o status. O `app.ts` já passa o `MongoDatabase` em `limits`, então **nenhum arquivo compartilhado foi alterado**.
+- O intervalo vem de `ENERGY_COLLECTION_INTERVAL_MINUTES` (padrão de 30).
+- **Custo**: o status só é lido quando o usuário tem algum aparelho conectado. A leitura roda em paralelo às consultas que já existiam e acrescenta 3 consultas MongoDB. Usuários só com estimativas não pagam nada a mais.
+
+### 15.2 Uso nas respostas (`ai.freshness.ts`, `applyFreshness`)
+
+Para o aparelho em foco (detalhe, maiores consumidores, simulação, comparação), a resposta ganha uma frase conforme o estado:
+
+| Estado | Frase |
+|---|---|
+| `delayed` | "A última medição de X ocorreu há N h. Posso analisar o histórico disponível, mas não confirmar o consumo atual." |
+| `disabled` | "X não está sendo monitorado automaticamente. Posso usar os dados estimados cadastrados para fazer uma simulação." |
+| `error` | "Há um problema na atualização das medições de X. Os valores recentes podem estar incompletos." |
+| `missing` | "X ainda não tem nenhuma medição automática; uso os dados cadastrados." |
+| `recent`, pergunta sobre o consumo atual ("agora", "atual") | "Última medição de X: há N min." |
+| Aparelho sem medição automática, pergunta sobre o consumo atual | Frase e limitação dizendo que não há como confirmar o consumo atual |
+
+A idade (`há N min`, `há N h`, `há N dias`) vem do `ageMs` gravado pelo coletor.
+
+- **Visões gerais** (cobertura, investigação, previsão, comparação, anomalias, resumo, ambientes, gráfico): os medidores atrasados ou com erro aparecem nas limitações, com a idade de cada um. A cobertura mostra a contagem por estado.
+- **Distinção estimado × medido × medição parcial**: preservada. A atualização é um eixo separado: um medidor `delayed` continua contando como medido para o histórico, mas nunca como atual.
+- **Indicadores na interface**: `dataQuality` vem na resposta, até 6 aparelhos, com nome, estado, rótulo, idade e data da leitura. O chat mostra cada um como um ponto colorido com o rótulo, por exemplo "TV: Leitura atrasada (há 3 h)".
+
+### 15.3 Previsões, anomalias, alertas e investigações
+
+- **Previsão**: se algum aparelho medido estiver `delayed`, `error` ou `missing`, o ritmo medido não é usado; a previsão vem do cadastro, com o motivo explícito. O campo novo `confidence` vale:
+  - `alta`: ritmo medido, todos os medidores atualizados e backtest com WAPE até 20%;
+  - `media`: ritmo medido nos demais casos;
+  - `baixa`: estimativa.
+
+  A confiança aparece nas limitações.
+- **Anomalias**:
+  - com medidor atrasado ou com erro, ou com leitura de retomada (um intervalo de mais de 24 h, que concentra dias de consumo num dia só), não se infere pico nem aumento persistente; aparece `measurement_quality`;
+  - `measurement_gap` usa o estado do coletor quando ele existe, e as 48 h de silêncio só quando não existe.
+- **Alertas**: `consumption_increase` não é emitido quando há problema de coleta. Isso evita alertas falsos.
+- **Investigação**:
+  - a ferramenta de cobertura lista os medidores com problema e a idade de cada um;
+  - mudanças por aparelho ignoram medidores que não estão `recent`, porque não servem de evidência;
+  - a conclusão avisa que uma alta ou queda recente pode ser efeito da coleta.
+- **Comparação de períodos**: com leituras atrasadas ou de retomada, a resposta avisa que a diferença pode vir da coleta, não do consumo.
+- **Guarda**: regra nova `currentness`. "Consumo atual", "neste momento" ou "agora consome" perto de um aparelho que não está em `recentNames` faz a reescrita ser recusada.
+
+### 15.4 Correções feitas no caminho
+
+- **Detecção de picos**: com histórico perfeitamente estável, o MAD é 0 e nenhum pico era detectado (z ficava em 0). Agora há uma dispersão mínima de 10% da mediana.
+- **Intenção**: "Quanto a TV gasta?" não era reconhecida (a regra exigia "quanto gasta" junto). A regra agora aceita palavras entre os dois.
+- **Contradição**: com o aparelho conectado e lido, mas sem consumo medido no mês, a resposta dizia "não tem medição real" e logo depois "a última medição ocorreu há 3 h". Agora diz "ainda não há consumo medido neste mês; o valor é estimado".
+
+### 15.5 Testes
+
+| Arquivo | O que cobre |
+|---|---|
+| `tests/ai-freshness.test.cjs` (13 testes) | Os 5 estados e as frases; transições recente → atrasada → erro → recente; falha temporária (1 falha) sem virar erro; aparelho sem medição e pergunta sobre o consumo atual; medição parcial preservada e cobertura por estado; previsão com medidor atrasado (estimativa, confiança baixa) contra medidores atualizados (projeção); falha de coleta não vira pico, aumento ou alerta, e leitura de retomada também não, enquanto um pico real continua detectado; investigação; guarda `currentness`; isolamento (status só do usuário, dispositivo de outro usuário ignorado, nenhuma leitura sem aparelho conectado); rota usando o `energyCollectionStatus` do banco |
+| `tests/ai-freshness-mongo.test.cjs` | MongoDB real com o `energyCollectionStatus` verdadeiro: atrasada com idade de 5 h e sem contradição, erro, desativada e isolamento entre dois usuários |
+
+Resultados:
+
+| Verificação | Resultado |
+|---|---|
+| Testes de IA | 90 de 90 |
+| Testes MongoDB | 43 de 43 |
+| Backend completo | 149 passam, 0 falham, 43 pulados sem MongoDB |
+| Frontend | `tsc` e ESLint sem erros, build, 45 de 45 |
+| Bundle principal | 173,65 kB (sem mudança) |
+| Navegador (desktop e mobile) | Pergunta sobre o consumo atual com leitura atrasada de 3 h mostra a frase e o indicador; cobertura com estados; as suítes de navegador anteriores (fase 2 e fase 3) passam |
+
+### 15.6 Limitações
+
+- O status depende do que o coletor gravou: `lastSuccessAt` só existe depois da primeira leitura feita com a fila nova. Dispositivos antigos aparecem como `missing` até a próxima coleta.
+- `recent` vale até 2 intervalos, conforme o contrato: uma leitura de 50 minutos ainda conta como atualizada com intervalo de 30 minutos.
+- O estado é por dispositivo e por usuário. Aparelhos sem integração não têm estado: são estimativas, sem indicador.
+- `createAIRouter` espalha (`...`) o data source recebido, então ele precisa ser um objeto simples, como em `app.ts`. Uma instância de classe perderia os métodos do protótipo.

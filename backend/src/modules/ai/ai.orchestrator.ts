@@ -16,6 +16,7 @@ import type { z } from "zod";
 import { AIConfig, ModelProvider, completeWithLimits } from "./ai.provider";
 import { SYSTEM_PROMPT, narrationPrompt, classificationPrompt, investigationPlanPrompt } from "./ai.prompts";
 import { validateNarration, type GuardFacts, type GuardViolation } from "./ai.guard";
+import { ageText, freshnessSentence, FRESHNESS_LABEL, type CollectionStatus, type FreshnessState } from "./ai.freshness";
 import { buildSavingsPlan, parsePlanRequest } from "./ai.plans";
 import { DEFAULT_BUDGET, defaultPlan, modelPlanSchema, runInvestigation, sanitizePlan, TOOL_NAMES, type Investigation, type ToolName } from "./ai.tools";
 
@@ -24,6 +25,9 @@ export interface AIDataSource {
   listRooms(userId: string, propertyId: string): Promise<RoomRecord[]>;
   listAppliances(userId: string): Promise<ApplianceRecord[]>;
   getEnergyHistory(userId: string, start: Date, end: Date): Promise<EnergyInterval[]>;
+  // Stored collection status (docs/COLETA_ENERGIA.md § 7). Optional: without
+  // it the assistant keeps working and simply does not claim freshness.
+  getCollectionStatus?(userId: string): Promise<CollectionStatus | null>;
 }
 
 export type AIPreferences = z.infer<typeof preferencesSchema>;
@@ -94,7 +98,7 @@ export const classifyIntent = (text: string, context?: ChatContext): Intent => {
   if (/(economi|dica|habito|melhorar|recomend|reduzir|atencao|o que (posso|devo))/.test(t)) return "recommendations";
   if (/(qual|quais|que) .*(aparelho|equipamento|dispositivo).*(mais|maior)|(mais|maior) (gast|consum)|maiores consumidores|top/.test(t)) return "top_consumers";
   if (/analis/.test(t)) return "property_summary";
-  if (/(gasta muito|consome muito|quanto (gasta|consome|custa)|consumo d[aoe])/.test(t)) return "appliance_detail";
+  if (/(gasta muito|consome muito|quanto .{0,40}?(gasta|consome|custa|consumindo|gastando)|consumo (atual )?d[aoe])/.test(t)) return "appliance_detail";
   if (/(analis|resum|como esta|situacao|minha casa|meu imovel|conta (esta )?alta|por que)/.test(t)) return "property_summary";
   if (/^(oi|ola|bom dia|boa tarde|boa noite|ajuda|help|e ai)\b/.test(t)) return "greeting";
   return "unknown";
@@ -173,6 +177,8 @@ interface Draft {
   facts: Record<string, unknown>;
   // Structured qualitative claims a rewrite may make (see ai.guard).
   claims?: GuardFacts["claims"];
+  // Freshness chips for the UI (only the devices the answer is about).
+  dataQuality?: Array<{ applianceId: string; name: string; state: FreshnessState; label: string; lastReadingAt: string | null; age: string | null }>;
   complex?: boolean;
 }
 
@@ -362,7 +368,10 @@ export const handleIntent = (
       const rank = snapshot.appliances.findIndex((item) => item.id === found.id) + 1;
       const level = found.share >= 0.2 ? "um dos maiores custos" : found.share >= 0.08 ? "um custo intermediário" : "um custo baixo";
       draft.message = `${safeName(found.name)} tem custo estimado de ${brl(money(found.estimatedCost))} e ${kwhText(found.estimatedKWh)} por mês (${found.power} W × ${hoursText(found.usageHours)}/dia × ${found.days} dias). É o ${rank}º de ${totals.applianceCount} no imóvel e representa ${pct(found.share)} do total: ${level}.`
-        + (found.measuredKWh !== null ? ` Medido neste mês: ${kwhText(found.measuredKWh)} em ${found.measuredDays} dia(s).` : " Ele não tem medição real; o valor depende da potência e das horas cadastradas.");
+        + (found.measuredKWh !== null ? ` Medido neste mês: ${kwhText(found.measuredKWh)} em ${found.measuredDays} dia(s).`
+          // Connected and read, but no consumption interval this month yet.
+          : found.freshness && found.freshness.state !== "disabled" ? " Ainda não há consumo medido neste mês; o valor acima é estimado pelo cadastro."
+          : " Ele não tem medição real; o valor depende da potência e das horas cadastradas.");
       draft.metrics.push(
         { label: "Custo estimado", value: money(found.estimatedCost), unit: "R$", source: "estimated" },
         { label: "Participação", value: Math.round(found.share * 100), unit: "%", source: "estimated" },
@@ -801,9 +810,13 @@ const resolveProperty = (properties: PropertyRecord[], context: ChatContext | un
 
 export const loadSnapshot = async (data: AIDataSource, userId: string, property: PropertyRecord, appliances: ApplianceRecord[], now: Date, forPeriod?: MonthPeriod) => {
   const period = forPeriod ?? monthPeriod(now, property.timezone || "America/Sao_Paulo");
-  const [rooms, history] = await Promise.all([
+  // Freshness only matters (and is only read) when the user has connected
+  // devices; it runs in parallel with the other reads.
+  const connected = appliances.some((item) => item.integrationProvider && item.integrationDeviceId);
+  const [rooms, history, collection] = await Promise.all([
     data.listRooms(userId, property.id),
     data.getEnergyHistory(userId, period.previousStart, period.end),
+    connected && data.getCollectionStatus ? data.getCollectionStatus(userId).catch(() => null) : Promise.resolve(null),
   ]);
   const start = period.start.toISOString();
   return buildSnapshot({
@@ -811,7 +824,55 @@ export const loadSnapshot = async (data: AIDataSource, userId: string, property:
     intervals: history.filter((item) => item.endAt >= start),
     previousIntervals: history.filter((item) => item.endAt < start),
     period,
+    collection,
   });
+};
+
+const CURRENT_QUESTION = /(agora|atual|atualmente|neste momento|hoje|ultima leitura|ultima medicao|esta ligad)/;
+const FOCUS_INTENTS = ["appliance_detail", "top_consumers", "simulate_reduction", "simulate_annual", "simulate_replacement", "compare_appliances"];
+const OVERVIEW_INTENTS = ["coverage", "investigate", "forecast", "compare_periods", "anomalies", "property_summary", "room_ranking", "explain_chart"];
+
+// Adds what the collector knows about freshness to a computed answer: a
+// sentence for the appliance in focus, limitations for overviews and a
+// compact list for the quality chips. Never changes a number.
+export const applyFreshness = (draft: Draft, snapshot: PropertySnapshot, request: ChatRequest) => {
+  const focus = snapshot.appliances.find((item) => item.id === draft.context.applianceId);
+  const asksCurrent = CURRENT_QUESTION.test(normalize(request.message));
+  const quality: NonNullable<Draft["dataQuality"]> = [];
+  const push = (item: ApplianceFacts) => {
+    if (quality.some((entry) => entry.applianceId === item.id)) return;
+    const state = item.freshness?.state ?? (item.connected ? null : "none");
+    if (!state || state === "none") return;
+    quality.push({ applianceId: item.id, name: safeName(item.name), state, label: FRESHNESS_LABEL[state], lastReadingAt: item.freshness?.lastReadingAt ?? null, age: ageText(item.freshness?.ageMs ?? null) });
+  };
+  if (focus && FOCUS_INTENTS.includes(draft.intent)) {
+    const sentence = freshnessSentence(safeName(focus.name), focus.freshness ?? undefined, focus.connected);
+    if (sentence && (focus.freshness || asksCurrent)) draft.message += ` ${sentence}`;
+    else if (asksCurrent && focus.freshness?.state === "recent") draft.message += ` Última medição de ${safeName(focus.name)}: ${ageText(focus.freshness.ageMs)}.`;
+    if (asksCurrent && !focus.freshness && !focus.connected) draft.limitations.push("Sem medição automática não há como confirmar o consumo atual; os valores são estimados.");
+    push(focus);
+  }
+  const monitored = snapshot.appliances.filter((item) => item.freshness);
+  if (OVERVIEW_INTENTS.includes(draft.intent) && monitored.length) {
+    const order: Record<string, number> = { error: 0, delayed: 1, missing: 2, disabled: 3, recent: 4 };
+    for (const item of [...monitored].sort((a, b) => order[a.freshness!.state] - order[b.freshness!.state]).slice(0, 6)) push(item);
+    const stale = monitored.filter((item) => item.freshness!.state === "delayed" || item.freshness!.state === "error");
+    if (stale.length) {
+      draft.limitations.push(`${stale.length} medidor(es) com leitura atrasada ou erro de coleta (${stale.map((item) => `${safeName(item.name)}: ${item.freshness!.state === "error" ? "erro" : ageText(item.freshness!.ageMs)}`).join(", ")}). Valores recentes podem estar incompletos.`);
+    }
+    if (snapshot.freshness.enabled === false) draft.limitations.push("A coleta automática está desativada: as medições exibidas são históricas.");
+  }
+  if (draft.intent === "coverage" && monitored.length) {
+    const s = snapshot.freshness.summary.counts;
+    draft.message += ` Atualização: ${s.recent} atualizado(s), ${s.delayed} com leitura atrasada, ${s.missing} sem medição, ${s.error} com erro, ${s.disabled} com coleta desativada.`;
+  }
+  if (draft.intent === "compare_periods" && (snapshot.freshness.catchUpIntervals > 0 || monitored.some((item) => item.freshness!.state === "delayed" || item.freshness!.state === "error"))) {
+    draft.limitations.push("Parte das medições está atrasada ou foi retomada após falha: a diferença entre os meses pode ser efeito da coleta, não do consumo.");
+  }
+  const forecast = draft.cards.find((card) => card.type === "forecast") as { forecast: { confidence?: string } } | undefined;
+  if (forecast?.forecast.confidence) draft.limitations.push(`Confiança da previsão: ${forecast.forecast.confidence}.`);
+  if (quality.length) draft.dataQuality = quality;
+  return draft;
 };
 
 export class Orchestrator {
@@ -950,7 +1011,7 @@ export class Orchestrator {
       usage.toolCalls = investigation.budget.callsUsed;
     }
     stage("compute");
-    const draft = handleIntent(intent, safeRequest, snapshot, { snapshots, preferences, chart, investigation });
+    const draft = applyFreshness(handleIntent(intent, safeRequest, snapshot, { snapshots, preferences, chart, investigation }), snapshot, safeRequest);
     usage.intent = intent;
     if (!Object.keys(draft.facts).length) {
       draft.facts = { metrics: draft.metrics, cards: draft.cards };
@@ -992,6 +1053,8 @@ export class Orchestrator {
               return comparison.status === "ok" && comparison.change !== null ? (Math.abs(comparison.change) < 0.05 ? "flat" : comparison.change > 0 ? "up" : "down") : null;
             })(),
             topName: snapshot.appliances[0]?.name ?? null,
+            // "agora"/"atual" may only be said of devices read recently.
+            recentNames: snapshot.appliances.filter((item) => item.freshness?.state === "recent").map((item) => item.name),
             ...draft.claims,
           },
         });
@@ -1030,6 +1093,7 @@ export class Orchestrator {
       limitations: [...new Set(draft.limitations)],
       suggestions: [...new Set(draft.suggestions)].slice(0, 6),
       actions: draft.actions.slice(0, 6),
+      ...(draft.dataQuality ? { dataQuality: draft.dataQuality } : {}),
       meta: {
         engine: ENGINE_VERSION,
         generated: usage.generated,

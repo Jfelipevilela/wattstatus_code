@@ -7,6 +7,7 @@ import {
   PropertySnapshot, EnergyDataSource, comparePeriods, detectAnomalies, measuredSource, kwh, money, brlRate,
 } from "./ai.engine";
 import { buildSavingsPlan, PlanOptions, SavingsPlan } from "./ai.plans";
+import { freshnessSentence } from "./ai.freshness";
 
 export const TOOL_NAMES = [
   "period_comparison", "top_consumers", "measurement_coverage", "appliance_changes",
@@ -64,17 +65,25 @@ const TOOLS: Record<ToolName, (ctx: ToolContext) => Finding[]> = {
   })),
   measurement_coverage: ({ snapshot }) => {
     const { measuredApplianceCount, applianceCount, coverage } = snapshot.totals;
-    return [{
+    const findings: Finding[] = [{
       id: "coverage", tool: "measurement_coverage", evidence: measuredSource(snapshot), confidence: "alta",
       text: measuredApplianceCount
         ? `${measuredApplianceCount} de ${applianceCount} aparelhos têm leituras neste mês, cerca de ${pct(coverage)} do consumo estimado.`
         : `Nenhum dos ${applianceCount} aparelhos tem leitura neste mês: as conclusões dependem do cadastro.`,
     }];
+    // Freshness from the collector: stale meters are named, with their age.
+    for (const item of snapshot.appliances.filter((entry) => entry.freshness && entry.freshness.state !== "recent").slice(0, 4)) {
+      const sentence = freshnessSentence(item.name, item.freshness!, item.connected);
+      if (sentence) findings.push({ id: `freshness:${item.id}`, tool: "measurement_coverage", evidence: "unavailable", confidence: "alta", applianceId: item.id, roomId: item.roomId ?? undefined, text: sentence });
+    }
+    return findings;
   },
   appliance_changes: ({ snapshot }) => {
     const out: Finding[] = [];
     for (const item of snapshot.appliances) {
       if (item.measuredKWh === null || item.previousMeasuredKWh === null || item.measuredDays < 3 || item.previousMeasuredDays < 7) continue;
+      // A stale or failing meter undercounts this month: its change is not evidence.
+      if (item.freshness && item.freshness.state !== "recent") continue;
       const now = item.measuredKWh / item.measuredDays;
       const before = item.previousMeasuredKWh / item.previousMeasuredDays;
       if (before <= 0) continue;
@@ -184,6 +193,7 @@ export const runInvestigation = (
   }
   const findings = steps.flatMap((step) => step.findings);
   const measuredChange = ctx.results.get("period_comparison")?.find((finding) => finding.id === "period:measured");
+  const staleMeters = snapshot.appliances.filter((item) => item.measuredKWh !== null && item.freshness && item.freshness.state !== "recent");
   const changes = ctx.results.get("appliance_changes") ?? [];
   const registrations = ctx.results.get("registration_changes") ?? [];
   let conclusion: string;
@@ -197,6 +207,9 @@ export const runInvestigation = (
   } else {
     insufficient = true;
     conclusion = "Não tenho informações suficientes para determinar o motivo: não há medições comparáveis nem mudanças recentes no cadastro. Mostro abaixo os maiores custos estimados.";
+  }
+  if (staleMeters.length) {
+    conclusion += ` Atenção: ${staleMeters.map((item) => item.name).join(", ")} ${staleMeters.length > 1 ? "estão" : "está"} com medição atrasada ou com erro; uma queda ou alta recente pode ser efeito da coleta.`;
   }
   return {
     steps, findings, conclusion, insufficient, plan: ctx.plan,

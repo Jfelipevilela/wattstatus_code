@@ -27,12 +27,14 @@ export interface GuardFacts {
     protectedNames?: string[];
     // Appliances the facts recommend acting on.
     actionableNames?: string[];
+    // Appliances read recently; "agora"/"atual" next to any other is refused.
+    recentNames?: string[];
   };
 }
 
 export type GuardViolation =
   | "number" | "unit" | "name" | "source" | "causal" | "guarantee" | "period" | "insufficient" | "essential" | "length"
-  | "percent" | "direction" | "superlative" | "constraint" | "recommendation";
+  | "percent" | "direction" | "superlative" | "constraint" | "recommendation" | "currentness";
 
 const UNITS: Record<string, number> = {
   zero: 0, um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9,
@@ -117,6 +119,7 @@ const INSUFFICIENT = /(nao (ha|tenho|existem?) (dados|informac|medic|historico)|
 const INCREASE = /(aument|subiu|subir|cresceu|crescimento|esta maior|ficou maior|alta no consumo|disparou)/;
 const DECREASE = /(diminuiu|caiu|reduziu|queda|esta menor|ficou menor)/;
 const SUPERLATIVE = /(o que mais (gasta|consome|pesa)|maior (consumidor|custo|gasto|peso)|mais caro|campeao de consumo)/g;
+const CURRENT = /(consumo atual|esta consumindo|consome agora|neste momento|agora (gasta|consome|esta)|atualmente (gasta|consome))/g;
 const ACTION = /(reduz\w*|diminu\w*|deslig\w*|cortar|corte|usar menos|troc\w*|substitu\w*)/g;
 
 // Subject of a claim: the closest known name on the preferred side of the
@@ -212,6 +215,13 @@ export const validateNarration = (text: string, facts: GuardFacts): GuardViolati
     for (const match of t.matchAll(new RegExp(MEASURED_CLAIM.source, "g"))) {
       const subject = nameNear(t, match.index!, names, "before");
       if (subject && !measured.has(subject) && !draftClaims(draft, MEASURED_CLAIM, subject, "before")) violations.add("source");
+    }
+  }
+  if (claims.recentNames) {
+    const recent = new Set(claims.recentNames.map(normalize));
+    for (const match of t.matchAll(CURRENT)) {
+      const subject = nameNear(t, match.index!, names, "before");
+      if (subject && !recent.has(subject) && !draftClaims(draft, CURRENT, subject, "before")) violations.add("currentness");
     }
   }
   for (const match of t.matchAll(ACTION)) {

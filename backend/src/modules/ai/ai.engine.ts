@@ -4,6 +4,7 @@ import type { ApplianceRecord, PropertyRecord, RoomRecord } from "../../types";
 import type { EnergyInterval } from "../energy/energy-history";
 import { estimateMonthly } from "../properties/properties.service";
 import { STATE_TARIFFS } from "../../config/tariffs";
+import { summarizeFreshness, type CollectionStatus, type DeviceFreshness, type FreshnessSummary } from "./ai.freshness";
 
 export const ENGINE_VERSION = "ai-engine-1";
 
@@ -152,6 +153,8 @@ export interface ApplianceFacts {
   previousMeasuredDays: number;
   createdAt: string;
   lastReadingAt: string | null;
+  // Collector's freshness for this device; null when not monitored or unknown.
+  freshness: DeviceFreshness | null;
   connected: boolean;
   cyclic: boolean;
   essential: boolean;
@@ -190,6 +193,15 @@ export interface PropertySnapshot {
   daily: DailyPoint[];
   previousDaily: DailyPoint[];
   missingPower: string[];
+  freshness: {
+    // False when the collection status could not be read: nothing is assumed.
+    available: boolean;
+    enabled: boolean | null;
+    summary: FreshnessSummary;
+    // Measured intervals spanning more than a day (catch-up after a gap):
+    // their energy lands on one day and is not a real spike.
+    catchUpIntervals: number;
+  };
 }
 
 const CYCLIC = /(ar.?condicionado|split|geladeira|refrigerador|freezer|frigobar|bebedouro|aquecedor|boiler|bomba)/;
@@ -220,9 +232,12 @@ export interface SnapshotInput {
   intervals: EnergyInterval[];
   previousIntervals: EnergyInterval[];
   period: MonthPeriod;
+  // Stored collection status for the user (optional: absent = unknown).
+  collection?: CollectionStatus | null;
 }
 
-export const buildSnapshot = ({ property, rooms, appliances, intervals, previousIntervals, period }: SnapshotInput): PropertySnapshot => {
+export const buildSnapshot = ({ property, rooms, appliances, intervals, previousIntervals, period, collection }: SnapshotInput): PropertySnapshot => {
+  const freshnessById = new Map((collection?.devices ?? []).map((device) => [device.applianceId, device]));
   const roomById = new Map(rooms.map((room) => [room.id, room]));
   const own = appliances.filter((item) => item.propertyId === property.id);
   const ownIds = new Set(own.map((item) => item.id));
@@ -274,6 +289,7 @@ export const buildSnapshot = ({ property, rooms, appliances, intervals, previous
       previousMeasuredDays: new Set(previousReadings.map((item) => dayKey(new Date(item.endAt), period.timeZone))).size,
       createdAt: appliance.createdAt,
       lastReadingAt: last,
+      freshness: freshnessById.get(appliance.id) ?? null,
       connected: Boolean(appliance.integrationProvider && appliance.integrationDeviceId),
       cyclic: isCyclic(appliance.name),
       essential: isEssential(appliance.name),
@@ -335,6 +351,12 @@ export const buildSnapshot = ({ property, rooms, appliances, intervals, previous
     daily: aggregateDaily(located, period.timeZone, rates),
     previousDaily: aggregateDaily(previousLocated, period.timeZone, rates),
     missingPower: facts.filter((item) => !(item.power > 0)).map((item) => item.name),
+    freshness: {
+      available: Boolean(collection),
+      enabled: collection ? collection.enabled : null,
+      summary: summarizeFreshness(facts.map((item) => item.freshness).filter((item): item is DeviceFreshness => Boolean(item))),
+      catchUpIntervals: [...located, ...previousLocated].filter((item) => new Date(item.endAt).getTime() - new Date(item.startAt).getTime() > 86400000).length,
+    },
   };
 };
 
@@ -376,6 +398,8 @@ export interface Forecast {
   high: number | null;
   daysObserved: number;
   backtest: { method: string; wape: number; baselineWape: number } | null;
+  // How much the number can be trusted, from data quality and the backtest.
+  confidence: "alta" | "media" | "baixa";
   reason?: string;
 }
 
@@ -404,7 +428,10 @@ export const forecastMonth = (snapshot: PropertySnapshot): Forecast => {
   const { daysInMonth, daysElapsed } = snapshot.period;
   const observed = snapshot.daily.filter((point) => point.day < dayKey(new Date(), snapshot.period.timezone));
   const remaining = Math.max(0, daysInMonth - daysElapsed);
-  if (source === "measured" && observed.length >= 5) {
+  // Delayed, failing or never-read meters undercount the last days: the
+  // observed pace is not trusted then.
+  const staleMeters = snapshot.appliances.filter((item) => item.measuredKWh !== null && item.freshness && item.freshness.state !== "recent").length;
+  if (source === "measured" && observed.length >= 5 && staleMeters === 0) {
     const values = observed.map((point) => point.kWh);
     const costs = observed.map((point) => point.cost);
     const recent = values.slice(-7);
@@ -425,6 +452,10 @@ export const forecastMonth = (snapshot: PropertySnapshot): Forecast => {
       high: (total + 1.64 * spread) * unitCost || null,
       daysObserved: observed.length,
       backtest: backtestDailyPace(values.concat()),
+      confidence: (() => {
+        const backtest = backtestDailyPace(values.concat());
+        return backtest && backtest.wape <= 0.2 && snapshot.freshness.available ? "alta" : "media";
+      })(),
     };
   }
   if (snapshot.totals.applianceCount > 0 && snapshot.totals.estimatedKWh > 0) {
@@ -438,14 +469,17 @@ export const forecastMonth = (snapshot: PropertySnapshot): Forecast => {
       high: null,
       daysObserved: observed.length,
       backtest: null,
-      reason: source === "measured_partial"
+      confidence: "baixa",
+      reason: staleMeters > 0
+        ? `${staleMeters} medidor(es) com leitura atrasada ou com erro; a previsão usa as horas e potências cadastradas, não o ritmo medido.`
+        : source === "measured_partial"
         ? "Só parte dos aparelhos tem medição; a previsão usa as horas e potências cadastradas."
         : "Sem medições suficientes; a previsão usa as horas e potências cadastradas.",
     };
   }
   return {
     status: "insufficient_data", source: "unavailable", method: "none",
-    kWh: null, cost: null, low: null, high: null, daysObserved: observed.length, backtest: null,
+    kWh: null, cost: null, low: null, high: null, daysObserved: observed.length, backtest: null, confidence: "baixa",
     reason: "Não há aparelhos com potência cadastrada nem medições neste imóvel.",
   };
 };
@@ -489,7 +523,7 @@ export const comparePeriods = (snapshot: PropertySnapshot): PeriodComparison => 
 
 // ---------------------------------------------------------------- anomalies
 
-export type AnomalyKind = "consumption_spike" | "baseline_increase" | "measurement_gap" | "inconsistent_reading";
+export type AnomalyKind = "consumption_spike" | "baseline_increase" | "measurement_gap" | "inconsistent_reading" | "measurement_quality";
 export interface Anomaly {
   id: string;
   kind: AnomalyKind;
@@ -506,13 +540,30 @@ const MIN_ABS_KWH = 0.5;
 export const detectAnomalies = (snapshot: PropertySnapshot, now = new Date()): Anomaly[] => {
   const found: Anomaly[] = [];
   const series = [...snapshot.previousDaily, ...snapshot.daily];
-  if (series.length >= 14) {
+  // A collection problem (stale or failing meter, catch-up reading) changes
+  // the daily totals by itself: no consumption anomaly is inferred then.
+  const troubled = snapshot.appliances.filter((item) => item.freshness && (item.freshness.state === "delayed" || item.freshness.state === "error"));
+  const collectionIssue = troubled.length > 0 || snapshot.freshness.catchUpIntervals > 0;
+  if (collectionIssue) {
+    found.push({
+      id: `quality:${snapshot.property.id}:${series[series.length - 1]?.day ?? snapshot.period.start.slice(0, 10)}`,
+      kind: "measurement_quality",
+      title: "Medições com problema de atualização",
+      detail: troubled.length
+        ? `${troubled.map((item) => item.name).join(", ")} ${troubled.length > 1 ? "estão" : "está"} com leitura atrasada ou com erro. Variações recentes podem ser efeito da coleta, não do consumo.`
+        : "Há leituras que cobrem mais de um dia (retomada após falha). O consumo desse período fica concentrado em um único dia.",
+      severity: "info",
+    });
+  }
+  if (series.length >= 14 && !collectionIssue) {
     const reference = series.slice(0, -3).map((point) => point.kWh);
     const m = median(reference);
-    const spread = mad(reference) * 1.4826;
+    // A perfectly steady history has MAD 0; a floor (10% of the median) keeps
+    // a real jump detectable instead of dividing by zero.
+    const spread = Math.max(mad(reference) * 1.4826, median(reference) * 0.1, 0.05);
     const recent = series.slice(-3);
     for (const point of recent) {
-      const z = spread > 0 ? (point.kWh - m) / spread : 0;
+      const z = (point.kWh - m) / spread;
       if (z > ROBUST_Z && point.kWh - m > MIN_ABS_KWH) {
         found.push({
           id: `spike:${snapshot.property.id}:${point.day}`,
@@ -541,7 +592,9 @@ export const detectAnomalies = (snapshot: PropertySnapshot, now = new Date()): A
   for (const item of snapshot.appliances) {
     if (!item.connected) continue;
     const silentHours = item.lastReadingAt ? (now.getTime() - new Date(item.lastReadingAt).getTime()) / 3600000 : Infinity;
-    if (silentHours > 48) {
+    // With the collector's status, its state decides; without it, 48 h of silence.
+    const gap = item.freshness ? ["delayed", "missing", "error"].includes(item.freshness.state) : silentHours > 48;
+    if (gap) {
       found.push({
         id: `gap:${item.id}:${item.lastReadingAt ?? "never"}`,
         kind: "measurement_gap",
@@ -1125,7 +1178,10 @@ export const evaluateAlerts = (
     });
   }
   const comparison = comparePeriods(snapshot);
-  if (comparison.status === "ok" && comparison.change !== null && comparison.change >= 0.2) {
+  // A stale or failing meter is a collection problem, not an increase.
+  const collectionIssue = snapshot.freshness.catchUpIntervals > 0 ||
+    snapshot.appliances.some((item) => item.freshness && (item.freshness.state === "delayed" || item.freshness.state === "error"));
+  if (comparison.status === "ok" && comparison.change !== null && comparison.change >= 0.2 && !collectionIssue) {
     out.push({
       key: `increase:${pid}:${month}`, kind: "consumption_increase", propertyId: pid, title: "Aumento incomum do consumo medido",
       detail: `Média diária ${Math.round(comparison.change * 100)}% acima do mês anterior.`,
