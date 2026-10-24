@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "test": "node --test tests/energy.test.mjs tests/measured.test.mjs tests/report-pdf.test.cjs tests/property-energy.test.cjs tests/timezone.test.cjs tests/floorplan.test.cjs",
+    "test": "node --test tests/energy.test.mjs tests/measured.test.mjs tests/report-pdf.test.cjs tests/property-energy.test.cjs tests/timezone.test.cjs tests/floorplan.test.cjs tests/session-resilience.test.cjs",
     "preview": "vite preview"
   },
   "dependencies": {

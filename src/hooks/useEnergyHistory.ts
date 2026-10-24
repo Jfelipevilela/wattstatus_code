@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { apiRequest } from "@/lib/api";
 
@@ -19,27 +19,32 @@ export interface EnergyInterval {
   locationChanged?: boolean;
 }
 
+// Measured readings only (never estimates). Cached per user and period; a
+// newer period always wins over a slower, older response.
 export const useEnergyHistory = (start: Date, end: Date, applianceId?: string) => {
   const { user, token } = useAuth();
-  const [intervals, setIntervals] = useState<EnergyInterval[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const startIso = start.toISOString();
   const endIso = end.toISOString();
-  const refresh = useCallback(async () => {
-    if (!user) { setIntervals([]); return; }
-    setLoading(true);
-    setError(null);
-    try {
+  const query = useQuery({
+    queryKey: ["energy-history", user?.id ?? "anonymous", startIso, endIso, applianceId ?? null],
+    enabled: Boolean(user),
+    // Readings arrive at most every few minutes.
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    queryFn: ({ signal }) => {
       const params = new URLSearchParams({ start: startIso, end: endIso });
       if (applianceId) params.set("applianceId", applianceId);
-      const response = await apiRequest<{ intervals: EnergyInterval[] }>(`/api/energy/history?${params}`, { skipErrorToast: true }, token || undefined);
-      setIntervals(response.intervals);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao consultar medições");
-      setIntervals([]);
-    } finally { setLoading(false); }
-  }, [user, token, startIso, endIso, applianceId]);
-  useEffect(() => { refresh(); }, [refresh]);
-  return { intervals, loading, error, refresh };
+      return apiRequest<{ intervals: EnergyInterval[] }>(`/api/energy/history?${params}`, { skipErrorToast: true, signal }, token || undefined)
+        .then((response) => response.intervals);
+    },
+  });
+  const failed = query.isError && !query.isFetching;
+  return {
+    // The previous period stays visible while a new one loads; a failed period shows no readings.
+    intervals: !user || failed ? EMPTY : query.data ?? EMPTY,
+    loading: Boolean(user) && query.isFetching,
+    error: failed ? (query.error instanceof Error ? query.error.message : "Falha ao consultar medições") : null,
+    refresh: async () => { await query.refetch(); },
+  };
 };
+const EMPTY: EnergyInterval[] = [];

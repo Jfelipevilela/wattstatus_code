@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Building, Check, ChevronDown, Crown, DoorOpen, Loader2, LayoutTemplate, MapPin, Pencil, Plug, Plus, Radio, Sparkles, X } from "lucide-react";
 import { AppSidebar, SidebarProvider, SidebarTrigger } from "@/components/Sidebar";
@@ -18,7 +18,6 @@ import { RoomOverviewList } from "@/components/properties/RoomOverviewList";
 import { AddRoomForm, PropertyRoomsTab } from "@/components/properties/PropertyRoomsTab";
 import { PlanTemplatePicker } from "@/components/properties/PlanTemplatePicker";
 import { PropertyAppliancesTab } from "@/components/properties/PropertyAppliancesTab";
-import { PropertyEnergyTab } from "@/components/properties/PropertyEnergyTab";
 import { PropertySettingsTab } from "@/components/properties/PropertySettingsTab";
 import { PROPERTY_ICONS } from "@/components/properties/propertyVisual";
 import { useProperties, usePropertyEnergy, usePropertyLayout } from "@/hooks/useProperties";
@@ -30,6 +29,11 @@ import { cn } from "@/lib/utils";
 import { zonedMonthRange, zonedParts } from "@/lib/timezone";
 import { PROPERTY_TYPES, type RoomLayout } from "@/types/property";
 import { useWattAI } from "@/components/wattai/WattAI";
+
+// Recharts only loads when the "Consumo" tab opens; the page starts on the plan.
+const PropertyEnergyTab = lazy(() =>
+  import("@/components/properties/PropertyEnergyTab").then((module) => ({ default: module.PropertyEnergyTab })),
+);
 
 const TABS = [
   { value: "planta", label: "Planta" },
@@ -552,13 +556,15 @@ export default function PropertyDetail() {
                 />
               )}
               {tab === "consumo" && (
-                <PropertyEnergyTab
-                  rooms={layout.rooms}
-                  energy={energy}
-                  unlocated={measured.unlocated}
-                  periodLabel={periodLabel}
-                  measuredError={measured.error}
-                />
+                <Suspense fallback={<Skeleton className="h-80 w-full rounded-2xl" aria-label="Carregando consumo" />}>
+                  <PropertyEnergyTab
+                    rooms={layout.rooms}
+                    energy={energy}
+                    unlocated={measured.unlocated}
+                    periodLabel={periodLabel}
+                    measuredError={measured.error}
+                  />
+                </Suspense>
               )}
               {tab === "config" && (
                 <PropertySettingsTab

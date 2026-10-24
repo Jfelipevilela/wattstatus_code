@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "./useAuth";
 import type { EnergyInterval } from "./useEnergyHistory";
+import { applianceKeys } from "./useAppliances";
 import type { Floor, Property, Room, RoomLayout } from "@/types/property";
 
 export type PropertyInput = Partial<Omit<Property, "id" | "isPrimary" | "createdAt" | "updatedAt" | "archivedAt">> & {
@@ -48,7 +49,8 @@ export const useProperties = (includeArchived = false) => {
   const remove = useMutation({
     mutationFn: ({ id, moveAppliancesTo }: { id: string; moveAppliancesTo?: string }) =>
       api(`/api/properties/${id}`, { method: "DELETE", body: JSON.stringify({ moveAppliancesTo }) }),
-    onSuccess: invalidate,
+    // The server moves the appliances, so the cached list is stale too.
+    onSuccess: () => Promise.all([invalidate(), client.invalidateQueries({ queryKey: applianceKeys.all })]),
   });
   const properties = query.data ?? [];
   return {
@@ -97,7 +99,7 @@ export const usePropertyLayout = (propertyId: string | undefined) => {
   const removeRoom = useMutation({
     mutationFn: ({ id, moveAppliancesTo }: { id: string; moveAppliancesTo?: string | null }) =>
       api(`${base}/rooms/${id}`, { method: "DELETE", body: JSON.stringify({ moveAppliancesTo }) }),
-    onSuccess: invalidate,
+    onSuccess: () => Promise.all([invalidate(), client.invalidateQueries({ queryKey: applianceKeys.all })]),
   });
   const addFloor = useMutation({
     mutationFn: (input: { name: string; level: number }) =>

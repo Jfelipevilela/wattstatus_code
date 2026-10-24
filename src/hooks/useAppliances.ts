@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "./useAuth";
 
@@ -36,50 +37,34 @@ export interface ApplianceInput {
   roomId?: string | null;
 }
 
+// Keyed by user so a cached list can never be served to another account.
+export const applianceKeys = {
+  all: ["appliances"] as const,
+  list: (userId: string) => ["appliances", userId] as const,
+};
+
+// One shared, cached list for every page and panel. Mutations write the
+// server's answer into the cache; room and property totals are derived from it.
 export const useAppliances = () => {
-  const [appliances, setAppliances] = useState<Appliance[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const { token, user } = useAuth();
-  const requestVersion = useRef(0);
+  const client = useQueryClient();
+  const key = applianceKeys.list(user?.id ?? "anonymous");
+  const query = useQuery({
+    queryKey: key,
+    enabled: Boolean(user),
+    queryFn: ({ signal }) =>
+      apiRequest<{ appliances: Appliance[] }>("/api/appliances", { method: "GET", signal }, token || undefined)
+        .then((data) => data.appliances),
+  });
+  const appliances = useMemo(() => (user ? query.data ?? [] : []), [user, query.data]);
+  const lastUpdated = useMemo(() => (query.dataUpdatedAt ? new Date(query.dataUpdatedAt) : null), [query.dataUpdatedAt]);
 
-  const fetchAppliances = useCallback(async (signal?: AbortSignal) => {
-    const version = ++requestVersion.current;
-    if (!user) {
-      setAppliances([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiRequest<{ appliances: Appliance[] }>(
-        "/api/appliances",
-        { method: "GET", signal },
-        token || undefined
-      );
-      if (signal?.aborted || version !== requestVersion.current) return;
-      setAppliances(data.appliances);
-      setLastUpdated(new Date());
-    } catch (err) {
-      if (signal?.aborted || version !== requestVersion.current) return;
-      const message = err instanceof Error ? err.message : "Erro ao carregar aparelhos";
-      setError(message);
-    } finally {
-      if (version === requestVersion.current) setLoading(false);
-    }
-  }, [token, user]);
-
-  useEffect(() => {
-    const requests = requestVersion;
-    const controller = new AbortController();
-    void fetchAppliances(controller.signal);
-    return () => { requests.current++; controller.abort(); };
-  }, [fetchAppliances]);
+  const write = (update: (previous: Appliance[]) => Appliance[]) => {
+    client.setQueryData<Appliance[]>(key, (previous) => update(previous ?? []));
+  };
 
   const addAppliance = async (input: ApplianceInput) => {
-    if (!user) throw new Error("N\u00e3o autenticado");
+    if (!user) throw new Error("Não autenticado");
     const payload: ApplianceInput = {
       ...input,
       createdAt: input.createdAt || new Date().toISOString(),
@@ -89,36 +74,33 @@ export const useAppliances = () => {
       { method: "POST", body: JSON.stringify(payload) },
       token || undefined
     );
-    setAppliances((prev) => [data.appliance, ...prev]);
+    write((prev) => [data.appliance, ...prev.filter((appliance) => appliance.id !== data.appliance.id)]);
     return data.appliance;
   };
 
   const updateAppliance = async (id: string, input: Partial<ApplianceInput>) => {
-    if (!user) throw new Error("N\u00e3o autenticado");
+    if (!user) throw new Error("Não autenticado");
     const data = await apiRequest<{ appliance: Appliance }>(
       `/api/appliances/${id}`,
       { method: "PUT", body: JSON.stringify(input) },
       token || undefined
     );
-    setAppliances((prev) =>
-      prev.map((appliance) =>
-        appliance.id === id ? data.appliance : appliance
-      )
-    );
+    write((prev) => prev.map((appliance) => (appliance.id === id ? data.appliance : appliance)));
     return data.appliance;
   };
 
   const deleteAppliance = async (id: string) => {
-    if (!user) throw new Error("N\u00e3o autenticado");
+    if (!user) throw new Error("Não autenticado");
     await apiRequest(`/api/appliances/${id}`, { method: "DELETE" }, token || undefined);
-    setAppliances((prev) => prev.filter((appliance) => appliance.id !== id));
+    write((prev) => prev.filter((appliance) => appliance.id !== id));
   };
 
   return {
     appliances,
-    loading,
-    error,
-    refetch: () => fetchAppliances(),
+    // Only the first load blocks; background refreshes keep showing the list.
+    loading: Boolean(user) && query.isPending,
+    error: query.error ? query.error.message || "Erro ao carregar aparelhos" : null,
+    refetch: async () => { await query.refetch(); },
     lastUpdated,
     addAppliance,
     updateAppliance,

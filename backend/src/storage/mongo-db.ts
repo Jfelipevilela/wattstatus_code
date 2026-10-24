@@ -39,6 +39,11 @@ type SettingsDoc = {
   updatedAt: Date;
 };
 
+const ENERGY_SAMPLE_FIELDS = {
+  _id: 0, applianceId: 1, provider: 1, deviceId: 1, capturedAt: 1, counterKWh: 1, tariffValue: 1,
+  readingType: 1, startAt: 1, propertyId: 1, roomId: 1,
+} as const;
+
 export class MongoDatabase {
   private client: MongoClient;
   private db!: Db;
@@ -75,50 +80,60 @@ export class MongoDatabase {
       await this.client.connect();
       this.db = this.client.db(this.dbName);
       if (!createIndexes) return;
-    await this.db.collection("users").createIndex({ email: 1 }, { unique: true });
-    await this.db.collection("users").createIndex({ emailCanonical: 1 }, {
+    // Index builds are idempotent but each is a round trip; on a cold
+    // serverless start doing them one by one dominated init time. Collections
+    // build in parallel, indexes of one collection keep their order.
+    const indexes: Array<[string, () => Promise<string>]> = [
+      ["users", () => this.db.collection("users").createIndex({ email: 1 }, { unique: true })],
+      ["users", () => this.db.collection("users").createIndex({ emailCanonical: 1 }, {
       unique: true, partialFilterExpression: { emailCanonical: { $type: "string" } },
-    });
-    await this.db.collection("users").createIndex({ email: 1 }, {
+    })],
+      ["users", () => this.db.collection("users").createIndex({ email: 1 }, {
       name: "users_email_lookup", collation: { locale: "en", strength: 2 },
-    });
-    await this.db.collection("users").createIndex({ id: 1 }, { unique: true });
-    await this.db.collection("auth_sessions").createIndex({ id: 1 }, { unique: true });
-    await this.db.collection("auth_sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-    await this.db.collection("auth_limits").createIndex({ key: 1 }, { unique: true });
-    await this.db.collection("auth_limits").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-    await this.db.collection("appliances").createIndex({ userId: 1 });
-    await this.db.collection("appliances").createIndex({ importKey: 1 }, { unique: true, partialFilterExpression: { importKey: { $exists: true } } });
-    await this.db.collection("integration_tokens").createIndex({ userId: 1, provider: 1 }, { unique: true });
-    await this.db.collection("integration_usage").createIndex(
+    })],
+      ["users", () => this.db.collection("users").createIndex({ id: 1 }, { unique: true })],
+      ["auth_sessions", () => this.db.collection("auth_sessions").createIndex({ id: 1 }, { unique: true })],
+      ["auth_sessions", () => this.db.collection("auth_sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })],
+      ["auth_limits", () => this.db.collection("auth_limits").createIndex({ key: 1 }, { unique: true })],
+      ["auth_limits", () => this.db.collection("auth_limits").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })],
+      ["appliances", () => this.db.collection("appliances").createIndex({ userId: 1 })],
+      ["appliances", () => this.db.collection("appliances").createIndex({ importKey: 1 }, { unique: true, partialFilterExpression: { importKey: { $exists: true } } })],
+      ["integration_tokens", () => this.db.collection("integration_tokens").createIndex({ userId: 1, provider: 1 }, { unique: true })],
+      ["integration_usage", () => this.db.collection("integration_usage").createIndex(
       { userId: 1, provider: 1, deviceId: 1 },
       { unique: true }
-    );
-    await this.db.collection("integration_usage_history").createIndex(
+    )],
+      ["integration_usage_history", () => this.db.collection("integration_usage_history").createIndex(
       { userId: 1, provider: 1, deviceId: 1, day: 1 },
       { unique: true }
-    );
-    await this.db.collection("user_settings").createIndex({ userId: 1 }, { unique: true });
-    await this.db.collection("energy_samples").createIndex({ sampleKey: 1 }, { unique: true });
-    await this.db.collection("energy_samples").createIndex({ userId: 1, capturedAt: 1, applianceId: 1 });
-    await this.db.collection("energy_samples").createIndex({ userId: 1, provider: 1, deviceId: 1, capturedAt: -1 });
-    await this.db.collection("sessions").createIndex({ id: 1 }, { unique: true });
-    await this.db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-    await this.db.collection("appliances").createIndex({ integrationProvider: 1, id: 1 });
-    await this.db.collection("energy_collection").createIndex({ key: 1 }, { unique: true });
-    await this.db.collection("properties").createIndex({ id: 1 }, { unique: true });
-    await this.db.collection("properties").createIndex({ userId: 1, archivedAt: 1 });
-    // At most one default property per user, even under concurrent first access.
-    await this.db.collection("properties").createIndex(
+    )],
+      ["user_settings", () => this.db.collection("user_settings").createIndex({ userId: 1 }, { unique: true })],
+      ["energy_samples", () => this.db.collection("energy_samples").createIndex({ sampleKey: 1 }, { unique: true })],
+      ["energy_samples", () => this.db.collection("energy_samples").createIndex({ userId: 1, capturedAt: 1, applianceId: 1 })],
+      ["energy_samples", () => this.db.collection("energy_samples").createIndex({ userId: 1, provider: 1, deviceId: 1, capturedAt: -1 })],
+      ["sessions", () => this.db.collection("sessions").createIndex({ id: 1 }, { unique: true })],
+      ["sessions", () => this.db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })],
+      ["appliances", () => this.db.collection("appliances").createIndex({ integrationProvider: 1, id: 1 })],
+      ["energy_collection", () => this.db.collection("energy_collection").createIndex({ key: 1 }, { unique: true })],
+      ["properties", () => this.db.collection("properties").createIndex({ id: 1 }, { unique: true })],
+      ["properties", () => this.db.collection("properties").createIndex({ userId: 1, archivedAt: 1 })],
+      // At most one default property per user, even under concurrent first access.
+      ["properties", () => this.db.collection("properties").createIndex(
       { userId: 1 },
       { unique: true, name: "one_legacy_default_per_user", partialFilterExpression: { legacyDefault: true } }
-    );
-    await this.db.collection("property_floors").createIndex({ id: 1 }, { unique: true });
-    await this.db.collection("property_floors").createIndex({ userId: 1, propertyId: 1 });
-    await this.db.collection("property_rooms").createIndex({ id: 1 }, { unique: true });
-    await this.db.collection("property_rooms").createIndex({ userId: 1, propertyId: 1, floorId: 1 });
-    await this.db.collection("appliances").createIndex({ userId: 1, propertyId: 1, roomId: 1 });
-    await this.db.collection("energy_samples").createIndex({ userId: 1, propertyId: 1, capturedAt: 1 });
+    )],
+      ["property_floors", () => this.db.collection("property_floors").createIndex({ id: 1 }, { unique: true })],
+      ["property_floors", () => this.db.collection("property_floors").createIndex({ userId: 1, propertyId: 1 })],
+      ["property_rooms", () => this.db.collection("property_rooms").createIndex({ id: 1 }, { unique: true })],
+      ["property_rooms", () => this.db.collection("property_rooms").createIndex({ userId: 1, propertyId: 1, floorId: 1 })],
+      ["appliances", () => this.db.collection("appliances").createIndex({ userId: 1, propertyId: 1, roomId: 1 })],
+      ["energy_samples", () => this.db.collection("energy_samples").createIndex({ userId: 1, propertyId: 1, capturedAt: 1 })],
+    ];
+    const byCollection = new Map<string, Array<() => Promise<string>>>();
+    for (const [name, build] of indexes) byCollection.set(name, [...(byCollection.get(name) ?? []), build]);
+    await Promise.all([...byCollection.values()].map(async (builds) => {
+      for (const build of builds) await build();
+    }));
       logger.info("mongodb.connection_succeeded", { database: this.dbName, durationMs: Date.now() - startedAt });
     } catch (error) {
       logger.error("mongodb.connection_failed", { database: this.dbName, durationMs: Date.now() - startedAt, ...getErrorFields(error) });
@@ -217,12 +232,16 @@ export class MongoDatabase {
   }
 
   async getEnergyHistory(userId: string, start: Date, end: Date, applianceId?: string) {
-    const current = await this.energySamples().find({ userId, capturedAt: { $gte: start, $lt: end } })
+    // Only the fields the interval builder reads: skips _id, userId, the
+    // 64-char sampleKey and createdAt on every document of the period.
+    const current = await this.energySamples().find({ userId, capturedAt: { $gte: start, $lt: end } },
+      { projection: ENERGY_SAMPLE_FIELDS })
       .sort({ capturedAt: 1 }).toArray();
     const keys = new Map<string, { provider: string; deviceId: string }>();
     for (const sample of current) keys.set(`${sample.provider}\u0000${sample.deviceId}`, sample);
     const preceding = await Promise.all([...keys.values()].map(({ provider, deviceId }) =>
-      this.energySamples().findOne({ userId, provider, deviceId, readingType: { $ne: "delta" }, capturedAt: { $lt: start } }, { sort: { capturedAt: -1 } })
+      this.energySamples().findOne({ userId, provider, deviceId, readingType: { $ne: "delta" }, capturedAt: { $lt: start } },
+        { sort: { capturedAt: -1 }, projection: ENERGY_SAMPLE_FIELDS })
     ));
     const intervals = toEnergyIntervals([...preceding.flatMap((item) => item ? [item] : []), ...current]);
     return intervals.filter((item) => new Date(item.endAt) >= start && new Date(item.endAt) < end && (!applianceId || item.applianceId === applianceId));

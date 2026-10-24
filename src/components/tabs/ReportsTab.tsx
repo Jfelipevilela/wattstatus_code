@@ -62,7 +62,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
   const [selectedAppliance, setSelectedAppliance] = useState("all");
   const [propertyId, setPropertyId] = useState("all");
   const [roomId, setRoomId] = useState("all");
-  const { properties, primary } = useProperties();
+  const { properties, primary, loading: propertiesLoading } = useProperties();
   const { rooms } = usePropertyLayout(propertyId === "all" ? undefined : propertyId);
   const property = properties.find((item) => item.id === propertyId);
   const room = rooms.find((item) => item.id === roomId);
@@ -198,6 +198,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
   const selectedName =
     selectedAppliance === "all" ? "Todos os aparelhos" : appliances.find((item) => item.id === selectedAppliance)?.name ?? "Aparelho";
   const canExport = !measured.loading && !measured.error && (rows.length > 0 || hasMeasured);
+  // Connected appliances usually bring readings: hold the space for the bar.
+  const expectsMeasured = totalConsumption > 0 && appliances.some((item) => item.integrationDeviceId);
   const measuredShare = totalConsumption > 0 && hasMeasured ? (measuredTotals.consumptionKWh / totalConsumption) * 100 : null;
 
   const SortHeader = ({ label, column, align = "left" }: { label: string; column: SortKey; align?: "left" | "right" }) => (
@@ -236,9 +238,11 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
               Mês atual
             </Button>
           )}
-          {properties.length > 0 && (
+          {/* Shown (disabled) while loading so the toolbar does not grow under the user. */}
+          {(propertiesLoading || properties.length > 0) && (
             <select
               aria-label="Imóvel"
+              disabled={propertiesLoading}
               value={propertyId}
               onChange={(event) => {
                 setPropertyId(event.target.value);
@@ -320,9 +324,13 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
                 <Radio className="h-3.5 w-3.5" aria-hidden="true" /> Medido
               </dt>
               {measured.loading ? (
-                <dd className="mt-2 flex items-center gap-2 text-white/60">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Consultando…
-                </dd>
+                // Same height as the loaded value, so the report does not jump.
+                <>
+                  <dd className="mt-2 flex h-10 items-center gap-2 text-white/60">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Consultando…
+                  </dd>
+                  <dd className="text-sm" aria-hidden="true">&nbsp;</dd>
+                </>
               ) : hasMeasured ? (
                 <>
                   <dd className="mt-2 text-4xl font-bold tabular-nums">
@@ -348,7 +356,12 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
               <dd className="text-sm text-white/60">{formatNumber(totalConsumption / daysInMonth, 1)} kWh/dia</dd>
             </div>
           </dl>
-          {measuredShare !== null && (
+          {measured.loading && expectsMeasured && (
+            <div className="relative mt-8 h-[52.5px]" aria-hidden="true">
+              <div className="mt-6 h-2 animate-pulse rounded-full bg-white/10" />
+            </div>
+          )}
+          {!measured.loading && measuredShare !== null && (
             <div className="relative mt-8">
               <div className="flex justify-between text-xs text-white/60">
                 <span>Medido vs. estimado</span>

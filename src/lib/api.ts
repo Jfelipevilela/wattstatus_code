@@ -16,6 +16,10 @@ export class ApiError extends Error {
   }
 }
 
+// Only 401 means the session is gone. 403 (CSRF/forbidden), 429 (rate limit),
+// 5xx, timeouts and network failures are transient or unrelated to the session.
+export const isSessionExpired = (error: unknown) => error instanceof ApiError && error.status === 401;
+
 export type ApiRequestOptions = RequestInit & {
   timeoutMs?: number;
   skipErrorToast?: boolean;
@@ -44,6 +48,7 @@ const getDefaultErrorTitle = (status: number) => {
   if (status === 0) return "Falha de conexão";
   if (status === 401 || status === 403) return "Acesso negado";
   if (status === 404) return "Recurso não encontrado";
+  if (status === 429) return "Muitas requisições";
   if (status >= 500) return "Erro no servidor";
   return "Não foi possível concluir a ação";
 };
