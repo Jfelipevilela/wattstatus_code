@@ -367,12 +367,19 @@ export class MongoDatabase {
   }
 
   async claimEnergyCollection(now: Date, leaseMs: number) {
-    const candidates = await this.appliances().find({ integrationProvider: "smartthings", integrationDeviceId: { $type: "string" } })
+    // Opted-in users first: one query instead of a settings upsert per
+    // appliance, and appliances of users who did not opt in never fill the
+    // candidate window.
+    const enabled = await this.settings().find({ energyCollectionEnabled: true })
+      .project<{ userId: string }>({ userId: 1, _id: 0 }).toArray();
+    if (!enabled.length) return null;
+    const candidates = await this.appliances().find({
+      userId: { $in: enabled.map((row) => row.userId) },
+      integrationProvider: "smartthings", integrationDeviceId: { $type: "string" },
+    })
       .project<Pick<ApplianceRecord, "id" | "userId" | "integrationDeviceId">>({ id: 1, userId: 1, integrationDeviceId: 1, _id: 0 })
       .limit(200).toArray();
     for (const appliance of candidates) {
-      const settings = await this.getUserSettings(appliance.userId);
-      if (!settings.energyCollectionEnabled) continue;
       const key = `${appliance.userId}:smartthings:${appliance.integrationDeviceId}`;
       const collection = this.db.collection("energy_collection");
       try {
