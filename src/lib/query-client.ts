@@ -9,7 +9,13 @@ export const shouldRetry = (failureCount: number, error: unknown) => {
   return error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500;
 };
 
-export const retryDelay = (attempt: number) => Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 300;
+// Exponential backoff with jitter; a server Retry-After (up to 30 s) wins
+// when it asks for a longer wait.
+export const retryDelay = (attempt: number, error?: unknown) => {
+  const backoff = Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 300;
+  const asked = error instanceof ApiError ? error.retryAfterMs : undefined;
+  return asked === undefined ? backoff : Math.max(backoff, Math.min(asked, 30_000));
+};
 
 // Default: data stays fresh for 30 s, so moving between pages reuses it instead
 // of refetching. Hooks with different freshness needs override staleTime.

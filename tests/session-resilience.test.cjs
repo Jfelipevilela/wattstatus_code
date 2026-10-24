@@ -80,3 +80,31 @@ test('consultas repetem apenas falhas transitórias, no máximo duas vezes', () 
   assert.ok(queries.staleTime > 0, 'cached data is reused between pages');
   assert.ok(queries.retryDelay(1) >= 2000, 'backoff grows');
 });
+
+test('Retry-After do servidor define a espera mínima da nova tentativa', async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: 'x', code: 'RATE_LIMITED' }), {
+    status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '5' },
+  });
+  const error = await apiRequest('/api/appliances', { skipErrorToast: true }).catch((err) => err);
+  assert.equal(error.retryAfterMs, 5000);
+  const { queries } = createQueryClient().options.defaultOptions;
+  assert.ok(queries.retryDelay(0, error) >= 5000);
+  assert.ok(queries.retryDelay(0, new ApiError(429, '', 600_000)) <= 30_000, 'capped');
+  assert.ok(queries.retryDelay(0, new ApiError(503, '')) < 2000, 'plain backoff without the header');
+});
+
+test('consulta se recupera sozinha depois de 429 e 503, sem encerrar a sessão', async () => {
+  const { QueryClient } = require('@tanstack/query-core');
+  const { queries } = createQueryClient().options.defaultOptions;
+  const client = new QueryClient({ defaultOptions: { queries: { ...queries, retryDelay: 5, gcTime: 0 } } });
+  const answers = [429, 503, 200];
+  events.length = 0;
+  globalThis.fetch = async () => {
+    const status = answers.shift();
+    return new Response(JSON.stringify(status === 200 ? { appliances: [1] } : { error: 'x' }), { status, headers: { 'Content-Type': 'application/json' } });
+  };
+  const data = await client.fetchQuery({ queryKey: ['a'], queryFn: () => apiRequest('/api/appliances', { skipErrorToast: true }) });
+  assert.deepEqual(data, { appliances: [1] });
+  assert.deepEqual(events, [], 'no session-expired event');
+  client.clear();
+});
