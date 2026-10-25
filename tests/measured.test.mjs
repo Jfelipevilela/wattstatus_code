@@ -3,8 +3,14 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import ts from "typescript";
 
-const source = await readFile(new URL("../src/lib/measured.ts", import.meta.url), "utf8");
-const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+const toModule = async (file) => {
+  const source = await readFile(new URL(`../src/lib/${file}`, import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+  return compiled;
+};
+// measured.ts imports ./timezone; inline it as a data URL so both load in Node.
+const timezoneUrl = `data:text/javascript;base64,${Buffer.from(await toModule("timezone.ts")).toString("base64")}`;
+const compiled = (await toModule("measured.ts")).replace('"./timezone"', JSON.stringify(timezoneUrl));
 const { localMonthKey, measuredByMonth, measuredByDevice, summarizeMeasured } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
 
 const row = (endAt, consumptionKWh, cost = 1) => ({ applianceId: 'a', provider: 'smartthings', deviceId: 'd', endAt, consumptionKWh, cost, tariffValue: cost === null ? null : 1, source: 'iot', readingType: 'interval' });

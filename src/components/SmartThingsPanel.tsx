@@ -236,6 +236,8 @@ export default function SmartThingsPanel({
         measuredConsumptionKWh: values.measuredConsumptionKWh,
         integrationProvider: "smartthings",
         integrationDeviceId: device.id,
+        propertyId: values.propertyId,
+        roomId: values.roomId ?? null,
       });
       if (!preferences.tariffState || !preferences.tariffValue) {
         updatePreferences({ tariffState: values.tariffState, tariffValue: values.tariffValue }).catch(() => undefined);

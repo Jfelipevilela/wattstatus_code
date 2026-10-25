@@ -14,6 +14,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { formatNumber } from "@/lib/energy";
+import { Sparkles } from "lucide-react";
 import { SectionCard } from "./SectionCard";
 
 export interface TrendPoint {
@@ -27,11 +28,20 @@ const config = {
   measured: { label: "Medido", color: "#2979FF" },
 };
 
-export function ConsumptionTrendChart({ data }: { data: TrendPoint[] }) {
+export function ConsumptionTrendChart({ data, onExplain }: { data: TrendPoint[]; onExplain?: () => void }) {
   const hasMeasured = data.some((point) => point.measured !== null);
   return (
     <SectionCard
       title="Evolução em 6 meses"
+      aside={onExplain && (
+        <button
+          type="button"
+          onClick={onExplain}
+          className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden /> Explicar este gráfico
+        </button>
+      )}
       description={
         hasMeasured
           ? "Projeção com os aparelhos atuais (área) e leituras reais (barras). Meses sem barra não têm medição."

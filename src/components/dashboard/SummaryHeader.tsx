@@ -8,6 +8,7 @@ interface Props {
   year: number;
   years: number[];
   periodLabel: string;
+  scopeLabel?: string;
   isCurrentMonth: boolean;
   refreshing: boolean;
   onChange: (year: number, month: number) => void;
@@ -30,6 +31,7 @@ export function SummaryHeader({
   year,
   years,
   periodLabel,
+  scopeLabel,
   isCurrentMonth,
   refreshing,
   onChange,
@@ -49,6 +51,12 @@ export function SummaryHeader({
         <p className="text-sm font-medium text-muted-foreground">
           {greeting()} · analisando{" "}
           <span className="capitalize text-foreground">{periodLabel}</span>
+          {scopeLabel && (
+            <>
+              {" "}
+              · <span className="font-semibold text-foreground">{scopeLabel}</span>
+            </>
+          )}
         </p>
         <h1
           id="summary-title"

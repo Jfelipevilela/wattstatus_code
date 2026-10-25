@@ -15,7 +15,11 @@ export const handler = schedule("*/5 * * * *", async () => {
     const result = await collectEnergy(db, {
       enabled: true,
       intervalMinutes: Number(process.env.ENERGY_COLLECTION_INTERVAL_MINUTES || 30),
-      maxDevices: Number(process.env.ENERGY_COLLECTION_BATCH_SIZE || 2),
+      // Sizing: see docs/COLETA_ENERGIA.md § Dimensionamento. Every value is
+      // clamped by COLLECTION_LIMITS in the collector.
+      maxDevices: Number(process.env.ENERGY_COLLECTION_BATCH_SIZE || 60),
+      concurrency: Number(process.env.ENERGY_COLLECTION_CONCURRENCY || 4),
+      perUserConcurrency: Number(process.env.ENERGY_COLLECTION_PER_USER || 2),
       deadlineMs: Math.max(0, 23000 - (Date.now() - started)),
     });
     console.info("Energy collection", result);

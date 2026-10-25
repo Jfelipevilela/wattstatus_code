@@ -54,7 +54,9 @@ export default function IntegrationUsage({
     queryKey: ["integration-analytics", user?.id],
     enabled: Boolean(user),
     retry: false,
-    refetchInterval: 60000,
+    // Polls only while there is something to update (and, by default, only
+    // while the tab is visible); an account without integrations asks once.
+    refetchInterval: (query) => (query.state.data?.dailyTrend.length || query.state.data?.appUsage.length ? 60000 : false),
     queryFn: () =>
       apiRequest<Analytics>(
         "/api/analytics/usage",
@@ -66,7 +68,7 @@ export default function IntegrationUsage({
     queryKey: ["integration-usage", user?.id],
     enabled: Boolean(user),
     retry: false,
-    refetchInterval: 30000,
+    refetchInterval: (query) => (query.state.data?.usage.length ? 30000 : false),
     queryFn: () =>
       apiRequest<Usage>(
         "/api/integrations/smartthings/usage",

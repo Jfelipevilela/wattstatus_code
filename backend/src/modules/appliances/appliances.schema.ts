@@ -16,6 +16,8 @@ export const applianceInputSchema = z.object({
   energyProfile: energyProfileSchema.optional(),
   cyclesPerMonth: z.number().int().min(0).max(1000).optional(),
   room: z.string().trim().max(80).optional(),
+  propertyId: z.string().uuid().nullable().optional(),
+  roomId: z.string().uuid().nullable().optional(),
 });
 
 export const applianceUpdateSchema = applianceInputSchema.partial();

@@ -23,6 +23,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogIcon,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -126,6 +127,7 @@ export default function AppliancesTab({
     <Dialog open={adding} onOpenChange={(open) => !busy && setAdding(open)}>
       <DialogContent className="max-h-[90dvh] w-[calc(100%_-_1rem)] overflow-y-auto sm:max-w-6xl">
         <DialogHeader>
+          <DialogIcon><Plus /></DialogIcon>
           <DialogTitle>Adicionar aparelho</DialogTitle>
           <DialogDescription>Escolha um modelo ou preencha os dados do seu equipamento.</DialogDescription>
         </DialogHeader>

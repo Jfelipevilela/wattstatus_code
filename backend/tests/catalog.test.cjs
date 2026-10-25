@@ -22,6 +22,7 @@ const {
 } = require("../dist/modules/catalog/catalog.schema");
 const { MongoDatabase } = require("../dist/storage/mongo-db");
 const { createApp, buildIntegrations } = require("../dist/app");
+const { attachPropertyRepository } = require("./helpers/property-repository.cjs");
 
 function database() {
   const records = new Map(),
@@ -95,7 +96,7 @@ function database() {
 }
 function client(db) {
   const handler = serverless(
-    createApp({ db, integrationManager: buildIntegrations() }),
+    createApp({ db: attachPropertyRepository(db), integrationManager: buildIntegrations() }),
   );
   return async (path, { user = "a", method = "GET", body, expectedUser } = {}) => {
     const headers = { "content-type": "application/json" };

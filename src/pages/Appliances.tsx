@@ -7,7 +7,7 @@ import {
 import { SidebarInset } from "@/components/ui/sidebar";
 import AppliancesTab from "@/components/tabs/AppliancesTab";
 import EditApplianceModal from "@/components/EditApplianceModal";
-import { PlugZap } from "lucide-react";
+import { PlugZap, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +17,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogIcon,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
 import {
@@ -136,7 +137,8 @@ const Appliances = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogIcon tone="red"><Trash2 /></AlertDialogIcon>
+            <AlertDialogTitle>Excluir aparelho?</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir o aparelho{" "}
               <strong>{deleteApplianceModal?.name}</strong>? Esta ação é

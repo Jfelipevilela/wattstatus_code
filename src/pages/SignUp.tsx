@@ -1,21 +1,34 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Check, Lock, Mail, ShieldCheck, User, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Leaf, Zap, Battery } from "lucide-react";
-import Icon from "@/components/logo_wattstatus_icon.png";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/components/ui/use-toast";
 import { notifyError } from "@/lib/error-toast";
+import { AuthLayout } from "@/components/auth/AuthLayout";
+import { AuthField, SubmitButton } from "@/components/auth/AuthField";
+import { cn } from "@/lib/utils";
+
+const MIN_PASSWORD = 15;
+
+// Força estimada só para orientar o usuário; o backend é quem valida.
+function passwordStrength(pw: string) {
+  if (!pw) return { score: 0, label: "", color: "" };
+  let score = 0;
+  if (pw.length >= MIN_PASSWORD) score++;
+  if (pw.length >= 20) score++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
+  if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) score++;
+  if (pw.length < MIN_PASSWORD) score = Math.min(score, 1);
+  const levels = [
+    { label: "Muito fraca", color: "bg-red-500" },
+    { label: "Fraca", color: "bg-orange-500" },
+    { label: "Razoável", color: "bg-amber-500" },
+    { label: "Boa", color: "bg-lime-500" },
+    { label: "Forte", color: "bg-energy-green-light" },
+  ];
+  return { score, ...levels[score] };
+}
 
 const SignUp = () => {
   const [formData, setFormData] = useState({
@@ -25,8 +38,6 @@ const SignUp = () => {
     confirmPassword: "",
     acceptTerms: false,
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { register } = useAuth();
@@ -34,6 +45,11 @@ const SignUp = () => {
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const strength = passwordStrength(formData.password);
+  const longEnough = formData.password.length >= MIN_PASSWORD;
+  const confirmTouched = formData.confirmPassword.length > 0;
+  const passwordsMatch = formData.password === formData.confirmPassword;
 
   const validateForm = () => {
     if (
@@ -44,11 +60,11 @@ const SignUp = () => {
     ) {
       return "Por favor, preencha todos os campos.";
     }
-    if (formData.password !== formData.confirmPassword) {
+    if (!passwordsMatch) {
       return "As senhas não coincidem.";
     }
-    if (formData.password.length < 15) {
-      return "A senha deve ter pelo menos 15 caracteres.";
+    if (!longEnough) {
+      return `A senha deve ter pelo menos ${MIN_PASSWORD} caracteres.`;
     }
     if (!formData.acceptTerms) {
       return "Você deve aceitar os termos de uso.";
@@ -66,7 +82,6 @@ const SignUp = () => {
     }
 
     setIsLoading(true);
-
     try {
       await register(
         formData.name,
@@ -90,232 +105,139 @@ const SignUp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8">
-        {/* Logo and Header */}
-        <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="">
-              <img src={Icon} alt="WattStatus" className="h-12 w-12" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold text-energy-800 dark:text-energy-100 mb-2">
-            WATTSTATUS
-          </h1>
-          <p className="text-energy-600 dark:text-energy-300">
-            Junte-se à revolução da energia sustentável
-          </p>
-        </div>
-
-        {/* Sign Up Card */}
-        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm dark:bg-slate-800/80">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center text-energy-800 dark:text-energy-100">
-              Criar conta
-            </CardTitle>
-            <CardDescription className="text-center text-gray-600 dark:text-gray-400">
-              Comece sua jornada rumo à sustentabilidade energética
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="name"
-                  className="text-gray-700 dark:text-gray-300"
-                >
-                  Nome completo
-                </Label>
-                <Input
-                  id="name"
-                  maxLength={100}
-                  autoComplete="name"
-                  type="text"
-                  placeholder="Seu nome completo"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  className="border-energy-200 dark:border-slate-600 focus:border-energy-500 dark:focus:border-energy-400 focus:ring-energy-500 dark:focus:ring-energy-400 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="email"
-                  className="text-gray-700 dark:text-gray-300"
-                >
-                  E-mail
-                </Label>
-                <Input
-                  id="email"
-                  maxLength={254}
-                  autoComplete="username"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  className="border-energy-200 dark:border-slate-600 focus:border-energy-500 dark:focus:border-energy-400 focus:ring-energy-500 dark:focus:ring-energy-400 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="password"
-                  className="text-gray-700 dark:text-gray-300"
-                >
-                  Senha
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    minLength={15}
-                    maxLength={128}
-                    autoComplete="new-password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={formData.password}
-                    onChange={(e) =>
-                      handleInputChange("password", e.target.value)
-                    }
-                    className="border-energy-200 dark:border-slate-600 focus:border-energy-500 dark:focus:border-energy-400 focus:ring-energy-500 dark:focus:ring-energy-400 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-energy-500 dark:text-energy-400 hover:text-energy-700 dark:hover:text-energy-300"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  htmlFor="confirmPassword"
-                  className="text-gray-700 dark:text-gray-300"
-                >
-                  Confirmar senha
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    maxLength={128}
-                    autoComplete="new-password"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={formData.confirmPassword}
-                    onChange={(e) =>
-                      handleInputChange("confirmPassword", e.target.value)
-                    }
-                    className="border-energy-200 dark:border-slate-600 focus:border-energy-500 dark:focus:border-energy-400 focus:ring-energy-500 dark:focus:ring-energy-400 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    aria-label={showConfirmPassword ? "Ocultar confirmação" : "Mostrar confirmação"}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-energy-500 dark:text-energy-400 hover:text-energy-700 dark:hover:text-energy-300"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff size={20} />
-                    ) : (
-                      <Eye size={20} />
+    <AuthLayout
+      title="Crie sua conta"
+      subtitle="Comece a entender e reduzir seu consumo de energia."
+      footer={
+        <>
+          Já tem uma conta?{" "}
+          <Link to="/login" className="font-semibold text-energy-700 hover:underline dark:text-energy-green-light">
+            Entrar
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        <AuthField
+          id="name"
+          label="Nome completo"
+          icon={User}
+          type="text"
+          autoComplete="name"
+          maxLength={100}
+          placeholder="Seu nome"
+          value={formData.name}
+          onChange={(e) => handleInputChange("name", e.target.value)}
+          autoFocus
+          required
+        />
+        <AuthField
+          id="email"
+          label="E-mail"
+          icon={Mail}
+          type="email"
+          autoComplete="username"
+          maxLength={254}
+          placeholder="seu@email.com"
+          value={formData.email}
+          onChange={(e) => handleInputChange("email", e.target.value)}
+          required
+        />
+        <AuthField
+          id="password"
+          label="Senha"
+          icon={Lock}
+          type="password"
+          autoComplete="new-password"
+          minLength={MIN_PASSWORD}
+          maxLength={128}
+          placeholder={`Mínimo de ${MIN_PASSWORD} caracteres`}
+          value={formData.password}
+          onChange={(e) => handleInputChange("password", e.target.value)}
+          aria-describedby="password-hint"
+          required
+          hint={
+            <div id="password-hint" className="space-y-2 pt-1">
+              <div className="flex gap-1" aria-hidden>
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "h-1 flex-1 rounded-full bg-muted transition-colors duration-300",
+                      strength.score >= i && strength.color
                     )}
-                  </button>
-                </div>
+                  />
+                ))}
               </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="terms"
-                  checked={formData.acceptTerms}
-                  onCheckedChange={(checked) =>
-                    handleInputChange("acceptTerms", checked as boolean)
-                  }
-                />
-                <Label
-                  htmlFor="terms"
-                  className="text-sm dark:text-energy-300"
+              <div className="flex items-center justify-between text-xs">
+                <span
+                  className={cn(
+                    "flex items-center gap-1",
+                    longEnough ? "text-energy-700 dark:text-energy-green-light" : "text-muted-foreground"
+                  )}
                 >
-                  Aceito os{" "}
-                  <Link
-                    to="/termos"
-                    className="text-energy-500 dark:text-energy-400 hover:text-energy-700 dark:hover:text-energy-300 underline"
-                  >
-                    termos de uso
-                  </Link>{" "}
-                  e{" "}
-                  <Link
-                    to="/privacidade"
-                    className="text-energy-500 dark:text-energy-400 hover:text-energy-700 dark:hover:text-energy-300 underline"
-                  >
-                    política de privacidade
-                  </Link>
-                </Label>
+                  {longEnough ? <Check className="size-3.5" /> : <span className="size-3.5 text-center">•</span>}
+                  {formData.password.length}/{MIN_PASSWORD} caracteres
+                </span>
+                {strength.label && <span className="font-medium text-muted-foreground">{strength.label}</span>}
               </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-energy-green-light hover:bg-energy-600 dark:bg-energy-600 dark:hover:bg-energy-700 text-white font-medium py-2.5"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Criando conta...</span>
-                  </div>
-                ) : (
-                  "Criar conta"
-                )}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center space-y-2">
-              <p className="text-sm text-energy-600 dark:text-white">
-                Já tem uma conta?{" "}
-                <Link
-                  to="/login"
-                  className="text-energy-500 dark:text-energy-400 hover:text-energy-700 dark:hover:text-energy-300 font-medium"
-                >
-                  Fazer login
-                </Link>
-              </p>
-              <Link
-                to="/"
-                className="text-sm text-energy-500 dark:text-energy-400 hover:text-energy-700 dark:hover:text-energy-300 block"
-              >
-                ← Voltar ao início
-              </Link>
             </div>
-          </CardContent>
-        </Card>
+          }
+        />
+        <AuthField
+          id="confirmPassword"
+          label="Confirmar senha"
+          icon={ShieldCheck}
+          type="password"
+          autoComplete="new-password"
+          maxLength={128}
+          placeholder="Repita a senha"
+          value={formData.confirmPassword}
+          onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+          invalid={confirmTouched && !passwordsMatch}
+          required
+          hint={
+            confirmTouched && (
+              <p
+                className={cn(
+                  "flex items-center gap-1 text-xs",
+                  passwordsMatch ? "text-energy-700 dark:text-energy-green-light" : "text-red-600 dark:text-red-400"
+                )}
+                role="status"
+              >
+                {passwordsMatch ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                {passwordsMatch ? "As senhas coincidem" : "As senhas não coincidem"}
+              </p>
+            )
+          }
+        />
 
-        {/* Benefits Preview */}
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 shadow-sm dark:bg-slate-700/60">
-            <Leaf className="h-5 w-5 text-green-500 dark:text-green-400 mx-auto mb-1" />
-            <p className="text-xs text-green-700 dark:text-green-300 font-medium">
-              Sustentável
-            </p>
-          </div>
-          <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 shadow-sm dark:bg-slate-700/60">
-            <Zap className="h-5 w-5 text-green-500 dark:text-green-400 mx-auto mb-1" />
-            <p className="text-xs text-green-700 dark:text-green-300 font-medium">
-              Eficiente
-            </p>
-          </div>
-          <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 shadow-sm dark:bg-slate-700/60">
-            <Battery className="h-5 w-5 text-green-500 dark:text-green-400 mx-auto mb-1" />
-            <p className="text-xs text-green-700 dark:text-green-300 font-medium">
-              Inteligente
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+        <label
+          htmlFor="terms"
+          className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-3.5 text-sm leading-relaxed text-muted-foreground transition-colors has-[[data-state=checked]]:border-energy-green-light/50 has-[[data-state=checked]]:bg-energy-green-light/5"
+        >
+          <Checkbox
+            id="terms"
+            checked={formData.acceptTerms}
+            onCheckedChange={(checked) => handleInputChange("acceptTerms", checked === true)}
+            className="mt-0.5 data-[state=checked]:border-energy-green-light data-[state=checked]:bg-energy-green-light data-[state=checked]:text-energy-blue-dark"
+          />
+          <span>
+            Li e aceito os{" "}
+            <Link to="/termos" className="font-medium text-foreground underline underline-offset-2">
+              termos de uso
+            </Link>{" "}
+            e a{" "}
+            <Link to="/privacidade" className="font-medium text-foreground underline underline-offset-2">
+              política de privacidade
+            </Link>
+            .
+          </span>
+        </label>
+
+        <SubmitButton loading={isLoading} label="Criar conta" loadingLabel="Criando conta..." />
+      </form>
+    </AuthLayout>
   );
 };
 

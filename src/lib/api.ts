@@ -1,7 +1,7 @@
 import { notifyError } from "@/lib/error-toast";
 
 // Requests already include "/api/..."; use same-origin as fallback (Netlify rewrite handles /api).
-const API_BASE =
+export const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
   (typeof window !== "undefined"
     ? window.location.origin
@@ -9,12 +9,27 @@ const API_BASE =
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  // Server's Retry-After (429/503), in ms, when it sent one.
+  retryAfterMs?: number;
+  constructor(status: number, message: string, retryAfterMs?: number) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    if (retryAfterMs !== undefined) this.retryAfterMs = retryAfterMs;
   }
 }
+
+const parseRetryAfter = (value: string | null) => {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const at = Date.parse(value);
+  return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now());
+};
+
+// Only 401 means the session is gone. 403 (CSRF/forbidden), 429 (rate limit),
+// 5xx, timeouts and network failures are transient or unrelated to the session.
+export const isSessionExpired = (error: unknown) => error instanceof ApiError && error.status === 401;
 
 export type ApiRequestOptions = RequestInit & {
   timeoutMs?: number;
@@ -29,7 +44,7 @@ let csrfToken: string | null = null;
 let csrfRequest: Promise<string> | null = null;
 let csrfGeneration = 0;
 export const invalidateCsrfToken = () => { csrfGeneration++; csrfToken = null; csrfRequest = null; };
-const getCsrfToken = async () => {
+export const getCsrfToken = async () => {
   if (csrfToken) return csrfToken;
   if (!csrfRequest) {
     const version = csrfGeneration;
@@ -44,6 +59,7 @@ const getDefaultErrorTitle = (status: number) => {
   if (status === 0) return "Falha de conexão";
   if (status === 401 || status === 403) return "Acesso negado";
   if (status === 404) return "Recurso não encontrado";
+  if (status === 429) return "Muitas requisições";
   if (status >= 500) return "Erro no servidor";
   return "Não foi possível concluir a ação";
 };
@@ -128,7 +144,7 @@ export const apiRequest = async <T>(
       (typeof data.error === "string" ? data.error : typeof data.message === "string" ? data.message : "") ||
       response.statusText ||
       "Erro inesperado";
-    const apiError = new ApiError(response.status, message);
+    const apiError = new ApiError(response.status, message, parseRetryAfter(response.headers.get("Retry-After")));
 
     if (!skipErrorToast) {
       notifyError(apiError, {

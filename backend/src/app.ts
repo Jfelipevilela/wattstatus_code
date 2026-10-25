@@ -19,7 +19,11 @@ import { createEnergyRouter } from "./modules/energy/energy.routes";
 import { ApiError } from "./middleware/error-handler";
 import { env } from "./config/env";
 import { createReportRouter } from "./modules/reports/report.routes";
-import { createRequestLimiter, protectMutation } from "./middleware/security";
+import { PropertyService } from "./modules/properties/properties.service";
+import { createPropertyRouter } from "./modules/properties/properties.routes";
+import { createHttpLimiter, createRequestLimiter, protectMutation } from "./middleware/security";
+import { createAIRouter } from "./modules/ai/ai.routes";
+import { MongoAIStore } from "./modules/ai/ai.store";
 import { createCatalogRouter } from "./modules/catalog/catalog.routes";
 
 export interface AppDependencies {
@@ -43,12 +47,13 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
     })
   );
   app.use(requestLogging);
-  app.use(createRequestLimiter(db, "http", 120, 60000));
+  app.use(createHttpLimiter(db));
   app.use(express.json({ limit: "100kb", inflate: false }));
   app.use("/api", protectMutation);
 
   const authService = new AuthService(db);
-  const applianceService = new ApplianceService(db);
+  const propertyService = new PropertyService(db);
+  const applianceService = new ApplianceService(db, propertyService);
 
   app.get(["/health", "/api/health"], (_req, res) => {
     res.json({
@@ -66,6 +71,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
     createApplianceRouter(applianceService)
   );
   app.use("/api/calculations", authenticate, createCalculationRouter());
+  app.use("/api/properties", authenticate, createPropertyRouter(propertyService));
   app.use(
     "/api/integrations",
     authenticate,
@@ -75,6 +81,17 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
   app.use("/api/analytics", authenticate, createAnalyticsRouter(db));
   app.use("/api/energy", authenticate, createEnergyRouter(db));
   app.use("/api/reports", authenticate, createReportRouter());
+  app.use("/api/ai", authenticate, createAIRouter({
+    data: {
+      listProperties: (userId) => propertyService.list(userId),
+      listRooms: (userId, propertyId) => propertyService.listRooms(userId, propertyId),
+      listAppliances: (userId) => applianceService.list(userId),
+      getEnergyHistory: (userId, start, end) => db.getEnergyHistory(userId, start, end),
+    },
+    store: new MongoAIStore(db),
+    limits: db,
+    isAdmin: (userId) => db.isAdmin(userId),
+  }));
 
   app.use(errorHandler);
 

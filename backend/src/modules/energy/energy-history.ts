@@ -13,6 +13,10 @@ export interface EnergySample {
   // used between startAt and capturedAt (Samsung powerConsumptionReport).
   readingType: "cumulative" | "delta";
   startAt?: Date;
+  // Where the appliance was when the reading was captured. Absent on readings
+  // taken before locations were recorded; never back-filled.
+  propertyId?: string | null;
+  roomId?: string | null;
   createdAt: Date;
   sampleKey: string;
 }
@@ -28,6 +32,11 @@ export interface EnergyInterval {
   tariffValue: number | null;
   source: "iot";
   readingType: "interval";
+  propertyId?: string | null;
+  roomId?: string | null;
+  // The appliance changed place between the two readings: the consumption is
+  // real but cannot be attributed to one room.
+  locationChanged?: boolean;
 }
 
 import { extractCumulativeKWh, extractReportCumulativeKWh, extractReportDelta } from "../integrations/energy-reading";
@@ -63,6 +72,18 @@ export const saveDeviceReading = async (
 
 export const ENERGY_CAPABILITIES = ["energyMeter", "powerConsumptionReport"];
 
+const intervalLocation = (previous: EnergySample, sample: EnergySample) => {
+  const before = { propertyId: previous.propertyId ?? null, roomId: previous.roomId ?? null };
+  const after = { propertyId: sample.propertyId ?? null, roomId: sample.roomId ?? null };
+  if (before.propertyId === after.propertyId && before.roomId === after.roomId) return after;
+  // Moved between readings: keep the property only if both ends agree.
+  return {
+    propertyId: before.propertyId === after.propertyId ? after.propertyId : null,
+    roomId: null,
+    locationChanged: Boolean(before.propertyId || after.propertyId),
+  };
+};
+
 export const toEnergyIntervals = (samples: EnergySample[]): EnergyInterval[] => {
   const last = new Map<string, EnergySample>();
   const intervals: EnergyInterval[] = [];
@@ -80,6 +101,8 @@ export const toEnergyIntervals = (samples: EnergySample[]): EnergyInterval[] => 
           cost: sample.tariffValue === null ? null : sample.counterKWh * sample.tariffValue,
           source: "iot",
           readingType: "interval",
+          propertyId: sample.propertyId ?? null,
+          roomId: sample.roomId ?? null,
         });
       }
       continue;
@@ -101,6 +124,7 @@ export const toEnergyIntervals = (samples: EnergySample[]): EnergyInterval[] => 
         cost: sample.tariffValue === null ? null : consumptionKWh * sample.tariffValue,
         source: "iot",
         readingType: "interval",
+        ...intervalLocation(previous, sample),
       });
     }
     last.set(key, sample);

@@ -1,0 +1,113 @@
+{
+  "profile": "desktop",
+  "base": "http://127.0.0.1:4511",
+  "runs": 3,
+  "at": "2026-10-24T13:53:11.714Z",
+  "loads": {
+    "dashboard:cold": {
+      "ttfb": 4,
+      "fcp": 64,
+      "lcp": 232,
+      "cls": 0.0278,
+      "tbt": 91,
+      "domContentLoaded": 39,
+      "heapMB": 17.4,
+      "usableMs": 501,
+      "requests": 59,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 2734.7,
+      "jsKB": 936,
+      "jsFiles": 49,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "dashboard:warm": {
+      "ttfb": 3,
+      "fcp": 156,
+      "lcp": 156,
+      "cls": 0.0278,
+      "tbt": 0,
+      "domContentLoaded": 29,
+      "heapMB": 11.5,
+      "usableMs": 440,
+      "requests": 59,
+      "apiRequests": 8,
+      "api429": 0,
+      "transferKB": 8,
+      "jsKB": 0,
+      "jsFiles": 49,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/ai/insights": 1,
+        "GET /api/analytics/usage": 1,
+        "GET /api/integrations/smartthings/usage": 1
+      }
+    },
+    "reports:cold": {
+      "ttfb": 6,
+      "fcp": 60,
+      "lcp": 260,
+      "cls": 0.2707,
+      "tbt": 0,
+      "domContentLoaded": 39,
+      "heapMB": 21.3,
+      "usableMs": 337,
+      "requests": 46,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 1910.2,
+      "jsKB": 474.8,
+      "jsFiles": 37,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/auth/csrf": 1,
+        "POST /api/reports/events": 1
+      }
+    },
+    "reports:warm": {
+      "ttfb": 4,
+      "fcp": 128,
+      "lcp": 216,
+      "cls": 0.2707,
+      "tbt": 0,
+      "domContentLoaded": 29,
+      "heapMB": 20.8,
+      "usableMs": 356,
+      "requests": 46,
+      "apiRequests": 7,
+      "api429": 0,
+      "transferKB": 7,
+      "jsKB": 0,
+      "jsFiles": 37,
+      "apiPaths": {
+        "GET /api/auth/me": 1,
+        "GET /api/appliances": 1,
+        "GET /api/user-settings": 1,
+        "GET /api/properties": 1,
+        "GET /api/energy/history": 1,
+        "GET /api/auth/csrf": 1,
+        "POST /api/reports/events": 1
+      }
+    }
+  },
+  "spa": [],
+  "three": null,
+  "memory": null
+}

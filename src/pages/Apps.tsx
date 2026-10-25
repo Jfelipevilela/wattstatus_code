@@ -19,6 +19,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogIcon,
 } from "@/components/ui/alert-dialog";
 import {
   PlugZap,
@@ -406,6 +407,7 @@ const Apps = () => {
       <AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <AlertDialogIcon tone="red"><Unplug /></AlertDialogIcon>
             <AlertDialogTitle>Desconectar SmartThings?</AlertDialogTitle>
             <AlertDialogDescription>
               O WattStatus deixa de ler e controlar seus dispositivos SmartThings. Você pode conectar de novo quando quiser.

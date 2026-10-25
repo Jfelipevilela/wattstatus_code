@@ -61,6 +61,7 @@ const db = {
   getIntegrationUsageHistory: async () => [], getIntegrationUsage: async () => [], getIntegrationToken: async () => null,
   getEnergyHistory: async () => [],
 };
+require('./helpers/property-repository.cjs').attachPropertyRepository(db);
 const app = createApp({ db, integrationManager: new IntegrationManager() });
 // Test-only shortcut for visual checks; this file is not a production entry point.
 app.get('/__test__/start', async (_req, res, next) => {

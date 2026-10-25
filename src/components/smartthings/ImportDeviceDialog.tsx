@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,11 +8,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogIcon,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { STATE_TARIFFS, formatCurrency, formatNumber } from "@/lib/energy";
 import { deviceKind, type DeviceKind, type OverviewItem } from "./types";
+import { useProperties, usePropertyLayout } from "@/hooks/useProperties";
+import { normalizeSearch } from "@/lib/energy";
 
 // Starting points only; the user confirms or edits them before importing.
 const TYPICAL_POWER_W: Record<DeviceKind, number | null> = {
@@ -32,6 +35,8 @@ export interface ImportValues {
   tariffState: string;
   tariffValue: number;
   measuredConsumptionKWh?: number;
+  propertyId?: string;
+  roomId?: string | null;
 }
 
 interface Props {
@@ -53,6 +58,19 @@ export function ImportDeviceDialog({ item, defaultState, defaultTariff, importin
   const [days, setDays] = useState("30");
   const [state, setState] = useState("SP");
   const [tariff, setTariff] = useState("");
+  const { properties, primary } = useProperties();
+  const [propertyId, setPropertyId] = useState("");
+  const [roomId, setRoomId] = useState("");
+  const activePropertyId = propertyId || primary?.id || "";
+  const { rooms } = usePropertyLayout(activePropertyId || undefined);
+  // The SmartThings room is only a suggestion: preselect a WattStatus room
+  // with the same name, never create or assume one.
+  const suggestedRoom = item?.device.room
+    ? rooms.find((room) => normalizeSearch(room.name) === normalizeSearch(item.device.room!))
+    : undefined;
+  useEffect(() => {
+    setRoomId(suggestedRoom?.id ?? "");
+  }, [suggestedRoom?.id, activePropertyId]);
 
   const reported = item?.status?.state.powerW ?? null;
   const energy = item?.status?.state.energyKWh ?? null;
@@ -88,8 +106,9 @@ export function ImportDeviceDialog({ item, defaultState, defaultTariff, importin
 
   return (
     <Dialog open={Boolean(item)} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
+          <DialogIcon tone="blue"><Download /></DialogIcon>
           <DialogTitle>Importar {item?.device.name}</DialogTitle>
           <DialogDescription>
             Confirme os dados de uso para estimar o consumo. O vínculo com o SmartThings fica salvo.
@@ -105,10 +124,51 @@ export function ImportDeviceDialog({ item, defaultState, defaultTariff, importin
               name: name.trim(),
               ...values,
               tariffState: state,
+              propertyId: activePropertyId || undefined,
+              roomId: roomId || null,
               measuredConsumptionKWh: energy !== null && energy > 0 ? energy : undefined,
             });
           }}
         >
+          {properties.length > 0 && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="import-property">Imóvel</Label>
+                <select
+                  id="import-property"
+                  className={selectClass}
+                  value={activePropertyId}
+                  onChange={(e) => {
+                    setPropertyId(e.target.value);
+                    setRoomId("");
+                  }}
+                >
+                  {properties.map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {property.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="import-room">Ambiente</Label>
+                <select id="import-room" className={selectClass} value={roomId} onChange={(e) => setRoomId(e.target.value)}>
+                  <option value="">Sem ambiente</option>
+                  {rooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      {room.name}
+                    </option>
+                  ))}
+                </select>
+                {item?.device.room && (
+                  <p className="text-xs text-muted-foreground">
+                    No SmartThings: {item.device.room}
+                    {suggestedRoom ? " (sugerido)" : ""}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="import-name">Nome</Label>
             <Input id="import-name" className="h-11" value={name} onChange={(e) => setName(e.target.value)} />

@@ -10,10 +10,12 @@
     "catalog:seed": "npm run build && node scripts/seed-catalog.cjs",
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.functions.json",
-    "test": "npm run build && node --test tests/*.test.cjs tests/*.test.js",
-    "start": "node dist/server.js"
+    "test": "npm run build && node --test --test-concurrency=2 tests/*.test.cjs tests/*.test.js",
+    "start": "node dist/server.js",
+    "migrate:properties": "npm run build && node scripts/migrate-properties.cjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.132.0",
     "@netlify/functions": "^5.1.2",
     "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",

@@ -6,7 +6,7 @@ import { env } from "../config/env";
 import { MongoDatabase } from "../storage/mongo-db";
 import { logger } from "../logging/logger";
 import { AUTH_COOKIE_NAME, CSRF_COOKIE_NAME, cookieOptions, normalizeEmail } from "../modules/auth/auth-security";
-import { readCookie } from "./auth-middleware";
+import { readAuthToken, readCookie, verifyAuthToken } from "./auth-middleware";
 import { ApiError } from "./error-handler";
 
 const csrfKey = createHmac("sha256", env.jwtSecret).update("wattstatus-csrf-v1").digest();
@@ -73,3 +73,45 @@ export const createAccountLimiter = (db: MongoDatabase) => createRequestLimiter(
 export const createDistributedAccountLimiter = (db: MongoDatabase) => createRequestLimiter(db, "auth-account", 50,
   15 * 60 * 1000, (req) => typeof req.body?.email === "string" && req.body.email.length <= 254
     ? normalizeEmail(req.body.email) : `invalid:${clientIp(req)}`);
+
+// Global API limiter.
+// - Anonymous traffic: 120 requests/min per IP (unchanged).
+// - Signed-in traffic: 300 requests/min per session, so several people behind
+//   one NAT (office, school, mobile carrier) no longer share one 120/min bucket,
+//   plus an IP ceiling that caps how many sessions one address can drive.
+// The session is identified by a locally verified JWT (signature, issuer,
+// audience, expiry); a forged or expired token falls back to the IP bucket.
+// Both counters are consumed in one round trip pair, in parallel.
+export const HTTP_LIMITS = { anonymousPerIp: 120, perSession: 300, authenticatedPerIp: 1200, windowMs: 60000 };
+const sessionKey = (req: Request) => {
+  try {
+    const token = readAuthToken(req);
+    return token ? verifyAuthToken(token).jti : null;
+  } catch {
+    return null;
+  }
+};
+const hmacKey = (key: string) => createHmac("sha256", env.jwtSecret).update(key).digest("hex");
+export const createHttpLimiter = (db: MongoDatabase, limits = HTTP_LIMITS) =>
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ip = clientIp(req);
+      const session = sessionKey(req);
+      const checks: Array<Promise<{ totalHits: number; resetTime: Date; max: number }>> = session
+        ? [
+            db.consumeRateLimit("http-session", hmacKey(session), limits.windowMs).then((row) => ({ ...row, max: limits.perSession })),
+            db.consumeRateLimit("http-ip-auth", hmacKey(ip), limits.windowMs).then((row) => ({ ...row, max: limits.authenticatedPerIp })),
+          ]
+        : [db.consumeRateLimit("http", hmacKey(ip), limits.windowMs).then((row) => ({ ...row, max: limits.anonymousPerIp }))];
+      const rows = await Promise.all(checks);
+      const primary = rows[0];
+      res.setHeader("RateLimit-Limit", String(primary.max));
+      res.setHeader("RateLimit-Remaining", String(Math.max(0, primary.max - primary.totalHits)));
+      const exceeded = rows.find((row) => row.totalHits > row.max);
+      if (!exceeded) return next();
+      const retryAfter = Math.max(1, Math.ceil((exceeded.resetTime.getTime() - Date.now()) / 1000));
+      logger.warn("security.rate_limit_exceeded", { reason: "too_many_requests", limiter: session ? "http-session" : "http" });
+      res.setHeader("Retry-After", String(retryAfter));
+      res.status(429).json({ error: "Muitas requisições em pouco tempo. Aguarde alguns segundos e tente novamente.", code: "RATE_LIMITED" });
+    } catch (error) { next(error); }
+  };

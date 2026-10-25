@@ -23,6 +23,8 @@ import IntegrationUsage from "@/components/IntegrationUsage";
 import { SummaryHeader } from "@/components/dashboard/SummaryHeader";
 import { EnergyHero } from "@/components/dashboard/EnergyHero";
 import { EnergyInsights, type Insight } from "@/components/dashboard/EnergyInsights";
+import { AIInsights } from "@/components/wattai/AIInsights";
+import { useWattAI } from "@/components/wattai/WattAI";
 import {
   ConsumptionTrendChart,
   type TrendPoint,
@@ -38,6 +40,9 @@ import {
   type DataStatus,
 } from "@/components/dashboard/summary";
 import { useAppliances } from "@/hooks/useAppliances";
+import { useProperties } from "@/hooks/useProperties";
+import { appliancePropertyId } from "@/lib/property-energy";
+import { PropertyScopeBar } from "@/components/dashboard/PropertyScopeBar";
 import { useEnergyHistory } from "@/hooks/useEnergyHistory";
 import { measuredByMonth } from "@/lib/measured";
 import {
@@ -54,7 +59,8 @@ const monthName = (year: number, month: number, format: "long" | "short" = "long
   });
 
 export default function Dashboard() {
-  const { appliances, loading, error, refetch, lastUpdated } = useAppliances();
+  const { appliances: allAppliances, loading, error, refetch, lastUpdated } = useAppliances();
+  const { properties, primary } = useProperties();
   const now = new Date();
   const [searchParams, setSearchParams] = useSearchParams();
   const periodMatch = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(
@@ -73,26 +79,49 @@ export default function Dashboard() {
       },
       { replace: true },
     );
+  // One extra day on each side so a property in another time zone still gets
+  // its whole months; readings are filed by month key afterwards.
   const historyStart = useMemo(
-    () => new Date(selectedYear, selectedMonth - 6, 1),
+    () => new Date(selectedYear, selectedMonth - 6, 0),
     [selectedYear, selectedMonth],
   );
   const historyEnd = useMemo(
-    () => new Date(selectedYear, selectedMonth, 1),
+    () => new Date(selectedYear, selectedMonth, 2),
     [selectedYear, selectedMonth],
   );
   const energy = useEnergyHistory(historyStart, historyEnd);
+  const { openAssistant } = useWattAI();
 
+  // Scope: all properties or one. Legacy appliances count in the primary one.
+  const scopeId = properties.some((item) => item.id === searchParams.get("imovel")) ? searchParams.get("imovel") : null;
+  const scopeProperty = properties.find((item) => item.id === scopeId) ?? null;
+  const setScope = (id: string | null) =>
+    setSearchParams(
+      (params) => {
+        const next = new URLSearchParams(params);
+        if (id) next.set("imovel", id);
+        else next.delete("imovel");
+        return next;
+      },
+      { replace: true },
+    );
+  const appliances = scopeId
+    ? allAppliances.filter((item) => appliancePropertyId(item, primary?.id ?? null) === scopeId)
+    : allAppliances;
+  // A single property is read in its own time zone; "all" uses the browser's.
+  const timeZone = scopeProperty?.timezone ?? null;
+  const scopedIntervals = scopeId ? energy.intervals.filter((item) => item.propertyId === scopeId) : energy.intervals;
   const estimate = getMonthlyEstimate(appliances, selectedYear, selectedMonth);
   const history = getEstimateHistory(appliances, selectedYear, selectedMonth);
   const measured = summarizeMonth(
-    energy.intervals,
+    scopedIntervals,
     appliances,
     selectedYear,
     selectedMonth,
+    timeZone,
   );
   const measuredMonths = new Map(
-    measuredByMonth(energy.intervals).map((row) => [row.month, row.consumptionKWh]),
+    measuredByMonth(scopedIntervals, timeZone).map((row) => [row.month, row.consumptionKWh]),
   );
   const trend: TrendPoint[] = history.map((point, index) => {
     const date = new Date(selectedYear, selectedMonth - 6 + index, 1);
@@ -255,11 +284,23 @@ export default function Dashboard() {
           <span className="font-semibold">Visão geral</span>
         </header>
         <main className="container mx-auto min-w-0 max-w-7xl space-y-8 px-4 py-6 sm:py-8">
+          {properties.length > 1 && (
+            <PropertyScopeBar
+              properties={properties}
+              scopeId={scopeId}
+              onChange={setScope}
+              appliances={allAppliances}
+              primaryId={primary?.id ?? null}
+              year={selectedYear}
+              month={selectedMonth}
+            />
+          )}
           <SummaryHeader
             month={selectedMonth}
             year={selectedYear}
             years={yearOptions}
             periodLabel={periodLabel}
+            scopeLabel={properties.length > 1 ? scopeProperty?.name ?? "todos os imóveis" : undefined}
             isCurrentMonth={isCurrentMonth}
             refreshing={loading || energy.loading}
             onChange={setPeriod}
@@ -269,14 +310,14 @@ export default function Dashboard() {
               energy.refresh();
             }}
           />
-          {loading && appliances.length === 0 ? (
+          {loading && allAppliances.length === 0 ? (
             <SummarySkeleton />
           ) : (
             <DataState loading={false} error={error} onRetry={refetch} />
           )}
-          {!error && !(loading && appliances.length === 0) && (
+          {!error && !(loading && allAppliances.length === 0) && (
             <>
-              {appliances.length === 0 ? (
+              {allAppliances.length === 0 ? (
                 <SummaryEmptyState />
               ) : estimate.rows.length === 0 ? (
                 <section className="rounded-3xl border border-dashed bg-card p-8 text-center sm:p-12">
@@ -308,8 +349,15 @@ export default function Dashboard() {
                     status={status}
                   />
                   <EnergyInsights insights={insights.slice(0, 4)} />
+                  <AIInsights />
                   <div className="grid min-w-0 gap-6 lg:grid-cols-[1.6fr_1fr]">
-                    <ConsumptionTrendChart data={trend} />
+                    <ConsumptionTrendChart
+                      data={trend}
+                      onExplain={() => openAssistant({
+                        message: "Explique este gráfico",
+                        chart: { kind: "consumption_trend", year: selectedYear, month: selectedMonth, ...(scopeId ? { propertyId: scopeId } : {}) },
+                      })}
+                    />
                     <ConsumptionDistribution
                       rows={estimate.rows}
                       total={estimate.consumption}

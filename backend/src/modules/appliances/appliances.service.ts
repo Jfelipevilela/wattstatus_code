@@ -13,8 +13,18 @@ import {
 import { logger } from "../../logging/logger";
 import { normalizeEnergyProfile } from "../catalog/reference";
 
+// Validates that a property/room pair belongs to the user.
+export interface PlacementResolver {
+  ensureDefault(userId: string): Promise<unknown>;
+  resolvePlacement(
+    userId: string,
+    propertyId: string | null | undefined,
+    roomId: string | null | undefined
+  ): Promise<{ propertyId: string; roomId: string | null }>;
+}
+
 export class ApplianceService {
-  constructor(private db: MongoDatabase) {}
+  constructor(private db: MongoDatabase, private placement?: PlacementResolver) {}
 
   private async readOwnedMeasurement(userId: string, input: CalculationInput) {
     if (!input.integrationProvider && !input.integrationDeviceId) {
@@ -65,6 +75,7 @@ export class ApplianceService {
   }
 
   async list(userId: string) {
+    if (this.placement) await this.placement.ensureDefault(userId);
     const rows = await this.db.listAppliances(userId);
     return rows.map((row) => ({
       ...row,
@@ -95,6 +106,9 @@ export class ApplianceService {
     };
     const measurement = await this.readOwnedMeasurement(userId, input);
     const calc = calculateAppliance(input);
+    const placement = this.placement
+      ? await this.placement.resolvePlacement(userId, input.propertyId, input.roomId)
+      : null;
 
     const record: ApplianceRecord = {
       id: randomUUID(),
@@ -123,11 +137,8 @@ export class ApplianceService {
       ...measurement,
       integrationProvider: input.integrationProvider,
       integrationDeviceId: input.integrationDeviceId,
-      ...(input.integrationProvider && input.integrationDeviceId
-        ? {
-            importKey: `${userId}:${input.integrationProvider}:${input.integrationDeviceId}`,
-          }
-        : {}),
+      ...(placement ? placement : {}),
+      ...(input.integrationProvider && input.integrationDeviceId ? { importKey: `${userId}:${input.integrationProvider}:${input.integrationDeviceId}` } : {}),
     };
 
     try {
@@ -214,10 +225,19 @@ export class ApplianceService {
       input.measuredConsumptionKWh !== undefined
         ? await this.readOwnedMeasurement(userId, payload)
         : {};
+
+    let placement: { propertyId: string; roomId: string | null } | null = null;
+    if (this.placement && (input.propertyId !== undefined || input.roomId !== undefined)) {
+      const propertyId = input.propertyId ?? existing.propertyId ?? null;
+      const movedProperty = Boolean(input.propertyId) && input.propertyId !== existing.propertyId;
+      const roomId = input.roomId !== undefined ? input.roomId : movedProperty ? null : existing.roomId ?? null;
+      placement = await this.placement.resolvePlacement(userId, propertyId, roomId);
+    }
     const calc = calculateAppliance(payload);
     const updated: ApplianceRecord = {
       ...existing,
       ...payload,
+      ...(placement ? placement : {}),
       status: calc.status,
       monthlyCost: calc.cost,
       monthlyConsumption: calc.consumptionKWh,
