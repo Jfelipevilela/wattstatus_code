@@ -215,6 +215,8 @@ interface SceneProps {
   showMarkers: boolean;
   // Fraction of the canvas width to push the house to the right.
   shift: number;
+  // Shadow work deferred until after the first frame (see HeroHouse3D).
+  shadowsReady: boolean;
 }
 
 // One room: textured floor, an emerald outline that fades in on hover and
@@ -462,7 +464,7 @@ function Parallax({ children, reducedMotion }: { children: React.ReactNode; redu
   return <group ref={ref}>{children}</group>;
 }
 
-function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, zoom, showMarkers, shift }: SceneProps) {
+function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, zoom, showMarkers, shift, shadowsReady }: SceneProps) {
   const resources = useSceneResources();
   const { geometries: g, materials: m } = resources;
   const controls = useRef<OrbitControlsImpl>(null);
@@ -528,7 +530,7 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
           <Boxes boxes={BOLLARDS} material={m.warm} geometry={g.cylinder} />
           <Trees resources={resources} shadows={shadows} />
           {/* Soft grounding around the house; rendered once, not per frame. */}
-          <ContactShadows position={[CX, 0.004, CZ + 0.6]} scale={[HOUSE_SIZE.w + 3, HOUSE_SIZE.d + 4]} far={2.5} blur={2.6} opacity={0.55} resolution={512} frames={1} color="#020806" />
+          {shadowsReady && <ContactShadows position={[CX, 0.004, CZ + 0.6]} scale={[HOUSE_SIZE.w + 3, HOUSE_SIZE.d + 4]} far={2.5} blur={2.6} opacity={0.55} resolution={512} frames={1} color="#020806" />}
 
           {DEMO_ROOMS.map((room) => (
             <Room key={room.id} room={room} resources={resources} onHover={onHover} onSelect={onSelect} state={roomState(room.id)} />
@@ -588,14 +590,78 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
   );
 }
 
-export interface HeroHouse3DProps extends SceneProps {
+// The first frame skips the shadow pass; shadows join on the next idle
+// moment, while the canvas is still fading in over the poster. This splits
+// one long frame into two shorter tasks.
+function ShadowsLater({ ready }: { ready: boolean }) {
+  const gl = useThree((s) => s.gl);
+  const invalidate = useThree((s) => s.invalidate);
+  useLayoutEffect(() => {
+    gl.shadowMap.autoUpdate = ready;
+    if (ready) {
+      gl.shadowMap.needsUpdate = true;
+      invalidate();
+    }
+  }, [gl, ready, invalidate]);
+  return null;
+}
+
+export interface HeroHouse3DProps extends Omit<SceneProps, "shadowsReady"> {
   active: boolean;
   onReady?: () => void;
 }
 
+// Compiles every shader before the first frame. With compileAsync the
+// browser can link programs in parallel (KHR_parallel_shader_compile), so
+// the page stays responsive instead of freezing on the first render. The
+// canvas does not draw until this resolves; the poster covers the wait.
+function Warmup({ onWarm }: { onWarm: () => void }) {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  const camera = useThree((s) => s.camera);
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    let alive = true;
+    const done = () => {
+      if (!alive) return;
+      onWarm();
+      invalidate();
+    };
+    gl.compileAsync(scene, camera).then(done, done);
+    return () => {
+      alive = false;
+    };
+    // Once per mounted scene.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
+
+// Marks the first drawn frame, for performance measurements.
+function FirstFrame() {
+  const done = useRef(false);
+  useFrame(() => {
+    if (done.current) return;
+    done.current = true;
+    performance.mark?.("hero-3d-first-frame");
+  });
+  return null;
+}
+
 export default function HeroHouse3D({ active, onReady, ...props }: HeroHouse3DProps) {
   const [dpr, setDpr] = useState(() => Math.min(window.devicePixelRatio || 1, props.compact ? 1.5 : 1.75));
-  const frameloop = !active ? "never" : props.reducedMotion ? "demand" : "always";
+  const [warm, setWarm] = useState(false);
+  const [shadowsReady, setShadowsReady] = useState(false);
+  useEffect(() => {
+    if (!warm) return;
+    if ("requestIdleCallback" in window) {
+      const handle = window.requestIdleCallback(() => setShadowsReady(true), { timeout: 1200 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const handle = globalThis.setTimeout(() => setShadowsReady(true), 300);
+    return () => globalThis.clearTimeout(handle);
+  }, [warm]);
+  const frameloop = !active || !warm ? "never" : props.reducedMotion ? "demand" : "always";
   return (
     <Canvas
       className="!touch-pan-y"
@@ -607,13 +673,20 @@ export default function HeroHouse3D({ active, onReady, ...props }: HeroHouse3DPr
       onCreated={({ gl }) => {
         gl.setClearColor(0x000000, 0);
         gl.toneMappingExposure = 1.05;
-        onReady?.();
       }}
       onPointerMissed={() => props.onSelect(null)}
       aria-hidden="true"
     >
       <PerformanceMonitor onDecline={() => setDpr((value) => Math.max(1, value - 0.25))} />
-      <Scene {...props} />
+      <Scene {...props} shadowsReady={shadowsReady} />
+      <ShadowsLater ready={shadowsReady} />
+      <FirstFrame />
+      <Warmup
+        onWarm={() => {
+          setWarm(true);
+          onReady?.();
+        }}
+      />
     </Canvas>
   );
 }

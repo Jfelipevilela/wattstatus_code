@@ -45,6 +45,16 @@ function HouseStage() {
   const [zoomIndex, setZoomIndex] = useState(1);
   const room = DEMO_ROOMS.find((item) => item.id === selected) ?? null;
 
+  // Start downloading the 3D chunk right after the first paint. Mounting
+  // still waits for idle time; this only overlaps the download with it.
+  useEffect(() => {
+    if (!webgl) return;
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => void import("./HeroHouse3D"));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [webgl]);
+
   // Load the 3D chunk after first paint so it never delays the headline.
   useEffect(() => {
     if (!webgl) return;
