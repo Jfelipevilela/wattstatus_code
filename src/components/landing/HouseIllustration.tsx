@@ -14,10 +14,13 @@ const ROOMS: Array<{ x: number; z: number; w: number; d: number; fill: string }>
 ];
 
 // `tight` crops the empty margin around the drawing for small placements.
-export function HouseIllustration({ className, tight = false }: { className?: string; tight?: boolean }) {
+// `highlight` and `onPick` turn it into the no-WebGL room explorer: the
+// picked room lights up, and rooms are clickable (keyboard uses the HTML
+// room buttons next to it).
+export function HouseIllustration({ className, tight = false, highlight = -1, onPick }: { className?: string; tight?: boolean; highlight?: number; onPick?: (index: number) => void }) {
   const id = useId().replace(/:/g, "");
   return (
-    <svg viewBox={tight ? "40 60 520 320" : "0 0 600 420"} className={className} role="img" aria-label="Ilustração de uma casa demonstrativa vista em perspectiva isométrica">
+    <svg viewBox={tight ? "8 52 606 442" : "-10 10 630 500"} className={className} role="img" aria-label="Ilustração de uma casa demonstrativa vista em perspectiva isométrica">
       <defs>
         <linearGradient id={`${id}-wall`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor="#e6dfd2" />
@@ -31,9 +34,21 @@ export function HouseIllustration({ className, tight = false }: { className?: st
       <ellipse cx="300" cy="300" rx="260" ry="90" fill={`url(#${id}-glow)`} />
       <polygon points={pts([[-0.9, -0.9], [10.9, -0.9], [10.9, 10.1], [-0.9, 10.1]])} fill="#0d1d17" stroke="#45e0a4" strokeOpacity="0.5" />
       <polygon points={pts([[6.05, 8.3], [9.75, 8.3], [9.75, 9.6], [6.05, 9.6]])} fill="#1e8f6a" opacity="0.8" />
-      {ROOMS.map((room) => (
-        <polygon key={`${room.x}-${room.z}`} points={pts([[room.x, room.z], [room.x + room.w, room.z], [room.x + room.w, room.z + room.d], [room.x, room.z + room.d]])} fill={room.fill} stroke="#0d1d17" strokeWidth="1" />
+      {ROOMS.map((room, index) => (
+        <polygon
+          key={`${room.x}-${room.z}`}
+          points={pts([[room.x, room.z], [room.x + room.w, room.z], [room.x + room.w, room.z + room.d], [room.x, room.z + room.d]])}
+          fill={room.fill}
+          stroke={index === highlight ? "#45e0a4" : "#0d1d17"}
+          strokeWidth={index === highlight ? 2.5 : 1}
+          onClick={onPick ? () => onPick(index) : undefined}
+          style={onPick ? { cursor: "pointer" } : undefined}
+        />
       ))}
+      {highlight >= 0 && (() => {
+        const room = ROOMS[highlight];
+        return <polygon points={pts([[room.x, room.z], [room.x + room.w, room.z], [room.x + room.w, room.z + room.d], [room.x, room.z + room.d]])} fill="#45e0a4" fillOpacity="0.22" pointerEvents="none" />;
+      })()}
       {/* Back and left walls */}
       <polygon points={pts([[0, 0, 0], [10, 0, 0], [10, 0, 2.6], [0, 0, 2.6]])} fill={`url(#${id}-wall)`} opacity="0.92" />
       <polygon points={pts([[0, 0, 0], [0, 7.8, 0], [0, 7.8, 2.6], [0, 0, 2.6]])} fill="#c9c0b1" opacity="0.9" />

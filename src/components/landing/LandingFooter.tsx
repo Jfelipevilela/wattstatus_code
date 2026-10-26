@@ -34,7 +34,7 @@ export function LandingFooter() {
         </nav>
       </div>
       <div className="border-t border-[var(--l-line)]">
-        <div className="l-container flex flex-col gap-2 py-6 text-xs text-[var(--l-faint)] md:flex-row md:items-center md:justify-between">
+        <div className="l-container flex flex-col gap-2 py-6 text-sm text-[var(--l-faint)] md:flex-row md:items-center md:justify-between">
           <p>© {new Date().getFullYear()} WattStatus. Todos os direitos reservados.</p>
           <p>A casa e as telas desta página são demonstrativas e não representam dados reais.</p>
         </div>

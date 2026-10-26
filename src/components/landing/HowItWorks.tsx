@@ -13,7 +13,7 @@ function Step({ step, index }: { step: (typeof STEPS)[number]; index: number }) 
         {index + 1}
       </span>
       <h3 className="text-xl font-semibold tracking-[-0.02em]">{step.title}</h3>
-      <p className="mt-2 max-w-xs text-[15px] leading-relaxed text-[var(--l-muted)]">{step.text}</p>
+      <p className="mt-2 max-w-xs text-base leading-relaxed text-[var(--l-muted)]">{step.text}</p>
     </li>
   );
 }
@@ -26,7 +26,7 @@ export function HowItWorks() {
         <div ref={head.ref} data-shown={head.shown} className="l-reveal flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
             <Chapter index={5} label="Ação" />
-            <h2 id="como-title" className="mt-6 text-[2.2rem] font-semibold leading-[1.05] tracking-[-0.035em] md:text-[3.2rem]">Comece em três passos.</h2>
+            <h2 id="como-title" className="mt-6 l-h2">Comece em três passos.</h2>
           </div>
           <Link to="/signup" className="l-btn l-btn-ghost w-fit">
             Cadastrar meu imóvel <ArrowRight className="h-4 w-4" aria-hidden="true" />

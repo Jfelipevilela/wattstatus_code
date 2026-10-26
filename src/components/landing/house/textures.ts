@@ -76,13 +76,17 @@ export const tileTexture = () => {
   return finish(new CanvasTexture(node));
 };
 
-/** Soft radial halo laid under the house to blend it into the page. */
-export const haloTexture = () => {
+/** Soft radial glow. Green: the halo under the house. Amber: pools of
+ * light on the floors, which read as lamps without costing real lights. */
+export const haloTexture = (tone: "green" | "amber" = "green") => {
   const [node, ctx] = canvas(256);
   const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-  gradient.addColorStop(0, "rgba(38, 120, 88, 0.55)");
-  gradient.addColorStop(0.45, "rgba(24, 77, 58, 0.28)");
-  gradient.addColorStop(1, "rgba(7, 20, 17, 0)");
+  const stops = tone === "green"
+    ? ["rgba(38, 120, 88, 0.55)", "rgba(24, 77, 58, 0.28)", "rgba(7, 20, 17, 0)"]
+    : ["rgba(255, 200, 140, 0.55)", "rgba(255, 180, 110, 0.16)", "rgba(255, 170, 100, 0)"];
+  gradient.addColorStop(0, stops[0]);
+  gradient.addColorStop(0.45, stops[1]);
+  gradient.addColorStop(1, stops[2]);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 256, 256);
   const texture = new CanvasTexture(node);

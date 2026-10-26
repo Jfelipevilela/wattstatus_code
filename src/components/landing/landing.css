@@ -47,23 +47,52 @@
   background: rgb(var(--l-accent-rgb)/0.3);
 }
 
-.landing .l-container {
+.landing .l-container,
+.landing .l-container-wide {
   width: 100%;
-  max-width: 1240px;
+  max-width: 1320px;
   margin-inline: auto;
   padding-inline: 20px;
 }
+
 @media (min-width: 768px) {
-  .landing .l-container { padding-inline: 32px; }
+  .landing .l-container,
+  .landing .l-container-wide { padding-inline: 40px; }
+}
+@media (min-width: 1600px) {
+  .landing .l-container { max-width: 1400px; }
+  /* Wide sections open up only where there is room for them. */
+  .landing .l-container-wide { max-width: 1560px; }
+}
+
+/* Type scale: headings and lead paragraphs shared by every section. */
+.landing .l-h2 {
+  font-size: clamp(2.15rem, 1.4rem + 2.6vw, 3.75rem);
+  font-weight: 650;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+}
+.landing .l-lead {
+  font-size: clamp(1.05rem, 0.98rem + 0.3vw, 1.25rem);
+  line-height: 1.6;
+  color: var(--l-muted);
+}
+
+/* A lifted band: lighter surface with architectural light from above. */
+.landing .l-band {
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgb(var(--l-forest-rgb) / 0.55), transparent 70%),
+    linear-gradient(180deg, #0c1d18 0%, #0a1814 100%);
+  border-block: 1px solid var(--l-line);
 }
 
 .landing .l-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--l-accent);
 }
@@ -96,10 +125,10 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 48px;
-  padding: 0 22px;
-  border-radius: 12px;
-  font-size: 15px;
+  min-height: 52px;
+  padding: 0 26px;
+  border-radius: 14px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.005em;
   transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease, color 0.2s ease;
@@ -139,7 +168,7 @@
 .landing .l-navlink {
   position: relative;
   padding: 8px 2px;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--l-muted);
   transition: color 0.2s ease;
 }
@@ -178,10 +207,10 @@
 }
 
 /* Entrance sequence. */
-/* Entrances start at 0.01, not 0: visually identical, but the text counts
-   as painted, so the entrance never delays Largest Contentful Paint. */
+/* Entrances are for secondary elements only: the headline and lead paint
+   at once, so nothing important waits on an animation. */
 @keyframes l-rise {
-  from { opacity: 0.01; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: none; }
 }
 @keyframes l-fade {
@@ -216,9 +245,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--l-muted);
   border: 1px solid var(--l-line-strong);
   background: rgb(var(--l-surface-rgb) / 0.5);
@@ -229,10 +258,10 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 11px 6px 8px;
+  padding: 7px 13px 7px 9px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--l-text);
   white-space: nowrap;
   background: rgb(var(--l-bg-rgb)/0.78);
@@ -315,7 +344,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -337,5 +366,5 @@
 }
 .landing a.l-card:hover { border-color: rgb(var(--l-accent-rgb) / 0.3); transform: translateY(-3px); }
 
-.landing .l-legend { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--l-muted); }
+.landing .l-legend { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--l-muted); }
 .landing .l-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }

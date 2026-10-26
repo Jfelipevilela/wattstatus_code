@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { Html, OrbitControls, PerformanceMonitor } from "@react-three/drei";
+import { ContactShadows, Html, OrbitControls, PerformanceMonitor } from "@react-three/drei";
 import { RoundedBoxGeometry, type OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import {
   BoxGeometry,
@@ -12,6 +12,7 @@ import {
   type InstancedMesh,
   type Material,
   Matrix4,
+  AdditiveBlending,
   MeshBasicMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
@@ -34,6 +35,7 @@ import {
   CZ,
   DECK,
   EXTERIOR,
+  FASCIA,
   FRAMES,
   FT,
   GLASS,
@@ -48,6 +50,7 @@ import {
   ROOF,
   roomCenter,
   SCONCES,
+  SKIRTING,
   SOFFIT_LIGHTS,
   TRACES,
   traceBoxes,
@@ -100,7 +103,11 @@ const useSceneResources = () => {
         }),
       ]),
     ) as Record<FurnitureFinish, MeshStandardMaterial>;
-    const textures = { wood: woodTexture(), tile: tileTexture(), halo: haloTexture() };
+    const wood = woodTexture();
+    const deckMap = wood.clone();
+    deckMap.needsUpdate = true;
+    deckMap.repeat.set(5.8 / WOOD_TILE_METRES, 2.2 / WOOD_TILE_METRES);
+    const textures = { wood, deck: deckMap, tile: tileTexture(), halo: haloTexture(), lightPool: haloTexture("amber") };
     const geometries = {
       box: new BoxGeometry(1, 1, 1),
       // Softened edges so furniture reads as objects, not blocks.
@@ -112,18 +119,19 @@ const useSceneResources = () => {
       plane: new PlaneGeometry(1, 1),
     };
     const materials = {
-      wall: standard("#ddd6c9", 0.92),
-      cap: standard("#26312c", 0.6),
+      wall: standard("#e3ddd1", 0.94),
+      skirting: standard("#4a3424", 0.6),
+      cap: standard("#39433e", 0.7),
       plinth: standard("#0d1d17", 0.9),
       lawn: standard("#1d3b2c", 1),
-      deck: standard("#5a412c", 0.75),
+      deck: standard("#8f7a68", 0.78, { map: deckMap }),
       stone: standard("#bcb6aa", 0.85),
-      frame: standard("#1a201d", 0.35, { metalness: 0.7 }),
-      roof: standard("#18221e", 0.6),
+      frame: standard("#4a524c", 0.3, { metalness: 0.75 }),
+      roof: standard("#6c706a", 0.88),
       trunk: standard("#3b2c20", 0.9),
       canopy: standard("#2c6145", 0.85),
-      glass: new MeshStandardMaterial({ color: "#cfe9dd", roughness: 0.03, metalness: 0.4, transparent: true, opacity: 0.09, depthWrite: false, side: DoubleSide }),
-      water: standard("#0b3a30", 0.06, { emissive: new Color("#1e8f6a"), emissiveIntensity: 0.45, metalness: 0.3 }),
+      glass: new MeshStandardMaterial({ color: "#e2f4ec", roughness: 0.02, metalness: 0.65, transparent: true, opacity: 0.13, depthWrite: false, side: DoubleSide }),
+      water: standard("#145a50", 0.04, { emissive: new Color("#2aa587"), emissiveIntensity: 0.3, metalness: 0.45 }),
       warm: basic(AMBER),
       soffit: basic("#ffe2bd"),
       emerald: basic(EMERALD),
@@ -131,6 +139,7 @@ const useSceneResources = () => {
       trace: basic(EMERALD, 0),
       pulse: basic("#d9ffef", 0),
       halo: new MeshBasicMaterial({ map: textures.halo, transparent: true, depthWrite: false, toneMapped: false }),
+      lightPool: new MeshBasicMaterial({ map: textures.lightPool, transparent: true, depthWrite: false, toneMapped: false, blending: AdditiveBlending }),
     };
     return { geometries, materials, furniture, textures };
   }, []);
@@ -368,6 +377,25 @@ function RoomLights({ selected, compact, reducedMotion, start }: { selected: Dem
   );
 }
 
+// Warm pools of light on each floor, under the room lights.
+function LightPools({ resources }: { resources: Resources }) {
+  const pools = useMemo<Box[]>(() => DEMO_ROOMS.map((room) => {
+    const [cx, cz] = roomCenter(room);
+    const r = Math.min(room.w, room.d) * 0.95;
+    return { p: [cx, FT + 0.004, cz], s: [r, 1, r] };
+  }), []);
+  const ref = useRef<InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const m = new Matrix4();
+    const tilt = new Matrix4().makeRotationX(-Math.PI / 2);
+    pools.forEach((pool, i) => mesh.setMatrixAt(i, m.makeScale(pool.s[0], pool.s[2], 1).premultiply(tilt).setPosition(...pool.p)));
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [pools]);
+  return <instancedMesh ref={ref} args={[resources.geometries.plane, resources.materials.lightPool, pools.length]} raycast={() => null} frustumCulled={false} />;
+}
+
 function Trees({ resources, shadows }: { resources: Resources; shadows: boolean }) {
   const trunks = useMemo<Box[]>(() => TREES.map((t) => ({ p: [t.x, t.h * 0.3, t.z], s: [0.08, t.h * 0.6, 0.08] })), []);
   const canopies = useMemo<Box[]>(() => TREES.map((t) => ({ p: [t.x, t.h * 0.62 + t.r * 0.5, t.z], s: [t.r * 2, t.r * 2.3, t.r * 2] })), []);
@@ -445,12 +473,12 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
   const aspect = size.width / Math.max(1, size.height);
   // Fit by the part of the canvas the house actually uses.
   const useful = aspect * (1 - shift * 1.6);
-  const base = compact ? 21.5 * Math.max(1, 1.0 / aspect) : 23 * Math.max(1, 1.25 / useful);
+  const base = compact ? 25 * Math.max(1, 1.0 / aspect) : 23 * Math.max(1, 1.25 / useful);
   const roomState = (id: DemoRoomId): RoomState => (id === selected ? "selected" : id === hovered ? "hover" : selected ? "dimmed" : "idle");
 
   return (
     <>
-      <hemisphereLight args={["#7fb89c", "#06120e", 0.75]} />
+      <hemisphereLight args={["#7fb89c", "#06120e", 0.6]} />
       <ambientLight intensity={0.12} color="#cfe8dc" />
       <OrbitControls
         ref={controls}
@@ -499,6 +527,8 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
           <Boxes boxes={COPING} material={m.stone} geometry={g.box} receiveShadow />
           <Boxes boxes={BOLLARDS} material={m.warm} geometry={g.cylinder} />
           <Trees resources={resources} shadows={shadows} />
+          {/* Soft grounding around the house; rendered once, not per frame. */}
+          <ContactShadows position={[CX, 0.004, CZ + 0.6]} scale={[HOUSE_SIZE.w + 3, HOUSE_SIZE.d + 4]} far={2.5} blur={2.6} opacity={0.55} resolution={512} frames={1} color="#020806" />
 
           {DEMO_ROOMS.map((room) => (
             <Room key={room.id} room={room} resources={resources} onHover={onHover} onSelect={onSelect} state={roomState(room.id)} />
@@ -507,6 +537,9 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
           <Boxes boxes={EXTERIOR} material={m.wall} geometry={g.box} castShadow={shadows} receiveShadow />
           <Boxes boxes={INTERIOR} material={m.wall} geometry={g.box} castShadow={shadows} receiveShadow />
           <Boxes boxes={WALL_CAPS} material={m.cap} geometry={g.box} />
+          <Boxes boxes={SKIRTING} material={m.skirting} geometry={g.box} />
+          <Boxes boxes={FASCIA} material={m.warm} geometry={g.box} />
+          <LightPools resources={resources} />
           <Boxes boxes={ROOF} material={m.roof} geometry={g.box} castShadow={shadows} />
           <Boxes boxes={SOFFIT_LIGHTS} material={m.soffit} geometry={g.box} />
           <Boxes boxes={COVES} material={m.warm} geometry={g.box} />

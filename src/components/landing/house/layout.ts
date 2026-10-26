@@ -73,6 +73,13 @@ export const WALL_CAPS: Box[] = [...EXTERIOR, ...INTERIOR].map((box) => ({
   s: [box.s[0] + 0.01, 0.024, box.s[2] + 0.01],
 }));
 
+// Dark walnut skirting at the foot of every wall: a small detail that makes
+// the rooms read as finished interiors.
+export const SKIRTING: Box[] = [...EXTERIOR, ...INTERIOR].map((box) => ({
+  p: [box.p[0], FT + 0.045, box.p[2]],
+  s: [box.s[0] + (box.s[0] > box.s[2] ? 0 : 0.03), 0.09, box.s[2] + (box.s[2] > box.s[0] ? 0 : 0.03)],
+}));
+
 // Glass facades on the two sides that face the camera.
 const facade = () => {
   const glass: Box[] = [];
@@ -91,12 +98,15 @@ export const GLASS: Box[] = [...FACADE.glass, ...back.glass, ...left.glass];
 export const FRAMES: Box[] = [...FACADE.frame, ...back.frame, ...left.frame];
 
 // Cantilevered roof over the private rooms and a slim side canopy.
+// Slim slab (12 cm) so the roof frames the house instead of dominating it.
 export const ROOF: Box[] = [
-  { p: [CX + 0.15, H + 0.09, 0.55], s: [W + 1.3, 0.18, 2.2] },
-  { p: [-0.15, H + 0.09, CZ + 0.4], s: [1.1, 0.18, D + 1.0] },
+  { p: [CX + 0.1, H + 0.06, 0.45], s: [W + 1.0, 0.12, 1.75] },
+  { p: [-0.1, H + 0.06, CZ + 0.3], s: [0.8, 0.12, D + 0.6] },
 ];
+// Thin warm fascia along the roof's front edge.
+export const FASCIA: Box[] = [{ p: [CX + 0.1, H + 0.005, 1.33], s: [W + 1.0, 0.02, 0.02] }];
 // Warm downlights under the roof edge (exterior soffit).
-export const SOFFIT_LIGHTS: Box[] = Array.from({ length: 9 }, (_, i) => ({ p: [0.4 + i * 1.18, H - 0.005, 1.5], s: [0.12, 0.012, 0.12] }));
+export const SOFFIT_LIGHTS: Box[] = Array.from({ length: 9 }, (_, i) => ({ p: [0.4 + i * 1.18, H - 0.005, 1.2], s: [0.1, 0.012, 0.1] }));
 
 // Interior warm lighting: cove strips on the tall walls and wall sconces.
 export const COVES: Box[] = [

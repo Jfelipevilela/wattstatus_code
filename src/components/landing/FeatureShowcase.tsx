@@ -21,7 +21,7 @@ function Card({ id, index, className, children, wide = false }: { id: (typeof FE
             <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
           </span>
           <h3 className="mt-5 text-xl font-semibold tracking-[-0.02em] md:text-2xl">{feature.title}</h3>
-          <p className="mt-2.5 max-w-md text-[15px] leading-relaxed text-[var(--l-muted)]">{feature.text}</p>
+          <p className="mt-2.5 max-w-md text-base leading-relaxed text-[var(--l-muted)]">{feature.text}</p>
           <a href={LINKS[id]} className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--l-accent)] hover:text-[var(--l-accent-hover)]">
             Saiba mais <span className="sr-only">sobre {feature.title}</span>
             <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true" />
@@ -44,16 +44,21 @@ function Hierarchy() {
     { Icon: Plug, label: "Geladeira", depth: 2 },
   ];
   return (
-    <div className="relative mt-8 min-h-[240px] flex-1 sm:min-h-[300px] lg:mt-0" aria-hidden="true">
-      <HouseIllustration tight className="absolute bottom-[-6%] right-[-6%] hidden h-[105%] w-[92%] transition-transform duration-700 group-hover:scale-[1.03] sm:block" />
-      <ul className="relative w-full space-y-1.5 text-[13px] sm:w-[190px]">
+    <div className="mt-8 grid flex-1 items-center gap-8 sm:grid-cols-[minmax(0,210px)_minmax(0,1fr)]" aria-hidden="true">
+      {/* Tree with real guides, beside (never over) the house. */}
+      <ul className="text-sm">
         {rows.map(({ Icon, label, depth }) => (
-          <li key={label} className="flex items-center gap-2 rounded-lg border border-[var(--l-line)] bg-[rgb(var(--l-bg-rgb)/0.7)] px-2.5 py-1.5 backdrop-blur-sm" style={{ marginLeft: depth * 14 }}>
-            <Icon className={`h-3.5 w-3.5 ${depth === 2 ? "text-[var(--l-amber)]" : "text-[var(--l-accent)]"}`} />
-            <span className={depth === 0 ? "font-semibold" : "text-[var(--l-muted)]"}>{label}</span>
+          <li key={label} className="relative py-1" style={{ paddingLeft: depth * 18 }}>
+            {depth > 0 && <span className="absolute top-0 h-full border-l border-[var(--l-line-strong)]" style={{ left: depth * 18 - 10 }} />}
+            {depth > 0 && <span className="absolute top-1/2 w-2 border-t border-[var(--l-line-strong)]" style={{ left: depth * 18 - 10 }} />}
+            <span className="flex items-center gap-2 rounded-lg border border-[var(--l-line)] bg-[rgb(var(--l-bg-rgb)/0.55)] px-2.5 py-1.5">
+              <Icon className={`h-3.5 w-3.5 shrink-0 ${depth === 2 ? "text-[var(--l-amber)]" : "text-[var(--l-accent)]"}`} />
+              <span className={depth === 0 ? "font-semibold" : "text-[var(--l-muted)]"}>{label}</span>
+            </span>
           </li>
         ))}
       </ul>
+      <HouseIllustration tight className="hidden h-auto w-full transition-transform duration-700 group-hover:scale-[1.03] sm:block" />
     </div>
   );
 }
@@ -84,7 +89,7 @@ function Prompts() {
   return (
     <ul className="mt-8 flex flex-1 flex-col justify-end gap-2.5" aria-label="Exemplos de perguntas">
       {prompts.map((prompt) => (
-        <li key={prompt} className="flex items-center gap-3 rounded-2xl border border-[var(--l-line)] bg-[rgb(var(--l-bg-rgb)/0.35)] px-4 py-3 text-[14px] transition-colors duration-300 group-hover:border-[rgb(var(--l-accent-rgb)/0.25)]">
+        <li key={prompt} className="flex items-center gap-3 rounded-2xl border border-[var(--l-line)] bg-[rgb(var(--l-bg-rgb)/0.35)] px-4 py-3 text-[15px] transition-colors duration-300 group-hover:border-[rgb(var(--l-accent-rgb)/0.25)]">
           <MessageSquareText className="h-4 w-4 shrink-0 text-[var(--l-accent)]" aria-hidden="true" />
           {prompt}
         </li>
@@ -103,7 +108,7 @@ function PlanSimulator() {
     <div className="mt-8 flex flex-1 flex-col justify-center lg:mt-0">
       <div className="rounded-2xl border border-[var(--l-line)] bg-[rgb(var(--l-bg-rgb)/0.35)] p-5">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold">Simular hábito · ar-condicionado</p>
+          <p className="text-[15px] font-semibold">Hábito × meta · ar-condicionado</p>
           <span className="l-chip">Exemplo</span>
         </div>
         <label htmlFor="plan-hours" className="mt-4 flex items-baseline justify-between text-sm text-[var(--l-muted)]">
@@ -115,9 +120,10 @@ function PlanSimulator() {
           <div className="h-2.5 rounded-full transition-all duration-300" style={{ width: `${hours * 10}%`, background: within ? "var(--l-accent)" : "var(--l-amber)" }} />
           <div className="absolute -top-1.5 h-5 w-0.5 rounded bg-[var(--l-text)]" style={{ left: `${goal * 10}%` }} />
         </div>
-        <p className="mt-3 text-[13px] text-[var(--l-muted)]" aria-live="polite">
+        <p className="mt-3 text-[15px] text-[var(--l-muted)]" aria-live="polite">
           {within ? "Dentro da meta de uso definida no plano." : `${hours - goal} h acima da meta de uso definida no plano.`}
         </p>
+        <p className="mt-3 border-t border-[var(--l-line)] pt-3 text-sm text-[var(--l-faint)]">Este exemplo só compara horas de uso com uma meta de 4 h. Ele não calcula consumo nem economia em reais.</p>
       </div>
     </div>
   );
@@ -132,13 +138,13 @@ export function FeatureShowcase() {
         <div ref={head.ref} data-shown={head.shown} className="l-reveal grid gap-6 md:grid-cols-[1fr_0.8fr] md:items-end">
           <div>
             <Chapter index={2} label="Exploração" />
-            <h2 id="recursos-title" className="mt-6 text-[2.2rem] font-semibold leading-[1.05] tracking-[-0.035em] md:text-[3.4rem]">Uma visão completa da sua energia.</h2>
+            <h2 id="recursos-title" className="mt-6 l-h2">Uma visão completa da sua energia.</h2>
           </div>
-          <p className="text-base leading-relaxed text-[var(--l-muted)] md:text-lg">Descubra como seus aparelhos influenciam o consumo, organize sua casa e transforme informações em decisões melhores.</p>
+          <p className="l-lead">Descubra como seus aparelhos influenciam o consumo, organize sua casa e transforme informações em decisões melhores.</p>
         </div>
 
         <ul className="mt-14 grid gap-4 md:grid-cols-12 md:gap-5">
-          <Card id="3d" index={0} className="md:col-span-12 lg:col-span-7" wide>
+          <Card id="3d" index={0} className="md:col-span-12 lg:col-span-7">
             <Hierarchy />
           </Card>
           <Card id="costs" index={1} className="md:col-span-6 lg:col-span-5">
