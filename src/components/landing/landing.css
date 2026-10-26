@@ -368,3 +368,32 @@
 
 .landing .l-legend { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--l-muted); }
 .landing .l-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+
+/* WattStatus AI — Energy Intelligence Lab */
+.landing .l-ai {
+  background:
+    radial-gradient(42% 50% at 66% 46%, rgb(var(--l-accent-rgb) / 0.09), transparent 70%),
+    radial-gradient(60% 70% at 66% 50%, rgb(var(--l-forest-rgb) / 0.55), transparent 75%),
+    radial-gradient(30% 40% at 0% 100%, rgb(var(--l-amber-rgb) / 0.05), transparent 70%),
+    #050f0c;
+}
+.landing .l-ai-stage {
+  background:
+    radial-gradient(55% 45% at 50% 30%, rgb(var(--l-forest-rgb) / 0.5), transparent 75%),
+    linear-gradient(180deg, rgb(var(--l-surface-rgb) / 0.55), rgb(var(--l-bg-rgb) / 0.6));
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 60px 120px -60px rgb(0 0 0 / 0.9);
+}
+.landing .l-ai-ctl {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--l-line-strong);
+  color: var(--l-text);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.landing .l-ai-ctl:hover:not(:disabled) { border-color: rgb(var(--l-accent-rgb) / 0.5); background: var(--l-accent-subtle); }
+.landing .l-ai-ctl:disabled { opacity: 0.35; }
+.landing .l-spin-slow { animation: l-spin 40s linear infinite; }
+.landing .l-spin-slower { animation: l-spin 70s linear infinite reverse; }

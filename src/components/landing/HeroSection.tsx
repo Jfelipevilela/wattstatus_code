@@ -4,6 +4,7 @@ import { ArrowRight, Box, Image as ImageIcon, Minus, Plus, RotateCcw, X } from "
 import { DEMO_ROOMS, HERO_HIGHLIGHTS, type DemoRoomId } from "./content";
 import { HouseIllustration } from "./HouseIllustration";
 import { supportsWebGL, useReducedMotion } from "./motion";
+import { useLiteMode, writePref } from "./renderMode";
 
 const HeroHouse3D = lazy(() => import("./HeroHouse3D"));
 
@@ -31,30 +32,6 @@ const useWide = () => {
 
 const ZOOM_STEPS = [1.25, 1, 0.82, 0.68];
 
-// Light mode: the interactive illustration instead of the live 3D scene.
-// Chosen automatically for data saving or very modest devices, and by the
-// visitor at any time (remembered in this browser only).
-const PREF_KEY = "wattstatus-landing-3d";
-const readPref = (): "on" | "off" | null => {
-  try {
-    const value = localStorage.getItem(PREF_KEY);
-    return value === "on" || value === "off" ? value : null;
-  } catch {
-    return null;
-  }
-};
-const writePref = (value: "on" | "off") => {
-  try {
-    localStorage.setItem(PREF_KEY, value);
-  } catch {
-    // Storage unavailable (private mode): the choice lasts for this visit.
-  }
-};
-const prefersLight = () => {
-  const nav = navigator as Navigator & { connection?: { saveData?: boolean }; deviceMemory?: number };
-  return !!nav.connection?.saveData || (nav.deviceMemory ?? 8) <= 2 || (navigator.hardwareConcurrency ?? 8) <= 2;
-};
-
 // Catches a failed chunk download or a WebGL error inside the scene, so the
 // hero falls back to the illustration instead of breaking the page.
 class SceneBoundary extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
@@ -76,10 +53,7 @@ function HouseStage() {
   const wide = useWide();
   const stage = useRef<HTMLDivElement>(null);
   const [webgl] = useState(supportsWebGL);
-  const [lite, setLite] = useState(() => {
-    const pref = readPref();
-    return pref ? pref === "off" : prefersLight();
-  });
+  const lite = useLiteMode();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const live = webgl && !lite && !failed;
@@ -121,7 +95,6 @@ function HouseStage() {
 
   const switchTo3D = (on: boolean) => {
     writePref(on ? "on" : "off");
-    setLite(!on);
     if (on) {
       setFailed(false);
       setAttempt((n) => n + 1);

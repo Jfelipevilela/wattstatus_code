@@ -60,12 +60,6 @@ export const FEATURES = [
   },
 ] as const;
 
-export const AI_EXAMPLE = {
-  question: "Quais aparelhos podem estar aumentando meus gastos?",
-  answer:
-    "O WattStatus pode analisar o histórico disponível, comparar aparelhos e identificar mudanças relevantes. As conclusões dependem da qualidade das medições e dos dados cadastrados.",
-} as const;
-
 export const STEPS = [
   { title: "Organize sua casa", text: "Cadastre seu imóvel, seus ambientes e aparelhos." },
   { title: "Acompanhe seu consumo", text: "Utilize informações cadastradas e integre dispositivos compatíveis para obter medições quando disponíveis." },

@@ -4,7 +4,7 @@ import { LandingHeader } from "@/components/landing/LandingHeader";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { FeatureShowcase } from "@/components/landing/FeatureShowcase";
 import { PlatformPreview } from "@/components/landing/PlatformPreview";
-import { AIPresentation } from "@/components/landing/AIPresentation";
+import { AIExperience } from "@/components/landing/ai-lab/AIExperience";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { FinalCTA } from "@/components/landing/FinalCTA";
 import { LandingFooter } from "@/components/landing/LandingFooter";
@@ -38,7 +38,7 @@ const Index = () => {
         <HeroSection />
         <FeatureShowcase />
         <PlatformPreview />
-        <AIPresentation />
+        <AIExperience />
         <HowItWorks />
         <FinalCTA />
       </main>

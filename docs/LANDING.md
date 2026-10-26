@@ -13,7 +13,9 @@ Página `/` antes do login. Tudo vive em `src/components/landing/`; a rota conti
 | `HeroHouse3D.tsx` | Cena React Three Fiber (carregada sob demanda) |
 | `house/layout.ts`, `house/textures.ts` | Arquitetura da casa e texturas procedurais (nada é baixado) |
 | `HouseIllustration.tsx` | Casa em SVG: modo leve, sem WebGL e cartões |
-| `FeatureShowcase.tsx`, `PlatformPreview.tsx`, `AIPresentation.tsx`, `HowItWorks.tsx`, `FinalCTA.tsx` | Seções |
+| `FeatureShowcase.tsx`, `PlatformPreview.tsx`, `HowItWorks.tsx`, `FinalCTA.tsx` | Seções |
+| `ai-lab/` | Seção WattStatus AI (Energy Intelligence Lab), ver abaixo |
+| `renderMode.ts` | Escolha 3D / modo leve compartilhada entre hero e seção da IA |
 | `dataStates.ts` | Vocabulário medido / estimado / parcial / sem dados |
 
 Os móveis da casa vêm do gerador do Living Energy (`src/components/floorplan/three/furniture.ts`). Mudanças na API `furnitureFor` afetam a landing.
@@ -22,7 +24,7 @@ Os móveis da casa vêm do gerador do Living Energy (`src/components/floorplan/t
 
 - A casa 3D é ilustrativa e não mostra consumo. O painel de cômodo diz isso.
 - Gráfico de estados e simulador do showcase não têm valores de energia nem dinheiro; o simulador só compara horas de uso com uma meta.
-- A conversa da IA é texto fixo, marcado como "Exemplo ilustrativo".
+- A seção da IA é texto fixo (`ai-lab/scenarios.ts`), marcada como "Demonstração ilustrativa". Não chama o provedor de IA nem endpoints autenticados, não mostra valores de energia, dinheiro ou percentuais.
 - As telas em `public/landing/app-*.webp` são capturas reais do app feitas com uma conta de demonstração local e dados sintéticos (ver abaixo). A legenda na página diz isso.
 
 ## Modos do hero
@@ -36,6 +38,22 @@ Os móveis da casa vêm do gerador do Living Energy (`src/components/floorplan/t
 | Falha ao baixar o chunk 3D ou perda de contexto WebGL | Volta ao SVG com "Tentar novamente" |
 
 Em todos os modos: seletor de cômodos em HTML (teclado e toque), destaque do cômodo e painel contextual.
+
+## WattStatus AI — Energy Intelligence Lab
+
+| Arquivo | Papel |
+|---|---|
+| `scenarios.ts` | Nós de informação, as três investigações, etapas e ações (dados puros) |
+| `useInvestigation.ts` | Estado: cenário, etapa, reprodução, nó em foco |
+| `AIExperience.tsx` | Seção: camada editorial, palco, controles, região de anúncio |
+| `KnowledgeMap.tsx`, `nodeLook.ts` | Mapa de nós em HTML (botões) com conexões em SVG |
+| `InvestigationPanel.tsx` | Pergunta, contexto, evidências e limitações, explicação, ações; detalhe de nó |
+| `IntelligenceCore.tsx`, `coreRenderer.ts`, `coreWorker.ts` | Núcleo em WebGL 2 puro |
+
+- Estado inicial completo: todas as etapas visíveis. "Explorar investigação" percorre as etapas; reprodução automática opcional, para no fim, pausa fora da tela e não existe com movimento reduzido.
+- Ações: abrem um nó, trocam de investigação, levam a uma âncora da página ou a uma rota real (`/signup`).
+- Núcleo: não usa three.js. Roda num Worker com `OffscreenCanvas` quando suportado (a criação do contexto WebGL levava ~420 ms na thread principal numa Intel Iris Xe); senão, na thread principal. Carrega a ~600 px da seção, anima a no máximo 30 fps só quando visível, um quadro por mudança com movimento reduzido. Modo leve, sem WebGL ou falha (chunk, Worker, contexto perdido): núcleo em CSS, resto da seção igual.
+- Marcas `performance`: `ai-core-init`, `ai-core-first-frame`.
 
 ## Performance
 
