@@ -33,9 +33,9 @@ export function KnowledgeMap({ scenario, stage, focus, onPick, core }: Props) {
   const shown = hover ?? focus;
 
   return (
-    <div className="relative grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:block lg:h-[560px] xl:h-[600px]">
+    <div className="relative grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:block lg:h-[470px] xl:h-[480px]">
       {/* Core: on top of the grid on phones, centred in the orbit on wide screens. */}
-      <div className="col-span-2 mx-auto aspect-square w-[200px] sm:col-span-3 sm:w-[230px] lg:absolute lg:left-1/2 lg:top-1/2 lg:w-[300px] lg:-translate-x-1/2 lg:-translate-y-1/2 xl:w-[330px]">
+      <div className="col-span-2 mx-auto aspect-square w-[170px] sm:col-span-3 sm:w-[210px] lg:absolute lg:left-1/2 lg:top-1/2 lg:w-[250px] lg:-translate-x-1/2 lg:-translate-y-1/2 xl:w-[270px]">
         {core}
       </div>
 
@@ -81,7 +81,7 @@ export function KnowledgeMap({ scenario, stage, focus, onPick, core }: Props) {
             onFocus={() => setHover(node.id)}
             onBlur={() => setHover(null)}
             style={{ ["--x" as string]: `${x}%`, ["--y" as string]: `${y}%` }}
-            className={`group flex min-h-[64px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 text-left transition-[border-color,background-color,opacity,box-shadow] duration-500 lg:absolute lg:left-[var(--x)] lg:top-[var(--y)] lg:w-[200px] lg:-translate-x-1/2 lg:-translate-y-1/2 xl:w-[214px] ${LOOK_CLASS[look]}`}
+            className={`group flex min-h-[56px] items-center gap-3 rounded-2xl border px-3 py-2 lg:min-h-[64px] lg:px-3.5 lg:py-2.5 text-left transition-[border-color,background-color,opacity,box-shadow] duration-500 lg:absolute lg:left-[var(--x)] lg:top-[var(--y)] lg:w-[200px] lg:-translate-x-1/2 lg:-translate-y-1/2 xl:w-[214px] ${LOOK_CLASS[look]}`}
           >
             <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-colors duration-500 ${look === "strong" || look === "active" ? "bg-[var(--l-accent-subtle)] text-[var(--l-accent)]" : "bg-[rgb(var(--l-line-rgb)/0.08)] text-[var(--l-muted)]"}`}>
               <Icon className="h-[18px] w-[18px]" aria-hidden="true" />

@@ -5,8 +5,8 @@ import { useReveal } from "./motion";
 export function FinalCTA() {
   const { ref, shown } = useReveal<HTMLDivElement>(0.3);
   return (
-    <section aria-labelledby="cta-title" className="relative px-4 pb-24 md:px-8 md:pb-32">
-      <div className="relative mx-auto max-w-[1240px] overflow-hidden rounded-[32px] border border-[var(--l-line)] bg-[var(--l-surface)] px-6 py-20 md:py-28">
+    <section aria-labelledby="cta-title" className="relative px-4 pb-20 md:px-8 md:pb-24">
+      <div className="relative mx-auto max-w-[1240px] overflow-hidden rounded-[32px] border border-[var(--l-line)] bg-[var(--l-surface)] px-6 py-16 md:py-20">
         {/* Forest light from below, a warm accent and a fine horizon line. */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_80%_at_50%_120%,rgb(var(--l-forest-rgb)/0.95),transparent_70%)]" aria-hidden="true" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(30%_40%_at_80%_10%,rgb(var(--l-amber-rgb)/0.1),transparent_70%)]" aria-hidden="true" />

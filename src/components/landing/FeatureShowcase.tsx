@@ -15,7 +15,7 @@ function Card({ id, index, className, children, wide = false }: { id: (typeof FE
   const Icon = ICONS[id];
   return (
     <li ref={ref} data-shown={shown} className={`l-reveal ${className ?? ""}`} style={{ ["--d" as string]: `${index * 90}ms` }}>
-      <div className={`l-card group flex h-full flex-col overflow-hidden p-6 md:p-8 ${wide ? "lg:flex-row lg:gap-8" : ""}`}>
+      <div className={`l-card group flex h-full flex-col overflow-hidden p-6 md:p-7 ${wide ? "lg:flex-row lg:gap-8" : ""}`}>
         <div className={wide ? "lg:w-[40%] lg:shrink-0" : ""}>
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--l-accent-subtle)] text-[var(--l-accent)] ring-1 ring-[rgb(var(--l-accent-rgb)/0.2)]">
             <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -44,11 +44,11 @@ function Hierarchy() {
     { Icon: Plug, label: "Geladeira", depth: 2 },
   ];
   return (
-    <div className="mt-8 grid flex-1 items-center gap-8 sm:grid-cols-[minmax(0,210px)_minmax(0,1fr)]" aria-hidden="true">
+    <div className="mt-6 grid flex-1 items-center gap-8 sm:grid-cols-[minmax(0,210px)_minmax(0,1fr)]" aria-hidden="true">
       {/* Tree with real guides, beside (never over) the house. */}
       <ul className="text-sm">
-        {rows.map(({ Icon, label, depth }) => (
-          <li key={label} className="relative py-1" style={{ paddingLeft: depth * 18 }}>
+        {rows.map(({ Icon, label, depth }, index) => (
+          <li key={label} className={`relative py-1 ${index > 3 ? "hidden sm:block" : ""}`} style={{ paddingLeft: depth * 18 }}>
             {depth > 0 && <span className="absolute top-0 h-full border-l border-[var(--l-line-strong)]" style={{ left: depth * 18 - 10 }} />}
             {depth > 0 && <span className="absolute top-1/2 w-2 border-t border-[var(--l-line-strong)]" style={{ left: depth * 18 - 10 }} />}
             <span className="flex items-center gap-2 rounded-lg border border-[var(--l-line)] bg-[rgb(var(--l-bg-rgb)/0.55)] px-2.5 py-1.5">
@@ -58,7 +58,7 @@ function Hierarchy() {
           </li>
         ))}
       </ul>
-      <HouseIllustration tight className="hidden h-auto w-full transition-transform duration-700 group-hover:scale-[1.03] sm:block" />
+      <HouseIllustration tight className="hidden h-auto max-h-[260px] w-full transition-transform duration-700 group-hover:scale-[1.03] sm:block" />
     </div>
   );
 }
@@ -88,8 +88,8 @@ function Prompts() {
   const prompts = ["Por que meu consumo mudou este mês?", "Quais aparelhos merecem atenção?", "O que muda se eu usar menos o ar-condicionado?"];
   return (
     <ul className="mt-8 flex flex-1 flex-col justify-end gap-2.5" aria-label="Exemplos de perguntas">
-      {prompts.map((prompt) => (
-        <li key={prompt} className="flex items-center gap-3 rounded-2xl border border-[var(--l-line)] bg-[rgb(var(--l-bg-rgb)/0.35)] px-4 py-3 text-[15px] transition-colors duration-300 group-hover:border-[rgb(var(--l-accent-rgb)/0.25)]">
+      {prompts.map((prompt, index) => (
+        <li key={prompt} className={`${index === 2 ? "hidden sm:flex" : "flex"} items-center gap-3 rounded-2xl border border-[var(--l-line)] bg-[rgb(var(--l-bg-rgb)/0.35)] px-4 py-3 text-[15px] transition-colors duration-300 group-hover:border-[rgb(var(--l-accent-rgb)/0.25)]`}>
           <MessageSquareText className="h-4 w-4 shrink-0 text-[var(--l-accent)]" aria-hidden="true" />
           {prompt}
         </li>
@@ -132,7 +132,7 @@ function PlanSimulator() {
 export function FeatureShowcase() {
   const head = useReveal<HTMLDivElement>();
   return (
-    <section id="recursos" aria-labelledby="recursos-title" className="relative scroll-mt-20 py-24 md:py-36">
+    <section id="recursos" aria-labelledby="recursos-title" className="relative scroll-mt-20 py-20 md:py-28">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[600px] bg-[radial-gradient(50%_60%_at_15%_0%,rgb(var(--l-forest-rgb)/0.35),transparent)]" aria-hidden="true" />
       <div className="l-container relative">
         <div ref={head.ref} data-shown={head.shown} className="l-reveal grid gap-6 md:grid-cols-[1fr_0.8fr] md:items-end">
@@ -143,7 +143,7 @@ export function FeatureShowcase() {
           <p className="l-lead">Descubra como seus aparelhos influenciam o consumo, organize sua casa e transforme informações em decisões melhores.</p>
         </div>
 
-        <ul className="mt-14 grid gap-4 md:grid-cols-12 md:gap-5">
+        <ul className="mt-10 grid gap-4 md:grid-cols-12 md:gap-5">
           <Card id="3d" index={0} className="md:col-span-12 lg:col-span-7">
             <Hierarchy />
           </Card>

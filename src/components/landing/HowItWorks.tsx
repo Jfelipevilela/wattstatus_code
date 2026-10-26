@@ -21,7 +21,7 @@ function Step({ step, index }: { step: (typeof STEPS)[number]; index: number }) 
 export function HowItWorks() {
   const head = useReveal<HTMLDivElement>();
   return (
-    <section id="como-funciona" aria-labelledby="como-title" className="relative scroll-mt-20 py-24 md:py-32">
+    <section id="como-funciona" aria-labelledby="como-title" className="relative scroll-mt-20 py-20 md:py-24">
       <div className="l-container">
         <div ref={head.ref} data-shown={head.shown} className="l-reveal flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
@@ -32,7 +32,7 @@ export function HowItWorks() {
             Cadastrar meu imóvel <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         </div>
-        <div className="relative mt-16">
+        <div className="relative mt-12">
           <div className="absolute bottom-2 left-5 top-2 w-px bg-gradient-to-b from-[rgb(var(--l-accent-rgb)/0.5)] to-[var(--l-line)] md:bottom-auto md:left-0 md:right-0 md:top-5 md:h-px md:w-auto md:bg-gradient-to-r" aria-hidden="true" />
           <ol className="relative grid gap-12 md:grid-cols-3 md:gap-10">
             {STEPS.map((step, index) => (

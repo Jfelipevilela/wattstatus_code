@@ -71,7 +71,7 @@ export function PlatformPreview() {
 
   const active = VIEWS.find((item) => item.id === view)!;
   return (
-    <section id="visualizacao-3d" aria-labelledby="experiencia-title" className="l-band relative scroll-mt-20 overflow-hidden py-24 md:py-32">
+    <section id="visualizacao-3d" aria-labelledby="experiencia-title" className="l-band relative scroll-mt-20 overflow-hidden py-20 md:py-28">
       <div className="l-container-wide relative">
         <div ref={head.ref} data-shown={head.shown} className="l-reveal mx-auto max-w-3xl text-center">
           <div className="flex justify-center"><Chapter index={3} label="Compreensão" /></div>
@@ -79,7 +79,7 @@ export function PlatformPreview() {
           <p className="l-lead mx-auto mt-5 max-w-2xl">Telas reais do WattStatus. Explore as áreas principais da plataforma.</p>
         </div>
 
-        <div role="tablist" aria-label="Telas da plataforma" className="mx-auto mt-10 flex max-w-full gap-1.5 overflow-x-auto rounded-2xl border border-[var(--l-line)] bg-[rgb(var(--l-bg-rgb)/0.55)] p-1.5 [scrollbar-width:none] md:w-fit">
+        <div role="tablist" aria-label="Telas da plataforma" className="mx-auto mt-8 flex max-w-full gap-1.5 overflow-x-auto rounded-2xl border border-[var(--l-line)] bg-[rgb(var(--l-bg-rgb)/0.55)] p-1.5 [scrollbar-width:none] md:w-fit">
           {VIEWS.map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -102,7 +102,7 @@ export function PlatformPreview() {
         <div
           ref={stage.ref}
           data-shown={stage.shown}
-          className="l-reveal mt-10 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px]"
+          className="l-reveal mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px]"
           onMouseEnter={() => (hovering.current = true)}
           onMouseLeave={() => (hovering.current = false)}
         >

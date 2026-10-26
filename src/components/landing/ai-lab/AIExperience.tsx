@@ -109,12 +109,12 @@ export function AIExperience() {
   );
 
   return (
-    <section ref={section} id="wattstatus-ai" aria-labelledby="ai-title" className="l-ai relative scroll-mt-20 overflow-hidden py-24 md:py-32">
+    <section ref={section} id="wattstatus-ai" aria-labelledby="ai-title" className="l-ai relative scroll-mt-20 overflow-hidden py-20 md:py-24">
       <div className="l-container-wide relative grid grid-cols-[minmax(0,1fr)] gap-12 xl:grid-cols-[minmax(0,0.34fr)_minmax(0,0.66fr)] xl:gap-14">
         {/* Editorial layer */}
         <div className="xl:pt-8">
           <Chapter index={4} label="Inteligência" />
-          <p className="mt-8 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--l-accent-rgb)/0.3)] bg-[var(--l-accent-subtle)] px-3 py-1.5 text-sm font-semibold text-[var(--l-accent)]">
+          <p className="mt-6 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--l-accent-rgb)/0.3)] bg-[var(--l-accent-subtle)] px-3 py-1.5 text-sm font-semibold text-[var(--l-accent)]">
             <Sparkles className="h-4 w-4" aria-hidden="true" />
             WattStatus AI · Energy Intelligence Lab
           </p>
@@ -125,7 +125,7 @@ export function AIExperience() {
             O WattStatus AI relaciona informações do seu imóvel, considera a qualidade dos dados e ajuda a investigar mudanças no consumo — transformando análises em explicações e possibilidades de economia.
           </p>
 
-          <fieldset className="mt-9 min-w-0">
+          <fieldset className="mt-7 min-w-0">
             <legend className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--l-faint)]">Escolha uma investigação</legend>
             <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] xl:flex-col xl:overflow-visible">
               {SCENARIOS.map((item) => {
@@ -153,13 +153,13 @@ export function AIExperience() {
             <p className="text-sm text-[var(--l-faint)]">{DISCLAIMER}</p>
           </div>
 
-          <div className="mt-6">
+          <div className="mt-4">
             <KnowledgeMap scenario={scenario} stage={stage} focus={focus} onPick={(id) => (focus === id ? closeNode() : openNode(id))} core={core} />
           </div>
 
           {/* Investigation controls */}
-          <div className="mt-6 flex flex-col gap-3 border-t border-[var(--l-line)] pt-5 2xl:flex-row 2xl:items-center 2xl:justify-between">
-            <ol className="flex flex-1 flex-wrap gap-1.5" aria-label="Etapas da investigação">
+          <div className="mt-6 flex flex-col gap-3 border-t border-[var(--l-line)] pt-5 xl:flex-row xl:items-center xl:justify-between">
+            <ol className="-mx-1 flex flex-1 gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible" aria-label="Etapas da investigação">
               {STAGES.map((item, index) => {
                 const on = exploring && index === stage;
                 const done = !exploring || index < stage;
@@ -169,7 +169,7 @@ export function AIExperience() {
                       type="button"
                       aria-current={on ? "step" : undefined}
                       onClick={() => demo.goTo(index)}
-                      className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition-colors ${on ? "border-[var(--l-accent)] bg-[var(--l-accent)] text-[#052117]" : done ? "border-[rgb(var(--l-accent-rgb)/0.35)] text-[var(--l-text)]" : "border-[var(--l-line-strong)] text-[var(--l-faint)]"}`}
+                      className={`inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition-colors ${on ? "border-[var(--l-accent)] bg-[var(--l-accent)] text-[#052117]" : done ? "border-[rgb(var(--l-accent-rgb)/0.35)] text-[var(--l-text)]" : "border-[var(--l-line-strong)] text-[var(--l-faint)]"}`}
                     >
                       <span className="tabular-nums">{index + 1}</span>
                       {item.label}
@@ -209,7 +209,7 @@ export function AIExperience() {
 
           {/* Reserved height: switching between the investigation and a node
               detail does not move the rest of the page on wide screens. */}
-          <div className="mt-5 lg:min-h-[520px]">
+          <div className="mt-5 xl:min-h-[420px]">
             {focus ? (
               <NodeDetail id={focus} onClose={closeNode} />
             ) : (
