@@ -1,164 +1,92 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html, OrbitControls, PerformanceMonitor } from "@react-three/drei";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { RoundedBoxGeometry, type OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import {
   BoxGeometry,
-  BufferGeometry,
+  type BufferGeometry,
   Color,
   CylinderGeometry,
   DoubleSide,
-  Group,
-  InstancedMesh,
+  type Group,
+  type InstancedMesh,
+  type Material,
   Matrix4,
   MeshBasicMaterial,
   MeshStandardMaterial,
-  PointLight,
+  PlaneGeometry,
+  type PerspectiveCamera,
+  type PointLight,
   RingGeometry,
   SphereGeometry,
+  type Texture,
   Vector3,
 } from "three";
 import { furnitureFor, type FurnitureFinish, type FurniturePiece } from "@/components/floorplan/three/furniture";
 import { DEMO_ROOMS, HOUSE_SIZE, type DemoRoom, type DemoRoomId } from "./content";
+import {
+  ACCENT_STRIPS,
+  BOLLARDS,
+  type Box,
+  COPING,
+  COVES,
+  CX,
+  CZ,
+  DECK,
+  EXTERIOR,
+  FRAMES,
+  FT,
+  GLASS,
+  H,
+  HUB,
+  INTERIOR,
+  LAWN,
+  outline,
+  PLINTH,
+  PLINTH_EDGE,
+  pointOnPath,
+  ROOF,
+  roomCenter,
+  SCONCES,
+  SOFFIT_LIGHTS,
+  TRACES,
+  traceBoxes,
+  TREES,
+  WALL_CAPS,
+  WATER,
+} from "./house/layout";
+import { haloTexture, TILE_METRES, tileTexture, WOOD_TILE_METRES, woodTexture } from "./house/textures";
 
 /**
  * Hero house for the public landing. A demonstration model, not a property:
  * it never reads user data. Furniture comes from the Living Energy generator;
- * the architecture, night palette and energy effects are specific to the hero.
+ * architecture, materials and the energy language are specific to the hero.
+ *
+ * Colours: warm amber inside the rooms, emerald for everything "energy".
  */
 
-const H = 2.6; // exterior wall height
-const IH = 1.2; // cut-away interior walls
-const T = 0.14; // wall thickness
-const FT = 0.06; // floor thickness
-const CX = HOUSE_SIZE.w / 2;
-const CZ = HOUSE_SIZE.d / 2;
+const EMERALD = "#45e0a4";
+const AMBER = "#ffc58a";
 
-type Box = { p: [number, number, number]; s: [number, number, number] };
-
-// Axis-aligned box between two points, centred on the wall line.
-const span = (x1: number, z1: number, x2: number, z2: number, y0: number, y1: number, thick = T): Box => {
-  const alongX = Math.abs(x2 - x1) >= Math.abs(z2 - z1);
-  const len = alongX ? Math.abs(x2 - x1) : Math.abs(z2 - z1);
-  return {
-    p: [(x1 + x2) / 2, (y0 + y1) / 2, (z1 + z2) / 2],
-    s: alongX ? [len + thick, y1 - y0, thick] : [thick, y1 - y0, len + thick],
-  };
+const FINISH: Record<FurnitureFinish, { color: string; roughness: number; metalness?: number; opacity?: number }> = {
+  fabric: { color: "#5b6d63", roughness: 0.95 },
+  wood: { color: "#7a5236", roughness: 0.62 },
+  white: { color: "#ebe7de", roughness: 0.42 },
+  dark: { color: "#1f2925", roughness: 0.4 },
+  metal: { color: "#b8b2a4", roughness: 0.25, metalness: 0.75 },
+  glass: { color: "#bfe9d6", roughness: 0.05, opacity: 0.3 },
+  accent: { color: "#3e5248", roughness: 1 },
+  plant: { color: "#3d7a52", roughness: 0.85 },
 };
 
-// A wall line with window bands cut out of it.
-const windowedWall = (
-  axis: "x" | "z",
-  fixed: number,
-  from: number,
-  to: number,
-  windows: Array<[number, number, number, number]>,
-): { solid: Box[]; glass: Box[] } => {
-  const at = (a: number, b: number, y0: number, y1: number, thick = T) =>
-    axis === "x" ? span(a, fixed, b, fixed, y0, y1, thick) : span(fixed, a, fixed, b, y0, y1, thick);
-  const solid: Box[] = [];
-  const glass: Box[] = [];
-  let cursor = from;
-  for (const [a, b, y0, y1] of windows) {
-    if (a > cursor) solid.push(at(cursor, a, 0, H));
-    solid.push(at(a, b, 0, y0), at(a, b, y1, H));
-    glass.push(at(a, b, y0, y1, 0.03));
-    cursor = b;
-  }
-  if (cursor < to) solid.push(at(cursor, to, 0, H));
-  // Wall boxes overlap by the thickness at the joints; trim the inner ones.
-  solid.forEach((box) => {
-    if (axis === "x") box.s[0] = Math.max(0.01, box.s[0] - T);
-    else box.s[2] = Math.max(0.01, box.s[2] - T);
-  });
-  return { solid, glass };
-};
-
-const back = windowedWall("x", 0, 0, HOUSE_SIZE.w, [
-  [0.9, 3.1, 1.0, 2.15],
-  [7.0, 9.3, 1.0, 2.15],
-]);
-const left = windowedWall("z", 0, 0, HOUSE_SIZE.d, [[4.4, 7.0, 0.35, 2.3]]);
-
-const EXTERIOR: Box[] = [...back.solid, ...left.solid, span(0, 0, 0, 0, 0, H, T)];
-const INTERIOR: Box[] = [
-  span(4, 0, 4, 3.6, 0, IH),
-  span(6.3, 0, 6.3, 2.6, 0, IH),
-  span(0, 3.6, 2.4, 3.6, 0, IH),
-  span(3.3, 3.6, 4.6, 3.6, 0, IH),
-  span(5.4, 3.6, 8.6, 3.6, 0, IH),
-  span(9.4, 3.6, 10, 3.6, 0, IH),
-  span(5.6, 3.6, 5.6, 5.1, 0, IH),
-];
-const WINDOWS: Box[] = [...back.glass, ...left.glass];
-
-// Glass facades on the two sides that face the camera.
-const facade = () => {
-  const glass: Box[] = [];
-  const frame: Box[] = [];
-  const W = HOUSE_SIZE.w;
-  const D = HOUSE_SIZE.d;
-  for (let x = 0; x < W - 0.01; x += W / 8) glass.push(span(x, D, x + W / 8, D, 0.04, H - 0.04, 0.03));
-  for (let z = 0; z < D - 0.01; z += D / 6) glass.push(span(W, z, W, z + D / 6, 0.04, H - 0.04, 0.03));
-  for (let i = 0; i <= 8; i++) frame.push({ p: [(W / 8) * i, H / 2, D], s: [0.03, H, 0.04] });
-  for (let i = 0; i <= 6; i++) frame.push({ p: [W, H / 2, (D / 6) * i], s: [0.04, H, 0.03] });
-  frame.push({ p: [W / 2, H - 0.03, D], s: [W + 0.07, 0.06, 0.08] }, { p: [W / 2, 0.03, D], s: [W + 0.07, 0.06, 0.08] });
-  frame.push({ p: [W, H - 0.03, D / 2], s: [0.08, 0.06, D + 0.07] }, { p: [W, 0.03, D / 2], s: [0.08, 0.06, D + 0.07] });
-  return { glass, frame };
-};
-const FACADE = facade();
-
-// Cantilevered roof eyebrow over the private rooms, plus a corner column.
-const ROOF: Box[] = [
-  { p: [CX, H + 0.08, 0.5], s: [HOUSE_SIZE.w + 0.9, 0.16, 2.0] },
-  { p: [-0.1, H + 0.08, CZ], s: [1.0, 0.16, HOUSE_SIZE.d + 0.2] },
-];
-const LED_STRIPS: Box[] = [
-  { p: [CX, H - 0.02, 1.48], s: [HOUSE_SIZE.w + 0.9, 0.025, 0.03] },
-  { p: [0.39, H - 0.02, CZ], s: [0.03, 0.025, HOUSE_SIZE.d + 0.2] },
-];
-
-const roomCenter = (room: DemoRoom): [number, number] => [room.x + room.w / 2, room.z + room.d / 2];
-const HUB: [number, number] = [5.0, 4.15];
-
-// Manhattan trace from the hub to each room centre, like a circuit.
-const tracePath = (room: DemoRoom): Array<[number, number]> => {
-  const [x, z] = roomCenter(room);
-  if (room.z < 3.6) return [HUB, [x, HUB[1]], [x, z]];
-  return [HUB, [HUB[0], z + 0.9], [x, z + 0.9], [x, z]];
-};
-const pathLength = (path: Array<[number, number]>) =>
-  path.slice(1).reduce((sum, point, i) => sum + Math.hypot(point[0] - path[i][0], point[1] - path[i][1]), 0);
-const pointOnPath = (path: Array<[number, number]>, t: number, out: Vector3) => {
-  let left = t * pathLength(path);
-  for (let i = 1; i < path.length; i++) {
-    const [ax, az] = path[i - 1];
-    const [bx, bz] = path[i];
-    const len = Math.hypot(bx - ax, bz - az);
-    if (left <= len || i === path.length - 1) {
-      const k = len === 0 ? 0 : Math.min(1, left / len);
-      return out.set(ax + (bx - ax) * k, 0, az + (bz - az) * k);
-    }
-    left -= len;
-  }
-  return out;
-};
-
-const FINISH: Record<FurnitureFinish, { color: string; roughness: number; metalness?: number; opacity?: number; emissive?: string }> = {
-  fabric: { color: "#56637a", roughness: 0.95 },
-  wood: { color: "#8a6446", roughness: 0.7 },
-  white: { color: "#e6e9ee", roughness: 0.45 },
-  dark: { color: "#1b222d", roughness: 0.45 },
-  metal: { color: "#a7b0bd", roughness: 0.28, metalness: 0.6 },
-  glass: { color: "#9fd6ef", roughness: 0.08, opacity: 0.32 },
-  accent: { color: "#33465c", roughness: 1 },
-  plant: { color: "#2f6e4f", roughness: 0.9 },
-};
+const disposeAll = (items: Array<{ dispose: () => void }>) => items.forEach((item) => item.dispose());
 
 const useSceneResources = () => {
   const resources = useMemo(() => {
     const standard = (color: string, roughness: number, extra: Partial<MeshStandardMaterial> = {}) =>
       Object.assign(new MeshStandardMaterial({ color, roughness }), extra);
+    const basic = (color: string, opacity = 1) =>
+      new MeshBasicMaterial({ color, toneMapped: false, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 });
     const furniture = Object.fromEntries(
       Object.entries(FINISH).map(([key, spec]) => [
         key,
@@ -172,32 +100,46 @@ const useSceneResources = () => {
         }),
       ]),
     ) as Record<FurnitureFinish, MeshStandardMaterial>;
-    return {
+    const textures = { wood: woodTexture(), tile: tileTexture(), halo: haloTexture() };
+    const geometries = {
       box: new BoxGeometry(1, 1, 1),
-      cylinder: new CylinderGeometry(0.5, 0.5, 1, 18),
-      ring: new RingGeometry(0.34, 0.4, 48),
-      dot: new SphereGeometry(0.07, 12, 12),
-      furniture,
-      wall: standard("#b4bbc5", 0.9),
-      exterior: standard("#1a2230", 0.6),
-      plinth: standard("#0b1320", 0.85),
-      deck: standard("#4a3626", 0.8),
-      frame: standard("#3a4658", 0.35, { metalness: 0.6 }),
-      roof: standard("#121a26", 0.55),
-      glass: new MeshStandardMaterial({ color: "#8fd3ff", roughness: 0.04, metalness: 0.5, transparent: true, opacity: 0.1, depthWrite: false, side: DoubleSide }),
-      water: standard("#08384f", 0.08, { emissive: new Color("#0e7490"), emissiveIntensity: 0.32, metalness: 0.3 }),
-      led: new MeshBasicMaterial({ color: "#7fe8ff", toneMapped: false }),
-      edge: new MeshBasicMaterial({ color: "#38d6f5", transparent: true, opacity: 0.55, toneMapped: false }),
-      trace: new MeshBasicMaterial({ color: "#38d6f5", transparent: true, opacity: 0, toneMapped: false, depthWrite: false }),
-      pulse: new MeshBasicMaterial({ color: "#c9f6ff", transparent: true, opacity: 0, toneMapped: false }),
+      // Softened edges so furniture reads as objects, not blocks.
+      rounded: new RoundedBoxGeometry(1, 1, 1, 2, 0.08),
+      cylinder: new CylinderGeometry(0.5, 0.5, 1, 20),
+      sphere: new SphereGeometry(0.5, 20, 14),
+      ring: new RingGeometry(0.36, 0.4, 56),
+      dot: new SphereGeometry(0.06, 12, 10),
+      plane: new PlaneGeometry(1, 1),
     };
+    const materials = {
+      wall: standard("#ddd6c9", 0.92),
+      cap: standard("#26312c", 0.6),
+      plinth: standard("#0d1d17", 0.9),
+      lawn: standard("#1d3b2c", 1),
+      deck: standard("#5a412c", 0.75),
+      stone: standard("#bcb6aa", 0.85),
+      frame: standard("#1a201d", 0.35, { metalness: 0.7 }),
+      roof: standard("#18221e", 0.6),
+      trunk: standard("#3b2c20", 0.9),
+      canopy: standard("#2c6145", 0.85),
+      glass: new MeshStandardMaterial({ color: "#cfe9dd", roughness: 0.03, metalness: 0.4, transparent: true, opacity: 0.09, depthWrite: false, side: DoubleSide }),
+      water: standard("#0b3a30", 0.06, { emissive: new Color("#1e8f6a"), emissiveIntensity: 0.45, metalness: 0.3 }),
+      warm: basic(AMBER),
+      soffit: basic("#ffe2bd"),
+      emerald: basic(EMERALD),
+      edge: basic(EMERALD, 0.35),
+      trace: basic(EMERALD, 0),
+      pulse: basic("#d9ffef", 0),
+      halo: new MeshBasicMaterial({ map: textures.halo, transparent: true, depthWrite: false, toneMapped: false }),
+    };
+    return { geometries, materials, furniture, textures };
   }, []);
   useEffect(
     () => () => {
-      Object.values(resources).forEach((value) => {
-        if ("dispose" in value) (value as { dispose: () => void }).dispose();
-      });
-      Object.values(resources.furniture).forEach((material) => material.dispose());
+      disposeAll(Object.values(resources.geometries));
+      disposeAll(Object.values(resources.materials));
+      disposeAll(Object.values(resources.furniture));
+      disposeAll(Object.values(resources.textures));
     },
     [resources],
   );
@@ -206,7 +148,7 @@ const useSceneResources = () => {
 type Resources = ReturnType<typeof useSceneResources>;
 
 // Static boxes of one material as a single instanced draw call.
-function Boxes({ boxes, material, geometry, castShadow = false, receiveShadow = false }: { boxes: Box[]; material: MeshStandardMaterial | MeshBasicMaterial; geometry: BufferGeometry; castShadow?: boolean; receiveShadow?: boolean }) {
+function Boxes({ boxes, material, geometry, castShadow = false, receiveShadow = false }: { boxes: Box[]; material: Material; geometry: BufferGeometry; castShadow?: boolean; receiveShadow?: boolean }) {
   const ref = useRef<InstancedMesh>(null);
   useLayoutEffect(() => {
     const mesh = ref.current;
@@ -233,6 +175,7 @@ function Furniture({ resources, shadows }: { resources: Resources; shadows: bool
     });
     return [...map.entries()];
   }, []);
+  const { geometries } = resources;
   return (
     <>
       {buckets.map(([key, bucket]) => (
@@ -240,16 +183,17 @@ function Furniture({ resources, shadows }: { resources: Resources; shadows: bool
           key={key}
           boxes={bucket.boxes}
           material={resources.furniture[bucket.finish]}
-          geometry={bucket.shape === "cylinder" ? resources.cylinder : resources.box}
+          geometry={bucket.shape === "cylinder" ? geometries.cylinder : bucket.finish === "glass" ? geometries.box : geometries.rounded}
           castShadow={shadows && bucket.finish !== "glass"}
+          receiveShadow={shadows}
         />
       ))}
     </>
   );
 }
 
-const FLOOR_COLOR = { wood: "#7d5c42", tile: "#9aa5b2" } as const;
 const ease = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - (1 - t) ** 3);
+type RoomState = "idle" | "hover" | "selected" | "dimmed";
 
 interface SceneProps {
   selected: DemoRoomId | null;
@@ -260,31 +204,50 @@ interface SceneProps {
   reducedMotion: boolean;
   zoom: number;
   showMarkers: boolean;
+  // Fraction of the canvas width to push the house to the right.
+  shift: number;
 }
 
-function Room({ room, state, resources, onHover, onSelect }: { room: DemoRoom; state: "idle" | "hover" | "selected"; resources: Resources; onHover: SceneProps["onHover"]; onSelect: SceneProps["onSelect"] }) {
-  const material = useMemo(
-    () => new MeshStandardMaterial({ color: FLOOR_COLOR[room.floor], roughness: room.floor === "tile" ? 0.35 : 0.65, emissive: new Color("#38d6f5"), emissiveIntensity: 0 }),
-    [room.floor],
-  );
-  useEffect(() => () => material.dispose(), [material]);
+// One room: textured floor, an emerald outline that fades in on hover and
+// selection, and the pointer handlers that drive the whole interaction.
+function Room({ room, state, resources, onHover, onSelect }: { room: DemoRoom; state: RoomState; resources: Resources; onHover: SceneProps["onHover"]; onSelect: SceneProps["onSelect"] }) {
+  const { floor, edge } = useMemo(() => {
+    const source: Texture = room.floor === "wood" ? resources.textures.wood : resources.textures.tile;
+    const metres = room.floor === "wood" ? WOOD_TILE_METRES : TILE_METRES;
+    const map = source.clone();
+    map.needsUpdate = true;
+    map.repeat.set(room.w / metres, room.d / metres);
+    return {
+      floor: new MeshStandardMaterial({ map, roughness: room.floor === "tile" ? 0.32 : 0.55, emissive: new Color(EMERALD), emissiveIntensity: 0 }),
+      edge: new MeshBasicMaterial({ color: EMERALD, transparent: true, opacity: 0, toneMapped: false, depthWrite: false }),
+    };
+  }, [room, resources.textures]);
+  useEffect(() => () => {
+    floor.map?.dispose();
+    floor.dispose();
+    edge.dispose();
+  }, [floor, edge]);
+  const lines = useMemo(() => outline(room, FT + 0.008), [room]);
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => invalidate(), [state, invalidate]);
 
   useFrame((_, delta) => {
-    const goal = state === "selected" ? 0.16 : state === "hover" ? 0.08 : 0;
+    const glow = state === "selected" ? 0.07 : state === "hover" ? 0.035 : 0;
+    const line = state === "selected" ? 0.95 : state === "hover" ? 0.6 : 0;
     const k = Math.min(1, delta * 8);
-    material.emissiveIntensity += (goal - material.emissiveIntensity) * k;
-    if (Math.abs(goal - material.emissiveIntensity) > 0.002) invalidate();
+    floor.emissiveIntensity += (glow - floor.emissiveIntensity) * k;
+    edge.opacity += (line - edge.opacity) * k;
+    if (Math.abs(line - edge.opacity) > 0.005) invalidate();
   });
 
   const [cx, cz] = roomCenter(room);
   return (
-    <mesh
+    <>
+      <mesh
         position={[cx, FT / 2, cz]}
         scale={[room.w, FT, room.d]}
-        geometry={resources.box}
-        material={material}
+        geometry={resources.geometries.box}
+        material={floor}
         receiveShadow
         onPointerOver={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
@@ -300,15 +263,17 @@ function Room({ room, state, resources, onHover, onSelect }: { room: DemoRoom; s
           onSelect(room.id);
         }}
       />
+      <Boxes boxes={lines} material={edge} geometry={resources.geometries.box} />
+    </>
   );
 }
 
-// Glowing rings at each room centre, pulsing while a room is in focus.
+// Pulsing rings at each room centre: brighter on the room in focus.
 function RoomRings({ selected, hovered, resources, reducedMotion, start }: { selected: DemoRoomId | null; hovered: DemoRoomId | null; resources: Resources; reducedMotion: boolean; start: number }) {
   const refs = useRef<Array<InstancedMesh | null>>([]);
-  const materials = useMemo(() => DEMO_ROOMS.map(() => resources.edge.clone()), [resources.edge]);
+  const materials = useMemo(() => DEMO_ROOMS.map(() => resources.materials.edge.clone()), [resources.materials.edge]);
   useEffect(() => () => materials.forEach((m) => m.dispose()), [materials]);
-  const matrix = useMemo(() => new Matrix4(), []);
+  const scratch = useMemo(() => ({ m: new Matrix4(), s: new Vector3() }), []);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     const intro = reducedMotion ? 1 : ease((t - start - 1.0) / 0.8);
@@ -316,25 +281,19 @@ function RoomRings({ selected, hovered, resources, reducedMotion, start }: { sel
       const mesh = refs.current[index];
       if (!mesh) return;
       const focus = room.id === selected ? 1 : room.id === hovered ? 0.6 : 0;
-      const wave = reducedMotion ? 0 : (t * 0.6 + index * 0.2) % 1;
-      const scale = 1 + focus * (reducedMotion ? 0.4 : wave * 1.1);
+      const wave = reducedMotion ? 0 : (t * 0.55 + index * 0.2) % 1;
+      const scale = 1 + focus * (reducedMotion ? 0.4 : wave * 1.2);
       const [cx, cz] = roomCenter(room);
-      matrix.makeRotationX(-Math.PI / 2).scale(new Vector3(scale, scale, scale)).setPosition(cx, FT + 0.012, cz);
-      mesh.setMatrixAt(0, matrix);
+      scratch.m.makeRotationX(-Math.PI / 2).scale(scratch.s.set(scale, scale, scale)).setPosition(cx, FT + 0.012, cz);
+      mesh.setMatrixAt(0, scratch.m);
       mesh.instanceMatrix.needsUpdate = true;
-      materials[index].opacity = intro * (focus ? 0.9 * (1 - (reducedMotion ? 0 : wave) * 0.85) : 0.35);
+      materials[index].opacity = intro * (focus ? 0.95 * (1 - (reducedMotion ? 0 : wave) * 0.85) : 0.3);
     });
   });
   return (
     <>
       {DEMO_ROOMS.map((room, index) => (
-        <instancedMesh
-          key={room.id}
-          ref={(node) => (refs.current[index] = node)}
-          args={[resources.ring, materials[index], 1]}
-          raycast={() => null}
-          frustumCulled={false}
-        />
+        <instancedMesh key={room.id} ref={(node) => (refs.current[index] = node)} args={[resources.geometries.ring, materials[index], 1]} raycast={() => null} frustumCulled={false} />
       ))}
     </>
   );
@@ -342,46 +301,35 @@ function RoomRings({ selected, hovered, resources, reducedMotion, start }: { sel
 
 // Circuit traces from the hub plus pulses travelling along them.
 function EnergyFlow({ resources, reducedMotion, selected, start, compact }: { resources: Resources; reducedMotion: boolean; selected: DemoRoomId | null; start: number; compact: boolean }) {
-  const paths = useMemo(() => DEMO_ROOMS.map(tracePath), []);
-  const traces = useMemo(() => {
-    const boxes: Box[] = [];
-    paths.forEach((path) =>
-      path.slice(1).forEach(([bx, bz], i) => {
-        const [ax, az] = path[i];
-        const alongX = Math.abs(bx - ax) > Math.abs(bz - az);
-        const len = Math.hypot(bx - ax, bz - az);
-        boxes.push({ p: [(ax + bx) / 2, FT + 0.006, (az + bz) / 2], s: alongX ? [len + 0.03, 0.004, 0.03] : [0.03, 0.004, len + 0.03] });
-      }),
-    );
-    return boxes;
-  }, [paths]);
+  const traces = useMemo(() => traceBoxes(FT + 0.006), []);
   const perPath = compact ? 1 : 2;
   const pulses = useRef<InstancedMesh>(null);
   const hub = useRef<InstancedMesh>(null);
-  const scratch = useMemo(() => ({ v: new Vector3(), m: new Matrix4() }), []);
+  const scratch = useMemo(() => ({ v: { x: 0, z: 0 }, m: new Matrix4() }), []);
+  const { trace, pulse } = resources.materials;
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     const intro = reducedMotion ? 1 : ease((t - start - 0.9) / 1.2);
-    resources.trace.opacity = 0.42 * intro;
-    resources.pulse.opacity = intro;
+    trace.opacity = 0.38 * intro;
+    pulse.opacity = intro;
     const mesh = pulses.current;
     if (mesh) {
-      paths.forEach((path, p) => {
-        const boost = DEMO_ROOMS[p].id === selected ? 1.6 : 1;
+      TRACES.forEach((path, p) => {
+        const focus = DEMO_ROOMS[p].id === selected;
         for (let k = 0; k < perPath; k++) {
-          const phase = reducedMotion ? 0.5 + k * 0.25 : (t * 0.22 * boost + k / perPath + p * 0.17) % 1;
+          const phase = reducedMotion ? 0.5 + k * 0.25 : (t * 0.2 * (focus ? 1.7 : 1) + k / perPath + p * 0.17) % 1;
           pointOnPath(path, phase, scratch.v);
-          const s = DEMO_ROOMS[p].id === selected ? 1.25 : 0.85;
-          scratch.m.makeScale(s, s, s).setPosition(scratch.v.x, FT + 0.07, scratch.v.z);
+          const s = focus ? 1.35 : 0.9;
+          scratch.m.makeScale(s, s, s).setPosition(scratch.v.x, FT + 0.06, scratch.v.z);
           mesh.setMatrixAt(p * perPath + k, scratch.m);
         }
       });
       mesh.instanceMatrix.needsUpdate = true;
     }
     if (hub.current) {
-      const s = 1 + (reducedMotion ? 0 : Math.sin(t * 2) * 0.12);
-      scratch.m.makeScale(s * 1.6, s * 1.6, s * 1.6).setPosition(HUB[0], FT + 0.1, HUB[1]);
+      const s = 1.7 + (reducedMotion ? 0 : Math.sin(t * 1.8) * 0.2);
+      scratch.m.makeScale(s, s, s).setPosition(HUB[0], FT + 0.09, HUB[1]);
       hub.current.setMatrixAt(0, scratch.m);
       hub.current.instanceMatrix.needsUpdate = true;
     }
@@ -389,14 +337,15 @@ function EnergyFlow({ resources, reducedMotion, selected, start, compact }: { re
 
   return (
     <>
-      <Boxes boxes={traces} material={resources.trace} geometry={resources.box} />
-      <instancedMesh ref={pulses} args={[resources.dot, resources.pulse, paths.length * perPath]} raycast={() => null} frustumCulled={false} />
-      <instancedMesh ref={hub} args={[resources.dot, resources.led, 1]} raycast={() => null} frustumCulled={false} />
+      <Boxes boxes={traces} material={trace} geometry={resources.geometries.box} />
+      <instancedMesh ref={pulses} args={[resources.geometries.dot, pulse, TRACES.length * perPath]} raycast={() => null} frustumCulled={false} />
+      <instancedMesh ref={hub} args={[resources.geometries.dot, resources.materials.emerald, 1]} raycast={() => null} frustumCulled={false} />
     </>
   );
 }
 
-// Warm interior lights fade in once; the selected room brightens.
+// Warm interior lights fade in on load; the selected room brightens and the
+// others settle back, so focus reads through light, not only through UI.
 function RoomLights({ selected, compact, reducedMotion, start }: { selected: DemoRoomId | null; compact: boolean; reducedMotion: boolean; start: number }) {
   const rooms = compact ? DEMO_ROOMS.filter((room) => room.id !== "bathroom" && room.id !== "office") : DEMO_ROOMS;
   const refs = useRef<Array<PointLight | null>>([]);
@@ -405,22 +354,33 @@ function RoomLights({ selected, compact, reducedMotion, start }: { selected: Dem
     rooms.forEach((room, index) => {
       const light = refs.current[index];
       if (!light) return;
-      const goal = (room.id === selected ? 15 : 7.5) * intro;
-      light.intensity += (goal - light.intensity) * Math.min(1, delta * 5);
+      const level = !selected ? 6.5 : room.id === selected ? 13 : 4;
+      light.intensity += (level * intro - light.intensity) * Math.min(1, delta * 5);
     });
   });
   return (
     <>
       {rooms.map((room, index) => {
         const [cx, cz] = roomCenter(room);
-        return <pointLight key={room.id} ref={(node) => (refs.current[index] = node)} position={[cx, 2.0, cz]} color="#ffbe80" intensity={0} distance={7.5} decay={1.6} />;
+        return <pointLight key={room.id} ref={(node) => (refs.current[index] = node)} position={[cx, 2.05, cz]} color={AMBER} intensity={0} distance={7} decay={1.5} />;
       })}
     </>
   );
 }
 
+function Trees({ resources, shadows }: { resources: Resources; shadows: boolean }) {
+  const trunks = useMemo<Box[]>(() => TREES.map((t) => ({ p: [t.x, t.h * 0.3, t.z], s: [0.08, t.h * 0.6, 0.08] })), []);
+  const canopies = useMemo<Box[]>(() => TREES.map((t) => ({ p: [t.x, t.h * 0.62 + t.r * 0.5, t.z], s: [t.r * 2, t.r * 2.3, t.r * 2] })), []);
+  return (
+    <>
+      <Boxes boxes={trunks} material={resources.materials.trunk} geometry={resources.geometries.cylinder} castShadow={shadows} />
+      <Boxes boxes={canopies} material={resources.materials.canopy} geometry={resources.geometries.sphere} castShadow={shadows} />
+    </>
+  );
+}
+
 // Moves the orbit target and distance toward the selected room.
-function CameraRig({ selected, zoom, reducedMotion, controls, base, compact }: { selected: DemoRoomId | null; zoom: number; reducedMotion: boolean; compact: boolean; controls: React.RefObject<OrbitControlsImpl>; base: number }) {
+function CameraRig({ selected, zoom, reducedMotion, controls, base, compact }: { selected: DemoRoomId | null; zoom: number; reducedMotion: boolean; controls: React.RefObject<OrbitControlsImpl>; base: number; compact: boolean }) {
   const camera = useThree((s) => s.camera);
   const invalidate = useThree((s) => s.invalidate);
   const goal = useMemo(() => new Vector3(), []);
@@ -432,12 +392,12 @@ function CameraRig({ selected, zoom, reducedMotion, controls, base, compact }: {
     const room = DEMO_ROOMS.find((r) => r.id === selected);
     if (room) {
       const [x, z] = roomCenter(room);
-      const pull = compact ? 0.35 : 0.9;
-      goal.set((x - CX) * pull, 0.6, (z - CZ) * pull);
-    } else goal.set(0, 0.7, 0.3);
+      const pull = compact ? 0.4 : 0.92;
+      goal.set((x - CX) * pull, 0.5, (z - CZ) * pull);
+    } else goal.set(0.2, 0.6, 0.5);
     // Phones keep the whole house in frame; only the target shifts.
-    const distance = base * zoom * (room && !compact ? 0.78 : 1);
-    const k = reducedMotion ? 1 : Math.min(1, delta * 3.2);
+    const distance = base * zoom * (room && !compact ? 0.76 : 1);
+    const k = reducedMotion ? 1 : Math.min(1, delta * 2.8);
     ctl.target.lerp(goal, k);
     dir.subVectors(camera.position, ctl.target);
     const current = dir.length();
@@ -449,58 +409,49 @@ function CameraRig({ selected, zoom, reducedMotion, controls, base, compact }: {
   return null;
 }
 
+// On wide screens the canvas spans the whole hero; shift the projection so
+// the house sits in the right-hand 60% without clipping at a hard edge.
+function FrameOffset({ shift }: { shift: number }) {
+  const camera = useThree((s) => s.camera) as PerspectiveCamera;
+  const size = useThree((s) => s.size);
+  useLayoutEffect(() => {
+    if (shift) camera.setViewOffset(size.width, size.height, -size.width * shift, 0, size.width, size.height);
+    else camera.clearViewOffset();
+    return () => camera.clearViewOffset();
+  }, [camera, size.width, size.height, shift]);
+  return null;
+}
+
 // Gentle sway and pointer parallax on the whole house.
 function Parallax({ children, reducedMotion }: { children: React.ReactNode; reducedMotion: boolean }) {
   const ref = useRef<Group>(null);
   useFrame(({ clock, pointer }) => {
     const group = ref.current;
     if (!group || reducedMotion) return;
-    const t = clock.elapsedTime;
-    const goal = Math.sin(t * 0.18) * 0.035 + pointer.x * 0.05;
-    group.rotation.y += (goal - group.rotation.y) * 0.04;
+    const goal = Math.sin(clock.elapsedTime * 0.16) * 0.03 + pointer.x * 0.045;
+    group.rotation.y += (goal - group.rotation.y) * 0.035;
   });
   return <group ref={ref}>{children}</group>;
 }
 
-function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, zoom, showMarkers }: SceneProps) {
+function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, zoom, showMarkers, shift }: SceneProps) {
   const resources = useSceneResources();
+  const { geometries: g, materials: m } = resources;
   const controls = useRef<OrbitControlsImpl>(null);
   const size = useThree((s) => s.size);
   const clock = useThree((s) => s.clock);
   const [start] = useState(() => clock.elapsedTime);
   const shadows = !compact;
   const aspect = size.width / Math.max(1, size.height);
-  const base = compact ? 17.5 * Math.max(1, 1.0 / aspect) : 24.5 * Math.max(1, 1.3 / aspect);
-  const W = HOUSE_SIZE.w;
-  const D = HOUSE_SIZE.d;
-
-  const plinthEdge: Box[] = useMemo(
-    () => [
-      { p: [CX, 0.002, -0.9], s: [W + 1.8, 0.012, 0.02] },
-      { p: [CX, 0.002, D + 2.1], s: [W + 1.8, 0.012, 0.02] },
-      { p: [-0.9, 0.002, CZ + 0.6], s: [0.02, 0.012, D + 3.0] },
-      { p: [W + 0.9, 0.002, CZ + 0.6], s: [0.02, 0.012, D + 3.0] },
-    ],
-    [W, D],
-  );
-  const outdoor = useMemo(
-    () => ({
-      deck: [{ p: [2.8, 0.03, D + 1.0], s: [5.6, 0.06, 2.0] }] as Box[],
-      water: [{ p: [7.9, 0.02, D + 1.05], s: [3.6, 0.04, 1.5] }] as Box[],
-      coping: [
-        { p: [7.9, 0.05, D + 0.25], s: [3.8, 0.06, 0.1] },
-        { p: [7.9, 0.05, D + 1.85], s: [3.8, 0.06, 0.1] },
-        { p: [6.05, 0.05, D + 1.05], s: [0.1, 0.06, 1.7] },
-        { p: [9.75, 0.05, D + 1.05], s: [0.1, 0.06, 1.7] },
-      ] as Box[],
-    }),
-    [D],
-  );
+  // Fit by the part of the canvas the house actually uses.
+  const useful = aspect * (1 - shift * 1.6);
+  const base = compact ? 21.5 * Math.max(1, 1.0 / aspect) : 23 * Math.max(1, 1.25 / useful);
+  const roomState = (id: DemoRoomId): RoomState => (id === selected ? "selected" : id === hovered ? "hover" : selected ? "dimmed" : "idle");
 
   return (
     <>
-      <hemisphereLight args={["#5d7fb8", "#05080f", 0.9]} />
-      <ambientLight intensity={0.18} color="#9fb8ff" />
+      <hemisphereLight args={["#7fb89c", "#06120e", 0.75]} />
+      <ambientLight intensity={0.12} color="#cfe8dc" />
       <OrbitControls
         ref={controls}
         makeDefault
@@ -509,22 +460,24 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
         enableRotate={!compact}
         enableDamping
         dampingFactor={0.08}
-        rotateSpeed={0.5}
+        rotateSpeed={0.45}
         minPolarAngle={0.72}
-        maxPolarAngle={1.12}
-        minAzimuthAngle={0.15}
-        maxAzimuthAngle={1.1}
+        maxPolarAngle={1.1}
+        minAzimuthAngle={0.2}
+        maxAzimuthAngle={1.05}
       />
+      <FrameOffset shift={shift} />
       <CameraRig selected={selected} zoom={zoom} reducedMotion={reducedMotion} controls={controls} base={base} compact={compact} />
       <Parallax reducedMotion={reducedMotion}>
         <group position={[-CX, 0, -CZ]}>
           <directionalLight
-            position={[16, 18, 12]}
-            intensity={1.1}
-            color="#c4d8ff"
+            position={[18, 20, 14]}
+            intensity={1.25}
+            color="#e4efe6"
             castShadow={shadows}
-            shadow-mapSize={[1024, 1024]}
+            shadow-mapSize={[1536, 1536]}
             shadow-bias={-0.0004}
+            shadow-normalBias={0.02}
             shadow-camera-left={-9}
             shadow-camera-right={9}
             shadow-camera-top={9}
@@ -533,25 +486,34 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
             shadow-camera-far={60}
             target-position={[CX, 0, CZ]}
           />
-          <pointLight position={[HUB[0], 0.6, HUB[1]]} color="#38d6f5" intensity={3} distance={4} decay={2} />
+          <pointLight position={[HUB[0], 0.5, HUB[1]]} color={EMERALD} intensity={2.5} distance={3.5} decay={2} />
+          {!compact && <pointLight position={[8.0, 0.6, HOUSE_SIZE.d + 1.2]} color="#3fd69c" intensity={2} distance={4} decay={2} />}
 
-          {/* Base, terrace and pool */}
-          <mesh position={[CX, -0.2, CZ + 0.6]} scale={[W + 1.8, 0.4, D + 3.0]} geometry={resources.box} material={resources.plinth} receiveShadow raycast={() => null} />
-          <Boxes boxes={plinthEdge} material={resources.edge} geometry={resources.box} />
-          <Boxes boxes={outdoor.deck} material={resources.deck} geometry={resources.box} receiveShadow />
-          <Boxes boxes={outdoor.water} material={resources.water} geometry={resources.box} />
-          <Boxes boxes={outdoor.coping} material={resources.wall} geometry={resources.box} />
+          {/* Ground: halo, plinth, garden strip, terrace, pool */}
+          <mesh position={[CX, -0.45, CZ + 0.7]} rotation={[-Math.PI / 2, 0, 0]} scale={[34, 30, 1]} geometry={g.plane} material={m.halo} raycast={() => null} />
+          <mesh position={PLINTH.p} scale={PLINTH.s} geometry={g.box} material={m.plinth} receiveShadow raycast={() => null} />
+          <Boxes boxes={PLINTH_EDGE} material={m.edge} geometry={g.box} />
+          <Boxes boxes={LAWN} material={m.lawn} geometry={g.box} receiveShadow />
+          <Boxes boxes={DECK} material={m.deck} geometry={g.box} receiveShadow />
+          <Boxes boxes={WATER} material={m.water} geometry={g.box} />
+          <Boxes boxes={COPING} material={m.stone} geometry={g.box} receiveShadow />
+          <Boxes boxes={BOLLARDS} material={m.warm} geometry={g.cylinder} />
+          <Trees resources={resources} shadows={shadows} />
 
           {DEMO_ROOMS.map((room) => (
-            <Room key={room.id} room={room} resources={resources} onHover={onHover} onSelect={onSelect} state={room.id === selected ? "selected" : room.id === hovered ? "hover" : "idle"} />
+            <Room key={room.id} room={room} resources={resources} onHover={onHover} onSelect={onSelect} state={roomState(room.id)} />
           ))}
 
-          <Boxes boxes={EXTERIOR} material={resources.wall} geometry={resources.box} castShadow={shadows} receiveShadow />
-          <Boxes boxes={INTERIOR} material={resources.wall} geometry={resources.box} castShadow={shadows} receiveShadow />
-          <Boxes boxes={ROOF} material={resources.roof} geometry={resources.box} castShadow={shadows} />
-          <Boxes boxes={LED_STRIPS} material={resources.led} geometry={resources.box} />
-          <Boxes boxes={FACADE.frame} material={resources.frame} geometry={resources.box} />
-          <Boxes boxes={[...FACADE.glass, ...WINDOWS]} material={resources.glass} geometry={resources.box} />
+          <Boxes boxes={EXTERIOR} material={m.wall} geometry={g.box} castShadow={shadows} receiveShadow />
+          <Boxes boxes={INTERIOR} material={m.wall} geometry={g.box} castShadow={shadows} receiveShadow />
+          <Boxes boxes={WALL_CAPS} material={m.cap} geometry={g.box} />
+          <Boxes boxes={ROOF} material={m.roof} geometry={g.box} castShadow={shadows} />
+          <Boxes boxes={SOFFIT_LIGHTS} material={m.soffit} geometry={g.box} />
+          <Boxes boxes={COVES} material={m.warm} geometry={g.box} />
+          <Boxes boxes={SCONCES} material={m.warm} geometry={g.box} />
+          <Boxes boxes={ACCENT_STRIPS} material={m.warm} geometry={g.box} />
+          <Boxes boxes={FRAMES} material={m.frame} geometry={g.box} />
+          <Boxes boxes={GLASS} material={m.glass} geometry={g.box} />
           <Furniture resources={resources} shadows={shadows} />
 
           <RoomLights selected={selected} compact={compact} reducedMotion={reducedMotion} start={start} />
@@ -562,7 +524,7 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
             DEMO_ROOMS.map((room, index) => {
               const [cx, cz] = roomCenter(room);
               return (
-                <Html key={room.id} position={[cx, 1.75, cz]} center zIndexRange={[30, 10]}>
+                <Html key={room.id} position={[cx, H * 0.68, cz]} center zIndexRange={[30, 10]}>
                   <button
                     type="button"
                     className="l-marker"
@@ -578,6 +540,8 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
                     }}
                     onMouseEnter={() => onHover(room.id)}
                     onMouseLeave={() => onHover(null)}
+                    onFocus={() => onHover(room.id)}
+                    onBlur={() => onHover(null)}
                   >
                     <span className="l-marker-dot" aria-hidden="true" />
                     {room.label}
@@ -591,8 +555,7 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
   );
 }
 
-export interface HeroHouse3DProps extends Omit<SceneProps, "compact"> {
-  compact: boolean;
+export interface HeroHouse3DProps extends SceneProps {
   active: boolean;
   onReady?: () => void;
 }
@@ -607,9 +570,10 @@ export default function HeroHouse3D({ active, onReady, ...props }: HeroHouse3DPr
       dpr={dpr}
       shadows={!props.compact ? "soft" : false}
       gl={{ antialias: !props.compact, alpha: true, powerPreference: "high-performance" }}
-      camera={{ fov: 30, near: 0.5, far: 120, position: [12.5, 12.5, 15] }}
+      camera={{ fov: 30, near: 0.5, far: 140, position: [13, 12.5, 15] }}
       onCreated={({ gl }) => {
         gl.setClearColor(0x000000, 0);
+        gl.toneMappingExposure = 1.05;
         onReady?.();
       }}
       onPointerMissed={() => props.onSelect(null)}

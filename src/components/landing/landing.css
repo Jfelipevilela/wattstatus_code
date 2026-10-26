@@ -1,27 +1,50 @@
-/* Public landing page. Always dark, independent of the app theme. */
+/* Public landing page: WattStatus Emerald Dark. Always dark, independent of
+   the app theme. Colours are semantic tokens; components never hardcode hex.
+   RGB triplets allow alpha: rgb(var(--l-accent-rgb) / 0.2). */
 .landing {
-  --l-bg: #050a14;
-  --l-bg-2: #08111f;
-  --l-surface: #0c1626;
-  --l-surface-2: #101d31;
-  --l-line: rgba(148, 178, 214, 0.12);
-  --l-line-strong: rgba(148, 178, 214, 0.22);
-  --l-text: #eef4fb;
-  --l-muted: #93a4ba;
-  --l-faint: #64758c;
-  --l-blue: #3b82f6;
-  --l-cyan: #38d6f5;
-  --l-teal: #2dd4bf;
-  --l-green: #34d399;
+  --l-bg-rgb: 7 20 17;            /* #071411 */
+  --l-surface-rgb: 16 36 29;      /* #10241D */
+  --l-elevated-rgb: 22 51 41;     /* #163329 */
+  --l-forest-rgb: 24 77 58;       /* #184D3A */
+  --l-accent-rgb: 69 224 164;     /* #45E0A4 */
+  --l-accent-2-rgb: 38 184 125;   /* #26B87D */
+  --l-amber-rgb: 215 168 110;     /* #D7A86E */
+  --l-line-rgb: 166 189 177;      /* #A6BDB1 */
+  --l-bg: rgb(var(--l-bg-rgb));
+  --l-bg-2: #0a1a16;
+  --l-surface: rgb(var(--l-surface-rgb));
+  --l-surface-2: rgb(var(--l-elevated-rgb));
+  --l-forest: rgb(var(--l-forest-rgb));
+  --l-line: rgb(var(--l-line-rgb) / 0.11);
+  --l-line-strong: rgb(var(--l-line-rgb) / 0.2);
+  --l-text: #f5f8f4;
+  --l-muted: #a6bdb1;
+  --l-faint: #7d978a;
+  --l-accent: rgb(var(--l-accent-rgb));
+  --l-accent-hover: #6ae9b8;
+  --l-accent-2: rgb(var(--l-accent-2-rgb));
+  --l-accent-subtle: rgb(var(--l-accent-rgb) / 0.1);
+  --l-amber: rgb(var(--l-amber-rgb));
+  --l-focus: #7ef0c2;
+  --l-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.75);
+  --l-glow: 0 0 40px -8px rgb(var(--l-accent-rgb) / 0.45);
+  /* Semantic states: never colour alone, always with a label or pattern. */
+  --l-success: #45e0a4;
+  --l-warning: #e8b45c;
+  --l-error: #f07a6a;
+  --l-measured: #45e0a4;
+  --l-estimated: #d7a86e;
+  --l-partial: #8fc9ae;
+  --l-nodata: #5d7468;
   background: var(--l-bg);
   color: var(--l-text);
-  font-family: "Inter", "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-family: "Manrope", "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
 }
 
 .landing ::selection {
-  background: rgba(56, 214, 245, 0.3);
+  background: rgb(var(--l-accent-rgb)/0.3);
 }
 
 .landing .l-container {
@@ -42,7 +65,7 @@
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--l-cyan);
+  color: var(--l-accent);
 }
 .landing .l-eyebrow::before {
   content: "";
@@ -53,7 +76,7 @@
 }
 
 .landing .l-gradient-text {
-  background: linear-gradient(100deg, #5aa9ff 0%, var(--l-cyan) 55%, var(--l-teal) 100%);
+  background: linear-gradient(100deg, #9ff5d0 0%, var(--l-accent) 45%, #2fc98c 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -62,7 +85,7 @@
 .landing .l-focus:focus-visible,
 .landing a:focus-visible,
 .landing button:focus-visible {
-  outline: 2px solid var(--l-cyan);
+  outline: 2px solid var(--l-accent);
   outline-offset: 3px;
   border-radius: 10px;
 }
@@ -83,22 +106,22 @@
   white-space: nowrap;
 }
 .landing .l-btn-primary {
-  color: #03111c;
-  background: linear-gradient(180deg, #6fe3ff 0%, #2ec4ec 100%);
-  box-shadow: 0 0 0 1px rgba(111, 227, 255, 0.4) inset, 0 10px 30px -10px rgba(56, 214, 245, 0.55);
+  color: #052117;
+  background: linear-gradient(180deg, #6eeab9 0%, var(--l-accent) 55%, #34cf93 100%);
+  box-shadow: 0 0 0 1px rgb(var(--l-accent-rgb)/0.4) inset, 0 10px 30px -10px rgb(var(--l-accent-rgb)/0.55);
 }
 .landing .l-btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 0 1px rgba(111, 227, 255, 0.6) inset, 0 14px 36px -10px rgba(56, 214, 245, 0.7);
+  box-shadow: 0 0 0 1px rgb(var(--l-accent-rgb)/0.6) inset, 0 14px 36px -10px rgb(var(--l-accent-rgb)/0.7);
 }
 .landing .l-btn-ghost {
   color: var(--l-text);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgb(var(--l-surface-rgb) / 0.6);
   border: 1px solid var(--l-line-strong);
 }
 .landing .l-btn-ghost:hover {
-  border-color: rgba(56, 214, 245, 0.5);
-  background: rgba(56, 214, 245, 0.06);
+  border-color: rgb(var(--l-accent-rgb)/0.5);
+  background: rgb(var(--l-accent-rgb)/0.06);
 }
 .landing .l-btn:active { transform: translateY(0) scale(0.98); }
 
@@ -108,7 +131,7 @@
   border-bottom: 1px solid transparent;
 }
 .landing .l-header[data-scrolled="true"] {
-  background: rgba(5, 10, 20, 0.78);
+  background: rgb(var(--l-bg-rgb)/0.78);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   border-bottom-color: var(--l-line);
@@ -127,7 +150,7 @@
   right: 2px;
   bottom: 2px;
   height: 1px;
-  background: var(--l-cyan);
+  background: var(--l-accent);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.3s ease;
@@ -140,22 +163,25 @@
 /* Hero backdrop: a quiet horizon glow, a faint blueprint grid. */
 .landing .l-hero-bg {
   background:
-    radial-gradient(60% 55% at 72% 46%, rgba(37, 99, 235, 0.22) 0%, rgba(37, 99, 235, 0) 70%),
-    radial-gradient(40% 35% at 80% 70%, rgba(45, 212, 191, 0.1) 0%, rgba(45, 212, 191, 0) 70%),
-    linear-gradient(180deg, #050a14 0%, #071122 60%, #050a14 100%);
+    radial-gradient(55% 60% at 70% 52%, rgb(var(--l-forest-rgb) / 0.55) 0%, rgb(var(--l-forest-rgb) / 0) 72%),
+    radial-gradient(30% 28% at 66% 46%, rgb(var(--l-amber-rgb) / 0.09) 0%, rgb(var(--l-amber-rgb) / 0) 70%),
+    radial-gradient(40% 50% at 0% 0%, rgb(var(--l-forest-rgb) / 0.3) 0%, transparent 70%),
+    linear-gradient(180deg, #06110e 0%, var(--l-bg) 55%, #050f0c 100%);
 }
 .landing .l-grid {
   background-image:
-    linear-gradient(rgba(148, 178, 214, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 178, 214, 0.05) 1px, transparent 1px);
+    linear-gradient(rgb(var(--l-line-rgb)/0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--l-line-rgb)/0.05) 1px, transparent 1px);
   background-size: 56px 56px;
   mask-image: radial-gradient(70% 60% at 65% 45%, #000 0%, transparent 75%);
   -webkit-mask-image: radial-gradient(70% 60% at 65% 45%, #000 0%, transparent 75%);
 }
 
 /* Entrance sequence. */
+/* Entrances start at 0.01, not 0: visually identical, but the text counts
+   as painted, so the entrance never delays Largest Contentful Paint. */
 @keyframes l-rise {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0.01; transform: translateY(14px); }
   to { opacity: 1; transform: none; }
 }
 @keyframes l-fade {
@@ -163,7 +189,7 @@
   to { opacity: 1; }
 }
 @keyframes l-line {
-  from { opacity: 0; transform: translateY(100%); }
+  from { opacity: 0.01; transform: translateY(100%); }
   to { opacity: 1; transform: none; }
 }
 .landing .l-in { animation: l-rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
@@ -182,7 +208,7 @@
 
 /* Surfaces */
 .landing .l-panel {
-  background: linear-gradient(180deg, rgba(16, 29, 49, 0.9) 0%, rgba(10, 19, 34, 0.9) 100%);
+  background: linear-gradient(180deg, rgb(var(--l-elevated-rgb)/0.9) 0%, rgb(var(--l-surface-rgb)/0.9) 100%);
   border: 1px solid var(--l-line);
   border-radius: 20px;
 }
@@ -195,7 +221,7 @@
   font-size: 11.5px;
   color: var(--l-muted);
   border: 1px solid var(--l-line-strong);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgb(var(--l-surface-rgb) / 0.5);
 }
 
 /* Room marker over the 3D house. */
@@ -209,8 +235,8 @@
   font-weight: 500;
   color: var(--l-text);
   white-space: nowrap;
-  background: rgba(6, 14, 27, 0.78);
-  border: 1px solid rgba(148, 178, 214, 0.22);
+  background: rgb(var(--l-bg-rgb)/0.78);
+  border: 1px solid rgb(var(--l-line-rgb)/0.22);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
@@ -218,16 +244,16 @@
 }
 .landing .l-marker:hover,
 .landing .l-marker[data-active="true"] {
-  border-color: rgba(56, 214, 245, 0.7);
-  background: rgba(8, 30, 48, 0.9);
+  border-color: rgb(var(--l-accent-rgb)/0.7);
+  background: rgb(var(--l-surface-rgb)/0.9);
 }
 .landing .l-marker-dot {
   position: relative;
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--l-cyan);
-  box-shadow: 0 0 10px var(--l-cyan);
+  background: var(--l-accent);
+  box-shadow: 0 0 10px var(--l-accent);
 }
 
 /* AI orb: CSS only, so the page keeps a single WebGL canvas. */
@@ -236,15 +262,15 @@
   aspect-ratio: 1;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 35% 30%, rgba(220, 248, 255, 0.95) 0%, rgba(111, 227, 255, 0.55) 14%, rgba(37, 99, 235, 0.35) 42%, rgba(5, 10, 20, 0) 70%),
-    radial-gradient(circle at 60% 70%, rgba(45, 212, 191, 0.4) 0%, rgba(45, 212, 191, 0) 55%);
-  box-shadow: 0 0 80px -10px rgba(56, 214, 245, 0.45), inset 0 0 40px rgba(111, 227, 255, 0.2);
+    radial-gradient(circle at 38% 32%, rgb(236 255 246 / 0.95) 0%, rgb(var(--l-accent-rgb) / 0.75) 16%, rgb(var(--l-accent-2-rgb) / 0.45) 38%, rgb(var(--l-forest-rgb) / 0.6) 60%, rgb(var(--l-bg-rgb) / 0) 72%),
+    radial-gradient(circle at 64% 72%, rgb(var(--l-amber-rgb) / 0.28) 0%, transparent 50%);
+  box-shadow: 0 0 90px -10px rgb(var(--l-accent-rgb) / 0.4), inset 0 0 40px rgb(var(--l-accent-rgb) / 0.25);
 }
 .landing .l-orb-ring {
   position: absolute;
   inset: -8%;
   border-radius: 999px;
-  border: 1px solid rgba(111, 227, 255, 0.22);
+  border: 1px solid rgb(var(--l-accent-rgb)/0.22);
   animation: l-spin 18s linear infinite;
 }
 .landing .l-orb-ring::after {
@@ -255,10 +281,10 @@
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: var(--l-cyan);
-  box-shadow: 0 0 12px var(--l-cyan);
+  background: var(--l-accent);
+  box-shadow: 0 0 12px var(--l-accent);
 }
-.landing .l-orb-ring.r2 { inset: -22%; border-color: rgba(111, 227, 255, 0.1); animation-duration: 30s; animation-direction: reverse; transform: rotateX(60deg); }
+.landing .l-orb-ring.r2 { inset: -22%; border-color: rgb(var(--l-accent-rgb)/0.1); animation-duration: 30s; animation-direction: reverse; transform: rotateX(60deg); }
 @keyframes l-spin { to { transform: rotate(360deg); } }
 @keyframes l-breathe {
   0%, 100% { transform: scale(1); filter: brightness(1); }
@@ -267,7 +293,7 @@
 .landing .l-orb-core { animation: l-breathe 5s ease-in-out infinite; }
 
 @keyframes l-caret { 50% { opacity: 0; } }
-.landing .l-caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--l-cyan); animation: l-caret 1s steps(1) infinite; }
+.landing .l-caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--l-accent); animation: l-caret 1s steps(1) infinite; }
 
 /* Flowing dash for connector lines in illustrations. */
 @keyframes l-dash { to { stroke-dashoffset: -40; } }
@@ -283,3 +309,33 @@
   }
   .landing .l-reveal { opacity: 1; transform: none; }
 }
+
+/* Section rhythm: a chapter marker that ties the page into one story. */
+.landing .l-chapter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--l-faint);
+}
+.landing .l-chapter b { color: var(--l-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.landing .l-chapter::after { content: ""; width: 40px; height: 1px; background: var(--l-line-strong); }
+
+/* Elevated surface with a soft top light instead of a glowing border. */
+.landing .l-card {
+  position: relative;
+  border-radius: 24px;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgb(var(--l-forest-rgb) / 0.45), transparent 60%),
+    linear-gradient(180deg, rgb(var(--l-elevated-rgb) / 0.75), rgb(var(--l-surface-rgb) / 0.85));
+  border: 1px solid var(--l-line);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, var(--l-shadow);
+  transition: border-color 0.3s ease, transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.landing a.l-card:hover { border-color: rgb(var(--l-accent-rgb) / 0.3); transform: translateY(-3px); }
+
+.landing .l-legend { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--l-muted); }
+.landing .l-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }

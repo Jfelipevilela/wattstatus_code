@@ -8,7 +8,7 @@ import { NAV_LINKS } from "./content";
 export function LandingLogo() {
   return (
     <span className="flex items-center gap-2.5">
-      <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-gradient-to-b from-[#1b3a5c] to-[#0d1d33] ring-1 ring-white/10">
+      <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-gradient-to-b from-[var(--l-forest)] to-[var(--l-surface)] ring-1 ring-white/10">
         <img src={icon} alt="" width={20} height={20} className="h-5 w-5" />
       </span>
       <span className="text-[15px] font-semibold tracking-[0.14em] text-[var(--l-text)]">WATTSTATUS</span>

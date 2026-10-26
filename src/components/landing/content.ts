@@ -28,11 +28,11 @@ export interface DemoRoom {
 
 // Two rows: private rooms at the back, living and kitchen facing the terrace.
 export const DEMO_ROOMS: DemoRoom[] = [
-  { id: "bedroom", label: "Quarto", type: "bedroom", x: 0, z: 0, w: 4, d: 3.6, floor: "wood", description: "Visualize aparelhos e possibilidades de economia." },
-  { id: "bathroom", label: "Banheiro", type: "bathroom", x: 4, z: 0, w: 2.3, d: 3.6, floor: "tile", description: "Veja quais equipamentos fazem parte deste ambiente." },
+  { id: "bedroom", label: "Quarto", type: "bedroom", x: 0, z: 0, w: 4, d: 3.6, floor: "wood", description: "Entenda como hábitos e aparelhos influenciam a energia utilizada neste ambiente." },
+  { id: "bathroom", label: "Banheiro", type: "bathroom", x: 4, z: 0, w: 2.3, d: 3.6, floor: "tile", description: "Veja quais equipamentos fazem parte deste ambiente, como o chuveiro elétrico." },
   { id: "office", label: "Escritório", type: "office", x: 6.3, z: 0, w: 3.7, d: 3.6, floor: "wood", description: "Organize computadores e eletrônicos do seu espaço de trabalho." },
-  { id: "living", label: "Sala de estar", type: "living", x: 0, z: 3.6, w: 5.6, d: 4.2, floor: "wood", description: "Explore o consumo dos aparelhos deste ambiente." },
-  { id: "kitchen", label: "Cozinha", type: "kitchen", x: 5.6, z: 3.6, w: 4.4, d: 4.2, floor: "tile", description: "Entenda como cada equipamento contribui para o consumo." },
+  { id: "living", label: "Sala de estar", type: "living", x: 0, z: 3.6, w: 5.6, d: 4.2, floor: "wood", description: "Explore os aparelhos da sala e entenda como eles contribuem para o consumo energético." },
+  { id: "kitchen", label: "Cozinha", type: "kitchen", x: 5.6, z: 3.6, w: 4.4, d: 4.2, floor: "tile", description: "Visualize os equipamentos da cozinha e conheça possibilidades de monitoramento." },
 ];
 
 export const HOUSE_SIZE = { w: 10, d: 7.8 } as const;
@@ -63,7 +63,7 @@ export const FEATURES = [
 export const AI_EXAMPLE = {
   question: "Quais aparelhos podem estar aumentando meus gastos?",
   answer:
-    "O WattStatus pode analisar os dados disponíveis dos seus aparelhos, comparar períodos e mostrar oportunidades de economia. A precisão depende das medições e dos cadastros existentes.",
+    "O WattStatus pode analisar o histórico disponível, comparar aparelhos e identificar mudanças relevantes. As conclusões dependem da qualidade das medições e dos dados cadastrados.",
 } as const;
 
 export const STEPS = [

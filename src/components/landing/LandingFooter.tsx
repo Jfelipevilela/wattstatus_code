@@ -4,7 +4,7 @@ import { NAV_LINKS } from "./content";
 
 export function LandingFooter() {
   return (
-    <footer className="border-t border-[var(--l-line)] bg-[#03070e]">
+    <footer className="border-t border-[var(--l-line)] bg-[#050f0c]">
       <div className="l-container grid gap-12 py-14 md:grid-cols-[1.4fr_1fr_1fr] md:py-16">
         <div>
           <Link to="/" aria-label="WattStatus, página inicial" className="inline-block rounded-lg">

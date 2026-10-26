@@ -18,11 +18,23 @@ const useCompact = () => {
   return compact;
 };
 
+const useWide = () => {
+  const [wide, setWide] = useState(() => window.innerWidth >= 1024);
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const update = () => setWide(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return wide;
+};
+
 const ZOOM_STEPS = [1.25, 1, 0.82, 0.68];
 
 function HouseStage() {
   const reducedMotion = useReducedMotion();
   const compact = useCompact();
+  const wide = useWide();
   const stage = useRef<HTMLDivElement>(null);
   const [webgl] = useState(supportsWebGL);
   const [mount, setMount] = useState(false);
@@ -63,10 +75,10 @@ function HouseStage() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <div ref={stage} className="relative min-h-0 flex-1" aria-label="Casa demonstrativa em 3D" role="group">
         <HouseIllustration
-          className={`absolute inset-0 m-auto h-full w-full max-w-[720px] object-contain p-6 transition-opacity duration-700 ${ready ? "pointer-events-none opacity-0" : "opacity-100"}`}
+          className={`absolute inset-y-0 right-0 m-auto h-full w-full max-w-[720px] object-contain p-6 lg:left-auto lg:w-[58%] transition-opacity duration-700 ${ready ? "pointer-events-none opacity-0" : "opacity-100"}`}
         />
         {mount && (
           <Suspense fallback={null}>
@@ -81,47 +93,34 @@ function HouseStage() {
                 onSelect={setSelected}
                 zoom={ZOOM_STEPS[zoomIndex]}
                 showMarkers={!compact}
+                shift={wide ? 0.25 : 0}
                 onReady={() => setReady(true)}
               />
             </div>
           </Suspense>
         )}
 
-        <p className="l-in-fade pointer-events-none absolute right-3 top-2 text-[11px] text-[var(--l-faint)] md:right-6 md:top-4" style={{ animationDelay: "1.2s" }}>
+        {/* Keeps the headline legible when the house moves under it. */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-[50%] bg-gradient-to-r from-[var(--l-bg)] via-[rgb(var(--l-bg-rgb)/0.82)] to-transparent lg:block" aria-hidden="true" />
+
+        <p className="l-in-fade pointer-events-none absolute right-3 top-2 text-[11px] text-[var(--l-faint)] md:right-6 md:top-4 lg:top-[88px]" style={{ animationDelay: "1.2s" }}>
           Casa demonstrativa · ilustração do produto
         </p>
 
         {ready && (
           <div className="absolute bottom-3 right-3 flex gap-1.5 md:bottom-6 md:right-6" role="toolbar" aria-label="Controles da visualização">
-            <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--l-line-strong)] bg-[rgba(6,14,27,0.7)] text-[var(--l-muted)] backdrop-blur hover:text-[var(--l-text)] disabled:opacity-40" aria-label="Aproximar" disabled={zoomIndex === ZOOM_STEPS.length - 1} onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}>
+            <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--l-line-strong)] bg-[rgb(var(--l-bg-rgb)/0.7)] text-[var(--l-muted)] backdrop-blur hover:text-[var(--l-text)] disabled:opacity-40" aria-label="Aproximar" disabled={zoomIndex === ZOOM_STEPS.length - 1} onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}>
               <Plus className="h-4 w-4" aria-hidden="true" />
             </button>
-            <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--l-line-strong)] bg-[rgba(6,14,27,0.7)] text-[var(--l-muted)] backdrop-blur hover:text-[var(--l-text)] disabled:opacity-40" aria-label="Afastar" disabled={zoomIndex === 0} onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}>
+            <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--l-line-strong)] bg-[rgb(var(--l-bg-rgb)/0.7)] text-[var(--l-muted)] backdrop-blur hover:text-[var(--l-text)] disabled:opacity-40" aria-label="Afastar" disabled={zoomIndex === 0} onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}>
               <Minus className="h-4 w-4" aria-hidden="true" />
             </button>
-            <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--l-line-strong)] bg-[rgba(6,14,27,0.7)] text-[var(--l-muted)] backdrop-blur hover:text-[var(--l-text)]" aria-label="Restaurar visualização" onClick={() => { setZoomIndex(1); setSelected(null); }}>
+            <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--l-line-strong)] bg-[rgb(var(--l-bg-rgb)/0.7)] text-[var(--l-muted)] backdrop-blur hover:text-[var(--l-text)]" aria-label="Restaurar visualização" onClick={() => { setZoomIndex(1); setSelected(null); }}>
               <RotateCcw className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         )}
 
-        <div aria-live="polite" className="pointer-events-none absolute bottom-3 left-3 right-[150px] md:bottom-6 md:left-6 md:right-auto">
-          {room && (
-            <div key={room.id} className="l-in pointer-events-auto max-w-[320px] rounded-2xl border border-[rgba(56,214,245,0.35)] bg-[rgba(6,14,27,0.86)] p-4 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)] backdrop-blur-md" style={{ animationDuration: "0.45s" }}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--l-cyan)]">Ambiente</p>
-                  <p className="mt-1 text-base font-semibold">{room.label}</p>
-                </div>
-                <button type="button" onClick={() => setSelected(null)} className="-mr-1 -mt-1 grid h-8 w-8 place-items-center rounded-lg text-[var(--l-muted)] hover:text-[var(--l-text)]" aria-label="Fechar detalhes do ambiente">
-                  <X className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-              <p className="mt-1.5 text-sm leading-relaxed text-[var(--l-muted)]">{room.description}</p>
-              <p className="mt-3 border-t border-[var(--l-line)] pt-2.5 text-[11px] text-[var(--l-faint)]">Demonstração sem dados de consumo. Na sua conta, os valores vêm dos seus cadastros e medições.</p>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Touch and keyboard friendly room picker; on desktop the markers live in the scene. */}
@@ -134,7 +133,7 @@ function HouseStage() {
                 type="button"
                 aria-pressed={item.id === selected}
                 onClick={() => setSelected(item.id === selected ? null : item.id)}
-                className={`min-h-[40px] shrink-0 rounded-full border px-4 text-sm transition-colors ${item.id === selected ? "border-[var(--l-cyan)] bg-[rgba(56,214,245,0.12)] text-[var(--l-text)]" : "border-[var(--l-line-strong)] text-[var(--l-muted)]"}`}
+                className={`min-h-[40px] shrink-0 rounded-full border px-4 text-sm transition-colors ${item.id === selected ? "border-[var(--l-accent)] bg-[rgb(var(--l-accent-rgb)/0.12)] text-[var(--l-text)]" : "border-[var(--l-line-strong)] text-[var(--l-muted)]"}`}
               >
                 {item.label}
               </button>
@@ -142,6 +141,24 @@ function HouseStage() {
           </div>
         </div>
       )}
+
+        <div aria-live="polite" className="pointer-events-none mt-3 px-5 md:absolute md:bottom-6 md:left-6 md:mt-0 md:w-auto md:px-0 lg:left-auto lg:right-[170px]">
+        {room && (
+          <div key={room.id} className="l-in pointer-events-auto rounded-2xl md:max-w-[320px] border border-[rgb(var(--l-accent-rgb)/0.35)] bg-[rgb(var(--l-bg-rgb)/0.86)] p-4 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)] backdrop-blur-md" style={{ animationDuration: "0.45s" }}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--l-accent)]">Ambiente</p>
+                <p className="mt-1 text-base font-semibold">{room.label}</p>
+              </div>
+              <button type="button" onClick={() => setSelected(null)} className="-mr-1 -mt-1 grid h-8 w-8 place-items-center rounded-lg text-[var(--l-muted)] hover:text-[var(--l-text)]" aria-label="Fechar detalhes do ambiente">
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+            <p className="mt-1.5 text-sm leading-relaxed text-[var(--l-muted)]">{room.description}</p>
+            <p className="mt-3 border-t border-[var(--l-line)] pt-2.5 text-[11px] text-[var(--l-faint)]">Demonstração sem dados de consumo. Na sua conta, os valores vêm dos seus cadastros e medições.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -154,7 +171,7 @@ export function HeroSection() {
         <div className="l-container relative z-10 grid lg:pointer-events-none lg:min-h-[calc(min(100svh,960px)-72px)] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:items-center">
           <div className="pb-6 pt-10 md:pt-16 lg:pointer-events-auto lg:py-20 lg:pr-4">
             <p className="l-eyebrow l-in" style={{ animationDelay: "120ms" }}>Sua casa. Mais inteligente.</p>
-            <h1 id="hero-title" className="mt-5 text-[2.35rem] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-5xl lg:text-[3.15rem] xl:text-[3.7rem]">
+            <h1 id="hero-title" className="mt-5 text-[2.35rem] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-5xl lg:text-[3rem] xl:text-[3.45rem]">
               <span className="l-title-line"><span style={{ animationDelay: "180ms" }}>A nova forma de</span></span>
               <span className="l-title-line"><span className="l-gradient-text" style={{ animationDelay: "280ms" }}>enxergar a energia</span></span>
               <span className="l-title-line"><span style={{ animationDelay: "380ms" }}>da sua casa.</span></span>
@@ -173,7 +190,7 @@ export function HeroSection() {
             <ul className="l-in mt-10 hidden max-w-[34rem] grid-cols-2 gap-x-6 gap-y-3 border-t border-[var(--l-line)] pt-6 sm:grid" style={{ animationDelay: "780ms" }} aria-label="Diferenciais">
               {HERO_HIGHLIGHTS.map((item) => (
                 <li key={item} className="flex items-center gap-2.5 text-sm text-[var(--l-muted)]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--l-cyan)] shadow-[0_0_8px_var(--l-cyan)]" aria-hidden="true" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--l-accent)] shadow-[0_0_8px_var(--l-accent)]" aria-hidden="true" />
                   {item}
                 </li>
               ))}
@@ -184,7 +201,7 @@ export function HeroSection() {
       </div>
 
       {/* The house bleeds past the container on desktop. */}
-      <div className="relative h-[min(64vh,500px)] sm:h-[540px] lg:absolute lg:bottom-0 lg:right-0 lg:top-[72px] lg:h-auto lg:w-[58%]">
+      <div className="relative h-[min(64vh,500px)] sm:h-[540px] lg:absolute lg:bottom-0 lg:right-0 lg:top-0 lg:h-auto lg:w-full">
         <HouseStage />
       </div>
       <div className="h-8 lg:hidden" aria-hidden="true" />
