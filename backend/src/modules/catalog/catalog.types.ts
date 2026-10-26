@@ -5,7 +5,7 @@ export type EnergyProfile =
   | { method: "PER_CYCLE"; energyPerCycleKwh: number; measurementType?: "ESTIMATED" };
 
 export interface CatalogSource {
-  type: "PBE" | "ENERGY_STAR" | "MANUFACTURER" | "WATTSTATUS_GENERIC";
+  type: "PBE" | "ENERGY_STAR" | "EPREL" | "MANUFACTURER" | "WATTSTATUS_GENERIC";
   reference: string;
   verifiedAt: string;
   externalId?: string;
@@ -33,6 +33,9 @@ export interface CatalogDevice {
   active?: boolean;
   variant?: { voltage?: number; identifier?: string };
   specifications?: Record<string, string | number>;
+  sources?: CatalogSource[];
+  profiles?: Array<{ profile: EnergyProfile; source: CatalogSource }>;
+  equivalence?: { key: string; referenceUrl: string };
 }
 export interface CatalogCategory {
   id: string;
@@ -45,12 +48,14 @@ export interface CatalogQuery {
   subcategory?: string;
   brand?: string;
   model?: string;
+  region?: "BR" | "US" | "EU";
   page: number;
   limit: number;
 }
 export interface CatalogPage {
   devices: CatalogDevice[];
   total: number;
+  totalPages: number;
   page: number;
   limit: number;
   categories: CatalogCategory[];

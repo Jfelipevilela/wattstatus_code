@@ -1,0 +1,6 @@
+[
+  { "adapter": "energystar-television-csv-v1", "raw": { "ENERGY STAR Unique ID": "4595074", "Markets": "United States, Canada", "Brand Name": "Insignia", "Model Number": "NS-32F202NA27", "Product Type": "Television (TV)", "Reported Annual Energy Consumption (kWh)": "66", "Reported On Mode Power (per the Federal Test Procedure) (watts)": "31.52", "Measured Standby Mode Power (Watts)": "" } },
+  { "adapter": "energystar-room-ac-csv-v1", "raw": { "ENERGY STAR Unique ID": "3387785", "Markets": "United States, Canada", "Brand Name": "BLACK+DECKER", "Model Number": "BD08NWES", "Type": "Window", "Annual Energy Use (kWh/yr)": "400", "Cooling Capacity (Btu/hr)": "8,000", "Voltage (volts)": "115" } },
+  { "adapter": "energystar-freezer-csv-v1", "raw": { "ENERGY STAR Unique ID": "2365353", "Markets": "United States, Canada", "Brand Name": "ALPHA", "Model Number": "RDVC138WE", "Type": "Upright Freezer", "Annual Energy Use (kWh/yr)": "394" } },
+  { "adapter": "energystar-display-csv-v1", "raw": { "ENERGY STAR Unique ID": "3629487", "Markets": "United States, Japan, Canada", "Brand Name": "Acer", "Model Number": "ACER ALTOS EZBA65", "Product Type": "Signage Display", "Monitor Total Energy Consumption at 115 Volts (kWh/yr)": "", "On Mode Power (watts)": "131.04", "Sleep Mode Power (watts)": "0.45", "Screen Size (inches)": "65" } }
+]

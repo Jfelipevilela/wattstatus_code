@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { catalogPresentation } from "@/lib/catalog-presentation";
+import CatalogReferenceDetails from "./CatalogReferenceDetails";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +16,8 @@ import { useUserPreferences } from "@/hooks/useUserPreferences";
 import type { Appliance, ApplianceInput } from "@/hooks/useAppliances";
 import type { CatalogDevice } from "../../backend/src/modules/catalog/catalog.types";
 import { normalizeEnergyProfile, referenceLabel } from "../../backend/src/modules/catalog/reference";
+import { cyclesInMonth } from "../../backend/src/modules/calculations/usage";
+import { selectEnergyMethod } from "../../backend/src/modules/calculations/decision";
 import { toast } from "@/components/ui/use-toast";
 
 export interface DiscoveredDevice {
@@ -47,6 +51,7 @@ export default function DeviceConfigurationPanel({
   const [matches, setMatches] = useState<Array<{ device: CatalogDevice; confidence: string }>>([]);
   const [matchError, setMatchError] = useState(false);
   const device = suppliedDevice || matchedDevice;
+  const description = device ? catalogPresentation(device) : undefined;
   useEffect(() => {
     if (!integration?.brand || !integration?.model || initialAppliance) return;
     const controller = new AbortController();
@@ -58,24 +63,40 @@ export default function DeviceConfigurationPanel({
     return () => controller.abort();
   }, [integration?.id, integration?.brand, integration?.model, initialAppliance]);
   const id = useId();
-  const profile = normalizeEnergyProfile(initialAppliance?.energyProfile ||
+  const savedProfile = normalizeEnergyProfile(initialAppliance?.energyProfile ||
     device?.energyProfile || { method: "POWER_TIME" as const });
+  const referenceDevice = initialAppliance?.catalogSnapshot || device;
+  const referenceProfile = initialAppliance?.estimateByUsage && referenceDevice
+    ? normalizeEnergyProfile(referenceDevice.energyProfile) : savedProfile;
+  const canCustomize = referenceProfile.method === "REFERENCE_PERIOD" && (!initialAppliance || Boolean(initialAppliance.catalogSnapshot));
+  const operatingEntry = referenceDevice?.profiles?.find(entry => entry.profile.method === "POWER_TIME");
+  const operatingProfile = operatingEntry?.profile;
+  const documentedPower = operatingProfile?.method === "POWER_TIME" ? operatingProfile.typicalPowerW : undefined;
+  const hasDocumentedPower = typeof documentedPower === "number" && Number.isFinite(documentedPower) && documentedPower > 0 && documentedPower <= 100000
+    && referenceDevice?.verified === true && operatingEntry?.source.type !== "WATTSTATUS_GENERIC" && operatingEntry?.source.official !== false;
+  const [estimateByUsage, setEstimateByUsage] = useState(initialAppliance ? initialAppliance.estimateByUsage ?? false : canCustomize && hasDocumentedPower);
+  const profile = estimateByUsage ? normalizeEnergyProfile(operatingProfile || { method: "POWER_TIME" }) : referenceProfile;
+  const decision = selectEnergyMethod(profile, integration?.energyInterval);
+  const [monitoringOnly, setMonitoringOnly] = useState(initialAppliance?.monitoringOnly ?? Boolean(integration &&
+    (decision.method === "LIVE_MEASUREMENT" || integration.counterKWh !== undefined)));
   const [name, setName] = useState(
-    initialAppliance?.name || device?.displayName || integration?.name || "",
+    initialAppliance?.name || description?.title.slice(0, 160) || integration?.name || "",
   );
   const [power, setPower] = useState(
     String(
-      initialAppliance?.power ??
-        (profile.method === "POWER_TIME"
-          ? (profile.typicalPowerW ?? integration?.power ?? "")
-          : ""),
+      (initialAppliance?.power || undefined) ??
+        (profile.method === "POWER_TIME" ? profile.typicalPowerW : operatingProfile?.method === "POWER_TIME" ? operatingProfile.typicalPowerW : undefined) ?? "",
     ),
   );
-  const [hours, setHours] = useState(String(initialAppliance?.usageHours ?? 4));
+  const [timeUnit, setTimeUnit] = useState<"HOURS" | "MINUTES">(device?.subcategory === "Micro-ondas" ? "MINUTES" : "HOURS");
+  const [hours, setHours] = useState(String(device?.subcategory === "Micro-ondas" ? (initialAppliance?.usageHours ?? .25) * 60 : initialAppliance?.usageHours ?? 4));
   const [days, setDays] = useState(String(initialAppliance?.days ?? 30));
   const [cycles, setCycles] = useState(
-    String(initialAppliance?.cyclesPerMonth ?? 12),
+    String(initialAppliance?.cyclesPerWeek ?? initialAppliance?.cyclesPerMonth ?? 4),
   );
+  const [cyclePeriod, setCyclePeriod] = useState<"WEEK" | "MONTH">(initialAppliance?.cyclesPerMonth != null && initialAppliance.cyclesPerWeek == null ? "MONTH" : "WEEK");
+  const [technicalEdit, setTechnicalEdit] = useState(false);
+  const [standbyEnabled, setStandbyEnabled] = useState(initialAppliance ? initialAppliance.standbyEnabled ?? false : profile.method === "POWER_TIME" && profile.standbyPowerW !== undefined);
   const [room, setRoom] = useState(initialAppliance?.room || "");
   const [tariff, setTariff] = useState(
     initialAppliance?.tariff || preferences.tariffState || "",
@@ -99,13 +120,17 @@ export default function DeviceConfigurationPanel({
   }, [preferences.tariffState, preferences.tariffValue, tariff, rate]);
   const input: ApplianceInput = {
     name: name.trim(),
-    power: profile.method === "POWER_TIME" ? Number(power) : 0,
-    usageHours: Number(hours),
+    power: !monitoringOnly && profile.method === "POWER_TIME" ? Number(power) : 0,
+    usageHours: monitoringOnly ? 0 : timeUnit === "MINUTES" ? Number(hours) / 60 : Number(hours),
     days: Number(days),
     tariff,
     tariffValue: Number(rate),
     energyProfile: profile,
-    cyclesPerMonth: profile.method === "PER_CYCLE" ? Number(cycles) : undefined,
+    cyclesPerMonth: profile.method === "PER_CYCLE" && cyclePeriod === "MONTH" ? Number(cycles) : undefined,
+    cyclesPerWeek: profile.method === "PER_CYCLE" && cyclePeriod === "WEEK" ? Number(cycles) : undefined,
+    standbyEnabled,
+    monitoringOnly,
+    ...(canCustomize ? { estimateByUsage } : {}),
     room: room.trim(),
     catalogDeviceId: initialAppliance?.catalogDeviceId || device?.id,
     ...(integration
@@ -130,16 +155,16 @@ export default function DeviceConfigurationPanel({
     hours !== "" &&
     Number.isFinite(Number(hours)) &&
     Number(hours) >= 0 &&
-    Number(hours) <= 24 &&
-    (profile.method !== "POWER_TIME" ||
+    input.usageHours <= 24 &&
+    (monitoringOnly || profile.method !== "POWER_TIME" ||
       (power !== "" && Number(power) > 0 && Number(power) <= 100000)) &&
-    (profile.method !== "PER_CYCLE" ||
+    (monitoringOnly || profile.method !== "PER_CYCLE" ||
       (cycles !== "" &&
         Number.isInteger(Number(cycles)) &&
         Number(cycles) >= 0 &&
-        Number(cycles) <= 1000));
+        Number(cycles) <= (cyclePeriod === "WEEK" ? 230 : 1000)));
   useEffect(() => {
-    if (!valid) {
+    if (!valid || monitoringOnly) {
       setResult(null);
       setCalculating(false);
       return;
@@ -178,7 +203,7 @@ export default function DeviceConfigurationPanel({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [signature, valid]);
+  }, [signature, valid, monitoringOnly]);
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!valid || lock.current) {
@@ -235,10 +260,11 @@ export default function DeviceConfigurationPanel({
     </div>
   );
   const source =
-    initialAppliance ||
+    (initialAppliance ? { ...initialAppliance, energyProfile: profile, power: Number(power), estimateByUsage } : undefined) ||
     (device
-      ? { source: device.source, energyProfile: profile, power: Number(power) }
+      ? { source: device.source, energyProfile: profile, power: Number(power), estimateByUsage }
       : { integrationProvider: "smartthings" });
+  const referenceSource = referenceDevice?.source || initialAppliance?.source;
   return (
     <Card className="min-w-0 border-l-4 border-l-energy-green-light">
       <CardHeader>
@@ -257,19 +283,40 @@ export default function DeviceConfigurationPanel({
                   onChange={event => {
                     const candidate = matches.find(row => row.device.id === event.target.value)?.device;
                     setMatchedDevice(candidate);
-                    if (!candidate) setPower(String(integration.power ?? ""));
-                    if (candidate?.energyProfile.method === "POWER_TIME") setPower(String(candidate.energyProfile.typicalPowerW ?? integration.power ?? ""));
+                    if (!candidate) setPower("");
+                    if (candidate?.energyProfile.method === "POWER_TIME") {
+                      setPower(String(candidate.energyProfile.typicalPowerW ?? ""));
+                      setStandbyEnabled(candidate.energyProfile.standbyPowerW !== undefined);
+                    }
                   }}>
                   <option value="">Nenhum destes / sem associação</option>
-                  {matches.map(row => <option key={row.device.id} value={row.device.id}>{row.device.displayName} · {row.device.variant?.voltage || "tensão não informada"} · {row.confidence}</option>)}
+                  {matches.map(row => <option key={row.device.id} value={row.device.id}>{catalogPresentation(row.device).title} · Modelo: {row.device.model} · {row.device.variant?.voltage || "tensão não informada"} · {row.confidence}</option>)}
                 </select>
               </div>}
             </>}
             <p className="break-words font-medium">
-              {device?.displayName ||
+              {description?.title ||
                 integration?.name ||
                 initialAppliance?.name}
             </p>
+            {device && <>
+              <p className="break-words text-xs text-muted-foreground">{device.model ? `Modelo: ${device.model}` : "Perfil genérico"}</p>
+              {description && description.details.length > 0 && <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
+                {description.details.map(detail => <li key={detail}>{detail}</li>)}
+              </ul>}
+              {description?.manufacturerUrl && <a className="inline-block text-xs text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={description.manufacturerUrl} target="_blank" rel="noopener noreferrer">Ver produto no fabricante</a>}
+            </>}
+            {decision.method === "LIVE_MEASUREMENT" && <p className="rounded-md border border-green-500 p-3 text-sm">
+              Medição real prioritária · Samsung SmartThings: {formatNumber(decision.interval.kWh)} kWh no intervalo informado abaixo.
+              A referência do catálogo permanece apenas como estimativa separada, nunca somada à medição.
+            </p>}
+            {decision.method === "UNAVAILABLE" && !monitoringOnly && profile.method === "POWER_TIME" && !(Number(power) > 0) &&
+              <p className="text-sm text-muted-foreground">{referenceDevice && referenceProfile.method === "POWER_TIME" && referenceProfile.typicalPowerW === undefined
+                ? "Não encontramos potência elétrica oficial nem referência de ensaio para este modelo. Informe os watts da etiqueta para calcular pelo tempo de uso."
+                : "Informe a potência elétrica em watts para calcular pelo tempo de uso. Potência atual isolada não é uma medição de energia."}</p>}
+            {(integration?.counterKWh !== undefined || decision.method === "LIVE_MEASUREMENT" || initialAppliance?.monitoringOnly) &&
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={monitoringOnly} onChange={event => setMonitoringOnly(event.target.checked)} />
+                Usar somente monitoramento real, sem estimativa mensal</label>}
             <p className="text-xs text-muted-foreground">
               Fonte: {applianceSourceLabel(source)}
               {device?.isGeneric
@@ -287,15 +334,32 @@ export default function DeviceConfigurationPanel({
             )}
             {device?.energyProfile.method === "POWER_TIME" && device.energyProfile.standbyPowerW !== undefined &&
               <p className="text-xs">Standby: {formatNumber(device.energyProfile.standbyPowerW)} W. Não equivale à potência operacional.</p>}
-            {device?.source.metrics && <details className="text-xs"><summary>Origem dos valores energéticos</summary>
-              <ul>{Object.entries(device.source.metrics).map(([metric, url]) => <li key={metric}>{metric}: <a href={url} target="_blank" rel="noreferrer">Consultar fonte desta métrica</a></li>)}</ul>
-            </details>}
+            {device?.variant?.voltage && <p className="text-xs text-muted-foreground">Tensão informada na fonte: {device.variant.voltage} V. Confira a compatibilidade com sua instalação.</p>}
+            {referenceSource && <CatalogReferenceDetails source={referenceSource} profile={referenceDevice?.energyProfile || referenceProfile} />}
             {field("name", "Nome do aparelho", name, setName, {
               maxLength: 160,
             })}
-            {profile.method === "POWER_TIME" && (
+            {!monitoringOnly && canCustomize && <div className="flex flex-col gap-2">
+              <Label htmlFor={`${id}-estimate`}>Como estimar o consumo</Label>
+              <select id={`${id}-estimate`} className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm" value={estimateByUsage ? "USAGE" : "REFERENCE"} onChange={event => {
+                setEstimateByUsage(event.target.value === "USAGE");
+                setTechnicalEdit(false);
+                setStandbyEnabled(event.target.value === "USAGE" && operatingProfile?.method === "POWER_TIME" && operatingProfile.standbyPowerW !== undefined);
+                setError(null);
+              }}>
+                <option value="USAGE">Calcular pelo meu uso</option>
+                <option value="REFERENCE">Usar referência de ensaio</option>
+              </select>
+              <p className="text-xs text-muted-foreground">{estimateByUsage
+                ? "A estimativa usa potência elétrica × tempo de uso × dias. Informe a potência em watts da etiqueta se ela não estiver disponível; BTU/h não é potência elétrica. A referência original permanece preservada."
+                : `${hasDocumentedPower ? "" : "Não encontramos potência elétrica oficial em watts para este modelo. Sugerimos a referência de ensaio; você pode escolher ‘Calcular pelo meu uso’ e informar os watts da etiqueta. "}É uma referência média padronizada de ensaio, usada apenas para comparação. O consumo real pode variar conforme o seu uso e as condições do aparelho.`}</p>
+            </div>}
+            {!monitoringOnly && profile.method === "POWER_TIME" && (
               <>
-                {field("power", "Potência estimada (W)", power, setPower, {
+                {profile.typicalPowerW !== undefined && !technicalEdit ? <div className="space-y-1">
+                  <p className="text-sm">Potência do modelo: <strong>{formatNumber(Number(power))} W</strong></p>
+                  <button type="button" className="text-xs underline" onClick={() => setTechnicalEdit(true)}>Ajuste técnico opcional</button>
+                </div> : field("power", "Potência estimada (W)", power, setPower, {
                   type: "number",
                   min: 0.01,
                   max: 100000,
@@ -305,10 +369,16 @@ export default function DeviceConfigurationPanel({
                   Editável somente para o seu aparelho. Confira a etiqueta; a
                   biblioteca não será alterada.
                 </p>
-                {field("hours", "Horas por dia", hours, setHours, {
+                <label className="block text-sm">Unidade de uso diário
+                  <select className="ml-2 rounded border bg-background p-2" value={timeUnit} onChange={event => {
+                    const next = event.target.value as "HOURS" | "MINUTES";
+                    setHours(String(next === "MINUTES" ? Number(hours) * 60 : Number(hours) / 60)); setTimeUnit(next);
+                  }}><option value="HOURS">Horas</option><option value="MINUTES">Minutos</option></select>
+                </label>
+                {field("hours", timeUnit === "MINUTES" ? "Minutos por dia" : "Horas por dia", hours, setHours, {
                   type: "number",
                   min: 0,
-                  max: 24,
+                  max: timeUnit === "MINUTES" ? 1440 : 24,
                   step: "any",
                 })}
                 {field("days", "Dias por mês", days, setDays, {
@@ -317,27 +387,39 @@ export default function DeviceConfigurationPanel({
                   max: 31,
                   step: 1,
                 })}
+                {profile.standbyPowerW !== undefined && <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={standbyEnabled} onChange={event => setStandbyEnabled(event.target.checked)} />
+                  Fica em standby nas horas restantes do dia ({formatNumber(profile.standbyPowerW)} W)
+                </label>}
               </>
             )}
-            {profile.method === "REFERENCE_PERIOD" && (
+            {!monitoringOnly && profile.method === "REFERENCE_PERIOD" && (
               <p className="rounded-md bg-muted p-3 text-sm">
                 Referência de ensaio:{" "}
                 {referenceLabel(profile)}. Não é
                 escalada por horas ou dias; condições reais podem variar.
+                {profile.testBasis && <span className="mt-2 block">{profile.testBasis}</span>}
               </p>
             )}
-            {profile.method === "PER_CYCLE" && (
+            {!monitoringOnly && profile.method === "PER_CYCLE" && (
               <>
                 <p className="text-sm">
                   Referência: {formatNumber(profile.energyPerCycleKwh, 3)}{" "}
                   kWh/ciclo. Confira tensão e programa de lavagem do modelo.
                 </p>
-                {field("cycles", "Ciclos por mês", cycles, setCycles, {
+                <p className="text-xs text-muted-foreground">Um ciclo é uma execução completa do programa, como uma lavagem; kWh/ciclo indica a energia medida ou estimada por execução.</p>
+                <label className="block text-sm">Frequência de uso
+                  <select className="ml-2 rounded border bg-background p-2" value={cyclePeriod} onChange={event => {
+                    setCyclePeriod(event.target.value as "WEEK" | "MONTH"); setCycles("");
+                  }}><option value="WEEK">Por semana</option><option value="MONTH">Por mês</option></select>
+                </label>
+                {field("cycles", cyclePeriod === "WEEK" ? "Ciclos por semana" : "Ciclos por mês", cycles, setCycles, {
                   type: "number",
                   min: 0,
-                  max: 1000,
+                  max: cyclePeriod === "WEEK" ? 230 : 1000,
                   step: 1,
                 })}
+                {cyclePeriod === "WEEK" && <p className="text-xs text-muted-foreground">Média derivada: {formatNumber(cyclesInMonth(undefined, Number(cycles)))} ciclos/mês (semanas × 52 ÷ 12).</p>}
               </>
             )}
             {field("room", "Ambiente (opcional)", room, setRoom, {
@@ -389,7 +471,9 @@ export default function DeviceConfigurationPanel({
               aria-live="polite"
               className="rounded-md bg-muted/50 p-4 text-sm"
             >
-              {calculating ? (
+              {monitoringOnly ? (
+                "Sem estimativa mensal. Acompanhe os intervalos medidos no histórico SmartThings; contador acumulado isolado não determina o consumo do mês."
+              ) : calculating ? (
                 "Calculando estimativa…"
               ) : result?.signature === signature ? (
                 <>

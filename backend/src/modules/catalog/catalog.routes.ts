@@ -11,11 +11,11 @@ export const createCatalogRouter = (db: MongoDatabase) => {
   const router = Router();
   router.get("/match", async (req, res, next) => {
     try {
-      const input = z.object({ brand: z.string().trim().min(1).max(80), model: z.string().trim().min(1).max(120),
-        region: z.enum(["BR", "US"]), voltage: z.coerce.number().positive().max(1000).optional(), category: catalogIdSchema.optional() }).strict().parse(req.query);
-      const result = await db.searchCatalog({ search: input.model, page: 1, limit: 48 });
+      const input = z.object({ brand: z.string().trim().min(1).max(120), model: z.string().trim().min(1).max(300),
+        region: z.enum(["BR", "US", "EU"]), voltage: z.coerce.number().positive().max(1000).optional(), category: catalogIdSchema.optional() }).strict().parse(req.query);
+      const result = await db.searchCatalog({ search: input.model, region: input.region, ...(input.category ? { category: input.category } : {}), page: 1, limit: 48 });
       const candidates = matchCatalog(result.devices, input);
-      logger.debug(candidates.length > 1 ? "catalog.device.match_ambiguous" : "catalog.device.matched", { candidateCount: candidates.length });
+      logger.debug(candidates.length > 1 ? "catalog.match.ambiguous" : "catalog.match.created", { candidateCount: candidates.length });
       res.json({ candidates, requiresConfirmation: true, truncated: result.total > 48 });
     } catch (error) { next(error); }
   });
@@ -27,7 +27,7 @@ export const createCatalogRouter = (db: MongoDatabase) => {
         resultCount: result.devices.length,
         page: query.page,
       });
-      res.json({ ...result, categories: catalogSeed.categories });
+      res.json({ ...result, totalPages: Math.ceil(result.total / result.limit), categories: catalogSeed.categories });
     } catch (error) {
       next(error);
     }

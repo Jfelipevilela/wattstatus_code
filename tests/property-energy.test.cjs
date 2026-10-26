@@ -85,6 +85,14 @@ test('heat map treats missing data as unknown, not as low', () => {
   assert.equal(scale(null), null);
 });
 
+test('monitoramento real sem estimativa não é pintado como consumo baixo', () => {
+  const result=aggregatePropertyEnergy('casa','casa',[appliance('meter',{monitoringOnly:true,propertyId:'casa',roomId:'sala',monthlyConsumption:null,monthlyCost:null})],rooms,[],30);
+  assert.equal(result.total.applianceCount,1);
+  assert.equal(result.total.estimatedApplianceCount,0);
+  assert.equal(metricValue(result.byRoom.get('sala'),'estimated'),null);
+  assert.equal(metricValue(result.byRoom.get('sala'),'measured'),null);
+});
+
 test('room type is guessed from free-form names', () => {
   const { inferRoomType, roomColor } = load('types/property.ts');
   assert.equal(inferRoomType('Quarto do João'), 'bedroom');

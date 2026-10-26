@@ -4,12 +4,13 @@ import { catalogDeviceSchema } from "../catalog.schema";
 import { catalogSeed } from "../catalog.seed";
 import type { CatalogDevice, CatalogSource } from "../catalog.types";
 import { normalizeEnergyProfile } from "../reference";
-import { decimal, identityText, text, normalizeRawRecord } from "./normalizer";
+import { identityText, text, normalizeRawRecord } from "./normalizer";
 import { validatePbeCategory } from "./pbe-adapters";
+import { energyStarAdapters, normalizeEnergyStarRow, type EnergyStarAdapter } from "./energy-star-adapters";
 
 export const manifestSchema = z.object({
-  provider: z.enum(["PBE", "ENERGY_STAR", "MANUFACTURER", "WATTSTATUS_GENERIC"]),
-  adapter: z.enum(["curated-v1", "curated-csv-v1", "energystar-refrigerator-csv-v1"]),
+  provider: z.enum(["PBE", "ENERGY_STAR", "EPREL", "MANUFACTURER", "WATTSTATUS_GENERIC"]),
+  adapter: z.enum(["curated-v1", "curated-csv-v1", "energystar-refrigerator-csv-v1", "energystar-freezer-csv-v1", "energystar-room-ac-csv-v1", "energystar-television-csv-v1", "energystar-display-csv-v1"]),
   referenceUrl: z.string().url().max(1000), sourceVersion: z.string().min(1).max(100),
   retrievedAt: z.string().datetime(), verifiedAt: z.string().datetime(),
   manufacturer: z.string().min(1).max(80).optional(),
@@ -17,7 +18,8 @@ export const manifestSchema = z.object({
 }).strict().superRefine((row, ctx) => {
   const url = new URL(row.referenceUrl);
   const trusted = row.provider === "PBE" ? /(^|\.)inmetro\.gov\.br$/.test(url.hostname) || url.hostname === "www.gov.br"
-    : row.provider === "ENERGY_STAR" ? /(^|\.)energystar\.gov$/.test(url.hostname) : true;
+    : row.provider === "ENERGY_STAR" ? /(^|\.)energystar\.gov$/.test(url.hostname)
+    : row.provider === "EPREL" ? url.hostname === "eprel.ec.europa.eu" : true;
   if (url.protocol !== "https:" || url.username || url.password || !trusted ||
       (row.provider === "MANUFACTURER" && !row.manufacturer)) ctx.addIssue({ code: "custom", message: "SOURCE_INVALID" });
 });
@@ -44,10 +46,13 @@ export class CuratedCatalogProvider implements CatalogSourceProvider {
     }
     // Curated v1 is the existing validated WattStatus JSON contract, not a guessed PBE spreadsheet.
     const original = catalogDeviceSchema.parse(normalizeRawRecord(raw, manifest.numberLocale || (this.provider === "PBE" ? "BR" : "US")));
+    // Aggregation belongs to the resolver, never to an untrusted source row.
+    if (original.profiles || original.sources) throw new Error("AGGREGATED_INPUT_REFUSED");
     if (manifest.adapter !== "curated-v1" || original.source.type !== this.provider || manifest.provider !== this.provider)
       throw new Error("ADAPTER_PROVIDER_MISMATCH");
     if (!catalogSeed.categories.some(row => row.id === original.category)) throw new Error("CATEGORY_UNKNOWN");
     const generic = this.provider === "WATTSTATUS_GENERIC";
+    if (this.provider === "EPREL" && original.region !== "EU") throw new Error("REGION_MISMATCH");
     if ((this.provider === "PBE" && original.region !== "BR") || (this.provider === "ENERGY_STAR" && original.region !== "US")) throw new Error("REGION_MISMATCH");
     if (!generic && (!text(original.brand) || !text(original.model))) throw new Error("MODEL_REQUIRED");
     if (this.provider === "PBE") validatePbeCategory(original);
@@ -76,26 +81,24 @@ export class CuratedCatalogProvider implements CatalogSourceProvider {
   }
 }
 export class PbeCatalogProvider extends CuratedCatalogProvider { constructor() { super("PBE"); } }
+export class EprelCatalogProvider extends CuratedCatalogProvider { constructor() { super("EPREL"); } }
 export class ManufacturerCatalogProvider extends CuratedCatalogProvider { constructor() { super("MANUFACTURER"); } }
 export class GenericCatalogProvider extends CuratedCatalogProvider { constructor() { super("WATTSTATUS_GENERIC"); } }
 export class EnergyStarCatalogProvider extends CuratedCatalogProvider {
   constructor() { super("ENERGY_STAR"); }
   normalize(raw: unknown, manifest: ImportManifest): CatalogDevice {
-    if (manifest.adapter !== "energystar-refrigerator-csv-v1") return super.normalize(raw, manifest);
+    if (!Object.prototype.hasOwnProperty.call(energyStarAdapters, manifest.adapter)) return super.normalize(raw, manifest);
     const row = z.record(z.string()).parse(raw);
-    if (!row.Markets?.split(",").map(text).includes("United States")) throw new Error("US_MARKET_REQUIRED");
-    const externalId = text(row["ENERGY STAR Unique ID"]);
-    if (!externalId) throw new Error("EXTERNAL_ID_REQUIRED");
-    const record = { id: `es-${externalId}`, category: "kitchen", subcategory: "Geladeira",
-      brand: text(row["Brand Name"]), model: text(row["Model Number"]),
-      displayName: `Geladeira ${text(row["Brand Name"])} ${text(row["Model Number"])}`, aliases: [],
-      energyProfile: { method: "REFERENCE_PERIOD", value: decimal(row["Annual Energy Use (kWh/yr)"], "US"), unit: "kWh", period: "YEAR", measurementType: "ESTIMATED" },
-      source: { type: "ENERGY_STAR", externalId, reference: manifest.referenceUrl, verifiedAt: manifest.verifiedAt },
-      region: "US", verified: true, isGeneric: false };
-    return super.normalize(record, { ...manifest, adapter: "curated-v1", numberLocale: "US" });
+    const normalized = normalizeEnergyStarRow(row, manifest.adapter as EnergyStarAdapter);
+    const record = super.normalize({ ...normalized.record,
+      source: { type: "ENERGY_STAR", externalId: normalized.externalId, reference: manifest.referenceUrl, verifiedAt: manifest.verifiedAt } },
+      { ...manifest, adapter: "curated-v1", numberLocale: "US" });
+    return catalogDeviceSchema.parse({ ...record, profiles: normalized.profiles.map(profile => ({ profile: normalizeEnergyProfile(profile), source: {
+      ...record.source, metrics: Object.fromEntries(Object.keys(profile).filter(key => ["value", "typicalPowerW", "standbyPowerW"].includes(key)).map(key => [key, manifest.referenceUrl])),
+    } })) });
   }
 }
 export const providerFor = (provider: ImportManifest["provider"]): CatalogSourceProvider => ({
-  PBE: new PbeCatalogProvider(), ENERGY_STAR: new EnergyStarCatalogProvider(),
+  PBE: new PbeCatalogProvider(), ENERGY_STAR: new EnergyStarCatalogProvider(), EPREL: new EprelCatalogProvider(),
   MANUFACTURER: new ManufacturerCatalogProvider(), WATTSTATUS_GENERIC: new GenericCatalogProvider(),
 })[provider];

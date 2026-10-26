@@ -29,3 +29,9 @@ test('PDF paginates long report and produces a valid document', () => {
   assert.equal(bytes.subarray(0, 4).toString(), '%PDF');
   assert.ok(bytes.length > 1000);
 });
+
+test('PDF somente medido não inventa estimativa zero', () => {
+  const pdf=createReportPdf({userName:'Teste',month:'10',year:'2026',issuedAt:'25/10/2026',estimated:[],
+    measured:[{applianceName:'Medidor',source:'SmartThings',tariffValue:1,consumptionKWh:2.65,cost:2.65}]});
+  assert.match(pdf.output(),/Sem estimativa/);
+});

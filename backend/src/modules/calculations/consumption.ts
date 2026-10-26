@@ -1,6 +1,7 @@
 import { ApiError } from "../../middleware/error-handler";
 import type { EnergyProfile } from "../catalog/catalog.types";
 import { referenceMonthly } from "../catalog/reference";
+import { cyclesInMonth, powerTimeKWh } from "./usage";
 
 type Estimate = {
   profile: EnergyProfile;
@@ -8,6 +9,8 @@ type Estimate = {
   usageHours: number;
   days: number;
   cyclesPerMonth?: number;
+  cyclesPerWeek?: number;
+  standbyEnabled?: boolean;
 };
 type Measurement = {
   profile: { method: "LIVE_MEASUREMENT" };
@@ -61,7 +64,10 @@ export const calculateConsumption = (input: Estimate | Measurement) => {
     case "POWER_TIME":
       if (input.power <= 0)
         throw new ApiError(400, "Informe a potência do aparelho.");
-      consumptionKWh = (input.power * input.usageHours * input.days) / 1000;
+      if (input.profile.standbyPowerW !== undefined && !bounded(input.profile.standbyPowerW, 100000))
+        throw new ApiError(400, "Potência de standby inválida.");
+      consumptionKWh = powerTimeKWh(input.power, input.usageHours, input.days,
+        input.standbyEnabled === false ? 0 : input.profile.standbyPowerW ?? 0);
       break;
     case "REFERENCE_MONTHLY":
       if (!bounded(input.profile.referenceMonthlyKwh, 100000))
@@ -72,12 +78,13 @@ export const calculateConsumption = (input: Estimate | Measurement) => {
     case "PER_CYCLE":
       if (
         !bounded(input.profile.energyPerCycleKwh, 10000) ||
-        !bounded(input.cyclesPerMonth, 1000) ||
-        !Number.isInteger(input.cyclesPerMonth)
+        (input.cyclesPerWeek !== undefined
+          ? !bounded(input.cyclesPerWeek, 230) || !Number.isInteger(input.cyclesPerWeek) || input.cyclesPerMonth !== undefined
+          : !bounded(input.cyclesPerMonth, 1000) || !Number.isInteger(input.cyclesPerMonth))
       ) {
-        throw new ApiError(400, "Informe de 0 a 1000 ciclos por mês.");
+        throw new ApiError(400, "Informe ciclos por mês (0 a 1000) ou por semana (0 a 230), sem misturar as frequências.");
       }
-      consumptionKWh = input.profile.energyPerCycleKwh * input.cyclesPerMonth!;
+      consumptionKWh = input.profile.energyPerCycleKwh * cyclesInMonth(input.cyclesPerMonth, input.cyclesPerWeek);
       break;
     default:
       throw new ApiError(400, "Método de consumo inválido.");

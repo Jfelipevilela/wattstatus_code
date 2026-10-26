@@ -83,6 +83,7 @@ export default function AppliancesTab({
   const estimates = appliances.map((appliance) => ({ appliance, ...estimateAppliance(appliance) }));
   const totalConsumption = estimates.reduce((sum, row) => sum + row.consumption, 0);
   const totalCost = estimates.reduce((sum, row) => sum + row.cost, 0);
+  const hasEstimate = estimates.some(row => row.available);
   const byCost = [...estimates].sort((a, b) => b.cost - a.cost);
   const rankOf = new Map(byCost.map((row, index) => [row.appliance.id, index + 1]));
   const connectedCount = appliances.filter((item) => item.integrationProvider).length;
@@ -166,6 +167,7 @@ export default function AppliancesTab({
   return (
     <div className="space-y-8">
       {addDialog}
+      {appliances.some(item => item.monitoringOnly) && <p role="status" className="text-sm text-muted-foreground">Aparelhos em monitoramento real não entram nos totais estimados. Consulte o histórico medido; ausência de estimativa não significa consumo zero.</p>}
 
       <section className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-zinc-900 via-zinc-900 to-emerald-950 p-6 text-white shadow-xl sm:p-8">
         <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-energy-green-light/25 blur-3xl" />
@@ -183,12 +185,12 @@ export default function AppliancesTab({
           <div className="flex flex-wrap items-end gap-8">
             <div>
               <p className="text-xs uppercase tracking-widest text-white/50">Custo estimado/mês</p>
-              <p className="mt-1 text-4xl font-bold tabular-nums sm:text-5xl">{formatCurrency(totalCost)}</p>
+              <p className="mt-1 text-4xl font-bold tabular-nums sm:text-5xl">{hasEstimate ? formatCurrency(totalCost) : "—"}</p>
             </div>
             <div>
               <p className="text-xs uppercase tracking-widest text-white/50">Consumo</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums">
-                {formatNumber(totalConsumption, 0)} <span className="text-base font-normal text-white/60">kWh</span>
+                {hasEstimate ? formatNumber(totalConsumption, 0) : "—"} <span className="text-base font-normal text-white/60">kWh</span>
               </p>
             </div>
             <Button
@@ -348,22 +350,22 @@ export default function AppliancesTab({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{appliance.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {applianceSourceLabel(appliance)} · {appliance.energyProfile?.method === "PER_CYCLE"
-                      ? `${appliance.cyclesPerMonth ?? 0} ciclos/mês`
+                    {applianceSourceLabel(appliance)} · {appliance.monitoringOnly ? "Sem estimativa mensal" : appliance.energyProfile?.method === "PER_CYCLE"
+                      ? appliance.cyclesPerWeek !== undefined ? `${appliance.cyclesPerWeek} ciclos/semana` : `${appliance.cyclesPerMonth ?? 0} ciclos/mês`
                       : appliance.energyProfile && referenceLabel(appliance.energyProfile)
                         ? referenceLabel(appliance.energyProfile)
                         : `${formatNumber(appliance.power, 0)} W`}
                   </p>
                 </div>
-                <div className="hidden w-40 md:block">
+                {!appliance.monitoringOnly && <div className="hidden w-40 md:block">
                   <div className="h-1.5 overflow-hidden rounded-full bg-muted" role="presentation">
                     <div className={cn("h-full rounded-full", bar)} style={{ width: `${Math.min(share, 100)}%` }} />
                   </div>
                   <p className="mt-1 text-right text-[11px] text-muted-foreground tabular-nums">{formatNumber(share, 0)}% do total</p>
-                </div>
+                </div>}
                 <div className="w-24 text-right">
-                  <p className="font-semibold tabular-nums">{formatCurrency(cost)}</p>
-                  <p className="text-xs text-muted-foreground tabular-nums">{formatNumber(consumption, 1)} kWh</p>
+                  <p className="font-semibold tabular-nums">{appliance.monitoringOnly ? "—" : formatCurrency(cost)}</p>
+                  <p className="text-xs text-muted-foreground tabular-nums">{appliance.monitoringOnly ? "Histórico medido" : `${formatNumber(consumption, 1)} kWh`}</p>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger
@@ -407,7 +409,7 @@ export default function AppliancesTab({
       )}
 
       <p className="text-center text-xs text-muted-foreground">
-        Valores estimados com potência, horas e dias de uso cadastrados. Leituras de medidor aparecem em cada aparelho.
+        Estimativas usam o perfil do aparelho e seu uso quando necessário. Medições são exibidas separadamente, com seu período.
       </p>
     </div>
   );

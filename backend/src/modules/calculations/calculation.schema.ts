@@ -11,6 +11,9 @@ export const calculationSchema = z.object({
   measuredConsumptionKWh: z.number().positive().optional(),
   energyProfile: energyProfileSchema.optional(),
   cyclesPerMonth: z.number().int().min(0).max(1000).optional(),
+  cyclesPerWeek: z.number().int().min(0).max(230).optional(),
+  standbyEnabled: z.boolean().optional(),
+  estimateByUsage: z.boolean().optional(),
 });
 
 export type CalculationSchema = z.infer<typeof calculationSchema>;

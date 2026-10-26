@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   BookOpen,
   Wifi,
@@ -12,6 +12,7 @@ import {
   Tv,
   Laptop,
   PlugZap,
+  ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,11 +21,13 @@ import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/api";
 import { referenceLabel } from "../../backend/src/modules/catalog/reference";
 import { formatNumber } from "@/lib/energy";
+import { catalogPresentation } from "@/lib/catalog-presentation";
 import ApplianceCalculator from "./ApplianceCalculator";
 import DeviceConfigurationPanel, {
   type DiscoveredDevice,
 } from "./DeviceConfigurationPanel";
 import SmartDeviceDiscovery from "./SmartDeviceDiscovery";
+import CatalogPagination from "./CatalogPagination";
 import type {
   CatalogDevice,
   CatalogPage,
@@ -55,6 +58,8 @@ export default function AddApplianceFlow({
   const [category, setCategory] = useState("");
   const [type, setType] = useState("");
   const [brand, setBrand] = useState("");
+  const [model, setModel] = useState("");
+  const [region, setRegion] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<CatalogPage | null>(null);
   const [selected, setSelected] = useState<CatalogDevice | null>(null);
@@ -63,6 +68,21 @@ export default function AddApplianceFlow({
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const [busy, setBusy] = useState(false);
+  const configurationRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const selectionRef = useRef<HTMLDivElement>(null);
+  const returning = useRef(false);
+  const configuring = mode === "library" ? selected !== null : mode === "smart" && smart !== null;
+  useEffect(() => {
+    if (configuring) {
+      configurationRef.current?.focus({ preventScroll: true });
+      configurationRef.current?.scrollIntoView({ block: "start" });
+    } else if (returning.current) {
+      returning.current = false;
+      (searchRef.current || selectionRef.current)?.focus({ preventScroll: true });
+      selectionRef.current?.scrollIntoView({ block: "start" });
+    }
+  }, [configuring]);
   const changedBusy = (value: boolean) => {
     setBusy(value);
     onBusyChange(value);
@@ -79,6 +99,8 @@ export default function AddApplianceFlow({
         if (category) query.set("category", category);
         if (type) query.set("subcategory", type);
         if (brand) query.set("brand", brand);
+        if (model.trim()) query.set("model", model.trim());
+        if (region) query.set("region", region);
         apiRequest<CatalogPage>(`/api/device-catalog?${query}`, {
           signal: controller.signal,
           skipErrorToast: true,
@@ -100,12 +122,31 @@ export default function AddApplianceFlow({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [mode, search, category, type, brand, page, retry]);
+  }, [mode, search, category, type, brand, model, region, page, retry]);
   const icons = { library: BookOpen, smart: Wifi, manual: Pencil };
   const selectClass =
     "h-11 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:ring-2 focus-visible:ring-ring";
+  if (configuring) return (
+    <div ref={configurationRef} tabIndex={-1} role="region" aria-label="Configurar aparelho selecionado" className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4">
+      <Button type="button" variant="outline" className="min-h-11 self-start" disabled={busy} onClick={() => {
+        returning.current = true;
+        setSelected(null);
+        setSmart(null);
+      }}>
+        <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" /> Escolher outro aparelho
+      </Button>
+      <DeviceConfigurationPanel
+        key={mode === "library" ? selected?.id : smart?.id}
+        device={mode === "library" ? selected || undefined : undefined}
+        integration={mode === "smart" ? smart || undefined : undefined}
+        onAddAppliance={onAddAppliance}
+        onSaved={onSaved}
+        onBusyChange={changedBusy}
+      />
+    </div>
+  );
   return (
-    <div className="min-w-0 space-y-5">
+    <div ref={selectionRef} tabIndex={-1} aria-label="Selecionar aparelho" className="min-w-0 space-y-5">
       <div
         role="group"
         aria-label="Como adicionar aparelho"
@@ -161,7 +202,7 @@ export default function AddApplianceFlow({
           onBusyChange={changedBusy}
         />
       ) : (
-        <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(300px,1fr)]">
+        <div className="min-w-0">
           <div className="min-w-0 space-y-4">
             {mode === "smart" ? (
               <SmartDeviceDiscovery onSelect={setSmart} />
@@ -182,6 +223,7 @@ export default function AddApplianceFlow({
                       className="absolute left-3 top-3 h-5 w-5 text-muted-foreground"
                     />
                     <Input
+                      ref={searchRef}
                       id={`${id}-search`}
                       type="search"
                       maxLength={120}
@@ -197,6 +239,12 @@ export default function AddApplianceFlow({
                   </div>
                 </div>
                 <fieldset disabled={busy} className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-2"><Label htmlFor={`${id}-region`}>Região</Label>
+                    <select id={`${id}-region`} className={selectClass} value={region} onChange={event => { setRegion(event.target.value); setBrand(""); setModel(""); setPage(1); }}>
+                      <option value="BR">Brasil</option><option value="US">Estados Unidos</option><option value="EU">União Europeia</option><option value="">Todas as regiões</option>
+                    </select></div>
+                  <div className="space-y-2"><Label htmlFor={`${id}-model`}>Modelo exato (opcional)</Label>
+                    <Input id={`${id}-model`} value={model} maxLength={300} onChange={event => { setModel(event.target.value); setPage(1); }} /></div>
                   <div className="space-y-2">
                     <Label htmlFor={`${id}-category`}>Categoria</Label>
                     <select
@@ -270,11 +318,11 @@ export default function AddApplianceFlow({
                 ) : data?.devices.length ? (
                   <>
                     <p role="status" className="text-xs text-muted-foreground">
-                      {data.total} resultado(s). Selecione um modelo para
-                      configurar.
+                      {data.total} resultado(s). Exibindo {(page - 1) * data.limit + 1}–{Math.min(page * data.limit, data.total)}. Selecione um modelo para configurar.
                     </p>
                     <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                       {data.devices.map((device) => {
+                        const description = catalogPresentation(device);
                         const category = data.categories.find(
                           (row) => row.id === device.category,
                         );
@@ -292,12 +340,15 @@ export default function AddApplianceFlow({
                               className="h-7 w-7 text-primary"
                             />
                             <h3 className="break-words text-sm font-semibold">
-                              {device.displayName}
+                              {description.title}
                             </h3>
                             <p className="break-words text-xs text-muted-foreground">
-                              {device.brand || "Sem marca"} ·{" "}
-                              {device.model || "Perfil genérico"}
+                              {device.model ? `Modelo: ${device.model}` : "Perfil genérico"}
                             </p>
+                            {description.details.length > 0 && <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
+                              {description.details.map(detail => <li key={detail}>{detail}</li>)}
+                            </ul>}
+                            {description.manufacturerUrl && <a className="text-xs text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={description.manufacturerUrl} target="_blank" rel="noopener noreferrer">Ver produto no fabricante</a>}
                             <p className="text-xs">
                               {referenceLabel(device.energyProfile) || (device.energyProfile.method === "POWER_TIME"
                                 ? device.energyProfile.typicalPowerW !==
@@ -309,8 +360,9 @@ export default function AddApplianceFlow({
                                   ? `${formatNumber(device.energyProfile.referenceMonthlyKwh)} kWh/mês · ensaio`
                                   : device.energyProfile.method === "PER_CYCLE" ? `${formatNumber(device.energyProfile.energyPerCycleKwh, 3)} kWh/ciclo · ensaio` : "")}
                             </p>
-                            <p className="text-xs text-muted-foreground">{device.source.type === "PBE" ? "PBE / Inmetro" : device.source.type === "ENERGY_STAR" ? "ENERGY STAR · mercado US" : device.source.type === "MANUFACTURER" ? "Fabricante" : "WattStatus · perfil genérico"}
+                            <p className="text-xs text-muted-foreground">{device.source.type === "PBE" ? "PBE / Inmetro" : device.source.type === "ENERGY_STAR" ? "ENERGY STAR · mercado US" : device.source.type === "EPREL" ? "EPREL · União Europeia" : device.source.type === "MANUFACTURER" ? "Fabricante" : "WattStatus · perfil genérico"}
                               {device.verified ? ` · Verificado em ${new Date(device.source.verifiedAt).getUTCFullYear()}` : " · Valor típico estimado"} · {device.region}</p>
+                            {device.sources && device.sources.length > 1 && <p className="text-xs text-muted-foreground">Fontes complementares: {device.sources.map(source => source.type).join(", ")}</p>}
                             <Button
                               className="mt-auto min-h-11"
                               disabled={busy}
@@ -320,7 +372,7 @@ export default function AddApplianceFlow({
                                   : "outline"
                               }
                               aria-pressed={selected?.id === device.id}
-                              aria-label={`Selecionar ${device.displayName}`}
+                              aria-label={`Selecionar ${description.title}${device.model ? `, modelo ${device.model}` : ""}`}
                               onClick={() => setSelected(device)}
                             >
                               {selected?.id === device.id
@@ -332,36 +384,14 @@ export default function AddApplianceFlow({
                       })}
                     </div>
                     {data.total > data.limit && (
-                      <nav
-                        aria-label="Paginação do catálogo"
-                        className="flex items-center justify-center gap-3"
-                      >
-                        <Button
-                          variant="outline"
-                          disabled={page <= 1 || busy}
-                          onClick={() => setPage((value) => value - 1)}
-                        >
-                          Anterior
-                        </Button>
-                        <span>
-                          {page} / {Math.ceil(data.total / data.limit)}
-                        </span>
-                        <Button
-                          variant="outline"
-                          disabled={page * data.limit >= data.total || busy}
-                          onClick={() => setPage((value) => value + 1)}
-                        >
-                          Próxima
-                        </Button>
-                      </nav>
+                      <CatalogPagination page={page} totalPages={data.totalPages ?? Math.ceil(data.total / data.limit)} disabled={busy} onPageChange={setPage} />
                     )}
                   </>
                 ) : (
                   <div className="rounded-lg border p-5">
                     <p role="status">Não encontramos esse aparelho.</p>
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Tente outro termo ou use o cadastro manual. A biblioteca
-                      inicial ainda é pequena.
+                      Tente outro termo, amplie os filtros ou use o cadastro manual.
                     </p>
                   </div>
                 )}
@@ -374,37 +404,6 @@ export default function AddApplianceFlow({
                   Não encontrou? Adicionar manualmente
                 </Button>
               </>
-            )}
-          </div>
-          <div className="min-w-0 lg:sticky lg:top-0">
-            {mode === "library" && selected ? (
-              <DeviceConfigurationPanel
-                key={selected.id}
-                device={selected}
-                onAddAppliance={onAddAppliance}
-                onSaved={onSaved}
-                onBusyChange={changedBusy}
-              />
-            ) : mode === "smart" && smart ? (
-              <DeviceConfigurationPanel
-                key={smart.id}
-                integration={smart}
-                onAddAppliance={onAddAppliance}
-                onSaved={onSaved}
-                onBusyChange={changedBusy}
-              />
-            ) : (
-              <Card className="space-y-3 border-dashed p-6">
-                <BookOpen className="h-8 w-8 text-muted-foreground" />
-                <h2 className="font-semibold">Configuração do aparelho</h2>
-                <p className="text-sm text-muted-foreground">
-                  Selecione{" "}
-                  {mode === "library"
-                    ? "um modelo na biblioteca"
-                    : "um dispositivo conectado"}{" "}
-                  para personalizar o uso e visualizar o consumo estimado.
-                </p>
-              </Card>
             )}
           </div>
         </div>

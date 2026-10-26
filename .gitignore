@@ -21,6 +21,18 @@ audit-before.json
 /SEGURANCA_AUTH.md
 /TODO.md
 
+# Relatórios e documentação de implementação ficam somente nesta máquina.
+/docs/**/*.md
+*.md
+!README.md
+!AGENTS.md
+!SKILL.md
+ENERGY_CALCULATION_LOGIC.md
+DEVICE_CATALOG_SOURCES.md
+DEVICE_CATALOG_MULTISOURCE_REVIEW.md
+DEVICE_CATALOG_EXPANSION.md
+
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

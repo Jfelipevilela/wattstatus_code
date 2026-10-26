@@ -307,7 +307,7 @@ test("Mongo usa tokens literais indexáveis, paginação limitada e seed idempot
   assert.deepEqual(filter, {
     active: { $ne: false },
     category: "entertainment",
-    searchTokens: { $all: ["tv", "samsung"] },
+    searchTokens: { $all: [/^tv/, /^samsung/] },
   });
   assert.equal(options.maxTimeMS, 3000);
   await db.seedCatalog();
@@ -321,6 +321,45 @@ test("Mongo usa tokens literais indexáveis, paginação limitada e seed idempot
   );
   await db.seedCatalog(true);
   assert.ok(writes.every((row) => row.updateOne.update.$set));
+});
+
+test('estimativa por uso é explícita, valida potência e preserva referência e isolamento', async () => {
+  const db = database();
+  const call = client(db);
+  const body = { ...base, catalogDeviceId: 'pbe-samsung-rf29db9950qdaz', estimateByUsage: true,
+    energyProfile: { method: 'POWER_TIME', typicalPowerW: 99999, standbyPowerW: 99999 } };
+  const response = await call('/api/appliances', { method: 'POST', body });
+  assert.equal(response.status, 201);
+  const row = response.data.appliance;
+  assert.equal(row.monthlyConsumption, 18);
+  assert.equal(row.estimateByUsage, true);
+  assert.equal(row.energyProfile.method, 'POWER_TIME');
+  assert.equal(row.energyProfile.standbyPowerW, undefined, 'não aceita métricas de catálogo forjadas');
+  assert.equal(row.catalogSnapshot.energyProfile.value, 40.5);
+  db.catalog.find(item => item.id === row.catalogDeviceId).energyProfile.value = 999;
+  const edit = await call(`/api/appliances/${row.id}`, { method: 'PUT', body: { power: 200 } });
+  assert.equal(edit.data.appliance.monthlyConsumption, 30);
+  assert.equal(edit.data.appliance.estimateByUsage, true);
+  const original = await call(`/api/appliances/${row.id}`, { method: 'PUT', body: { estimateByUsage: false } });
+  assert.equal(original.data.appliance.monthlyConsumption, 40.5, 'retorna à referência congelada, não à atualização do catálogo');
+  assert.equal(original.data.appliance.catalogSnapshot.energyProfile.value, 40.5);
+  assert.equal((await call(`/api/appliances/${row.id}`, { user: 'b', method: 'PUT', body: { estimateByUsage: true } })).status, 404);
+  for (const bad of [{ power: 0 }, { usageHours: 25 }, { days: 32 }, { estimateByUsage: 'true' }]) {
+    assert.equal((await call('/api/appliances', { method: 'POST', body: { ...body, ...bad } })).status, 400);
+  }
+  const cycle = db.catalog.find(item => item.energyProfile.method === 'PER_CYCLE');
+  assert.ok(cycle);
+  assert.equal((await call('/api/appliances', { method: 'POST', body: { ...body, catalogDeviceId: cycle.id, cyclesPerMonth: 4 } })).status, 400);
+  assert.equal((await call('/api/appliances', { method: 'POST', body: { ...base, estimateByUsage: true } })).status, 400);
+  const withPower = structuredClone(db.catalog.find(item => item.id === body.catalogDeviceId));
+  withPower.id = 'fixture-reference-with-power';
+  withPower.profiles = [{ profile: { method: 'POWER_TIME', typicalPowerW: 80, standbyPowerW: 0.5 }, source: withPower.source }];
+  db.catalog.push(withPower);
+  const known = await call('/api/appliances', { method: 'POST', body: { ...base, catalogDeviceId: withPower.id,
+    power: 80, usageHours: 2, days: 30, estimateByUsage: true, standbyEnabled: true } });
+  assert.equal(known.status, 201);
+  assert.equal(known.data.appliance.monthlyConsumption, 5.13);
+  assert.equal(known.data.appliance.energyProfile.standbyPowerW, 0.5);
 });
 
 test("catálogo salva snapshot confiável, mantém legado e impede IDOR/BOLA e mass assignment", async () => {
@@ -348,6 +387,8 @@ test("catálogo salva snapshot confiável, mantém legado e impede IDOR/BOLA e m
   assert.equal(row.source.type, "PBE");
   assert.equal(row.consumptionType, "ESTIMATED");
   assert.equal(row.origin, "CATALOG");
+  assert.equal(row.catalogSnapshot.energyProfile.value,40.5);
+  assert.equal(row.catalogSnapshot.region,'BR');
   db.catalog.find(
     (item) => item.id === row.catalogDeviceId,
   ).energyProfile.value = 999;
@@ -356,6 +397,7 @@ test("catálogo salva snapshot confiável, mantém legado e impede IDOR/BOLA e m
     body: { name: "Minha geladeira" },
   });
   assert.equal(edit.data.appliance.monthlyConsumption, 40.5);
+  assert.equal(edit.data.appliance.catalogSnapshot.energyProfile.value,40.5);
   assert.equal(
     (await call("/api/appliances", { user: "b" })).data.appliances.length,
     0,
@@ -400,6 +442,7 @@ test("catálogo salva snapshot confiável, mantém legado e impede IDOR/BOLA e m
     { energyProfile: { method: "LIVE_MEASUREMENT" } },
     { integrationProvider: "arbitrary" },
     { catalogDeviceId: { $ne: null } },
+    { monitoringOnly: true },
   ]) {
     assert.equal(
       (
@@ -421,6 +464,7 @@ test("catálogo salva snapshot confiável, mantém legado e impede IDOR/BOLA e m
   };
   delete old.origin;
   delete old.energyProfile;
+  Object.assign(old,{room:null,tariffValue:null,cyclesPerMonth:null,cyclesPerWeek:null});
   db.records.set(old.id, old);
   const oldEdit = await call(`/api/appliances/${old.id}`, {
     method: "PUT",
@@ -497,12 +541,20 @@ test("importação usa conta autorizada e leitura real; sem energia permanece es
     assert.equal(result.data.appliance.monthlyConsumption, 18);
     assert.equal(result.data.appliance.consumptionType, "METERED");
     assert.equal(result.data.appliance.measurement.readingType, "cumulative");
+    const monitored = await call('/api/appliances', {method:'POST',body:{...imported,power:0,usageHours:0,monitoringOnly:true,integrationDeviceId:'other-owned'}});
+    assert.equal(monitored.status,201);
+    assert.equal(monitored.data.appliance.monthlyConsumption,null);
+    assert.equal(monitored.data.appliance.monthlyCost,null);
+    assert.equal(monitored.data.appliance.measurement.counterKWh,2.5);
+    assert.equal((await call(`/api/appliances/${monitored.data.appliance.id}`,{method:'PUT',body:{name:'Somente medição'}})).status,200);
+    await call(`/api/appliances/${monitored.data.appliance.id}`,{method:'DELETE'});
     assert.equal(
       (await call("/api/appliances", { method: "POST", body: imported }))
         .status,
       409,
     );
     energy = false;
+    assert.equal((await call('/api/appliances',{method:'POST',body:{...imported,monitoringOnly:true,integrationDeviceId:'other-owned'}})).status,400);
     const retained = await call(`/api/appliances/${result.data.appliance.id}`, {
       method: "PUT",
       body: { measuredConsumptionKWh: 9999 },
@@ -541,4 +593,25 @@ test("importação usa conta autorizada e leitura real; sem energia permanece es
   } finally {
     axios.defaults.adapter = original;
   }
+});
+
+test('SmartThings delta-only aceita monitoramento sem inventar contador e rejeita dispositivo offline', async () => {
+  const db=database(); const call=client(db); db.tokens.set('a:smartthings','test-only-token');
+  const original=axios.defaults.adapter; let offline=false;
+  axios.defaults.adapter=async config=>({status:200,statusText:'OK',headers:{},config,
+    data:config.url==='/devices'?{items:[{deviceId:'owned',name:'TV'}]}:
+      config.url.endsWith('/health')?{state:offline?'OFFLINE':'ONLINE'}:
+        {components:{main:{powerConsumptionReport:{powerConsumption:{value:{energy:0,deltaEnergy:2650,start:'2026-10-25T00:00:00Z',end:'2026-10-25T01:00:00Z'}}}}}}});
+  const input={...base,power:0,usageHours:0,monitoringOnly:true,integrationProvider:'smartthings',integrationDeviceId:'owned'};
+  try {
+    const response=await call('/api/appliances',{method:'POST',body:input});
+    assert.equal(response.status,201);
+    assert.equal(response.data.appliance.measurement.readingType,'interval');
+    assert.equal(response.data.appliance.measurement.consumptionKWh,2.65);
+    assert.equal(response.data.appliance.measuredConsumptionKWh,undefined);
+    assert.equal(response.data.appliance.monthlyConsumption,null);
+    offline=true;
+    assert.equal((await call('/api/appliances',{method:'POST',body:input})).status,503);
+    assert.equal(db.records.size,1);
+  } finally {axios.defaults.adapter=original;}
 });

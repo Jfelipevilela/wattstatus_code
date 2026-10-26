@@ -25,7 +25,9 @@ test(
       const { JsonCatalogRepository } = require('../dist/modules/catalog/json-repository');
       const { catalogSeed } = require('../dist/modules/catalog/catalog.seed');
       const json = new JsonCatalogRepository(catalogSeed.devices);
-      for (const query of [{page:1,limit:12},{page:2,limit:3},{page:1,limit:3,category:'kitchen'},{page:1,limit:12,search:'LÂMPADA LED'},{page:1,limit:2,brand:'Newmaq'}]) {
+      assert.equal((await db.searchCatalog({page:1,limit:12})).devices[0].source.type,'PBE');
+      for (const query of [{page:1,limit:12},{page:2,limit:3},{page:1,limit:3,category:'kitchen'},{page:1,limit:12,search:'LÂMPADA LED'},{page:1,limit:2,brand:'Newmaq'},
+        {page:1,limit:12,region:'BR',search:'Samsung RF29'},{page:1,limit:12,region:'US'}]) {
         assert.deepEqual(await db.searchCatalog(query), await json.searchCatalog(query));
       }
       const page = await db.searchCatalog({
@@ -40,6 +42,31 @@ test(
         2,
       );
       const service = new ApplianceService(db);
+      const {CatalogImportService}=require('../dist/modules/catalog/import/service');
+      const {readDataset}=require('../dist/modules/catalog/import/files');
+      const fixture=readDataset(require('node:path').join(__dirname,'fixtures/catalog/eprel.json'));
+      const manifest={...require('./fixtures/catalog/pbe.manifest.json'),provider:'EPREL',referenceUrl:'https://eprel.ec.europa.eu/'};
+      assert.equal((await new CatalogImportService(db).run(fixture,manifest,false)).inserted,1);
+      assert.equal((await new CatalogImportService(db).run(fixture,manifest,false)).unchanged,1);
+      // Exercise the actual configured CLI only against this test's isolated database.
+      const {spawnSync}=require('node:child_process');
+      const runImport=flags=>spawnSync(process.execPath,['scripts/import-catalog.cjs','--file','tests/fixtures/catalog/pbe.json','--manifest','tests/fixtures/catalog/pbe.manifest.json','--configured',...flags],{
+        cwd:require('node:path').resolve(__dirname,'..'),encoding:'utf8',timeout:20000,
+        env:{...process.env,NODE_ENV:'test',MONGO_URL:uri,MONGO_DB_NAME:name},
+      });
+      const raw=admin.db(name).collection('device_catalog');
+      const before=await raw.find({}).sort({id:1}).toArray();
+      const planned=runImport(['--dry-run']);
+      assert.equal(planned.status,0);assert.match(planned.stdout,/"dryRun": true/);
+      assert.deepEqual(await raw.find({}).sort({id:1}).toArray(),before,'dry-run não escreve índices ou catálogo');
+      const applied=runImport(['--apply']);
+      assert.equal(applied.status,0);assert.match(applied.stdout,/"updated": 1/);
+      const cycle=await service.create('catalog-test-user',{name:'Ciclo sintético',power:0,usageHours:0,days:30,tariff:'SP',tariffValue:1,
+        energyProfile:{method:'PER_CYCLE',energyPerCycleKwh:.45},cyclesPerWeek:4});
+      assert.ok(Math.abs(cycle.monthlyConsumption-7.8)<1e-10);
+      await service.update('catalog-test-user',cycle.id,{cyclesPerMonth:12});
+      const saved=(await db.listAppliances('catalog-test-user')).find(row=>row.id===cycle.id);
+      assert.equal(require('../dist/modules/properties/properties.service').estimateMonthly(saved,30).consumption,5.4);
       const row = await service.create("catalog-test-user", {
         name: "Geladeira",
         power: 0,

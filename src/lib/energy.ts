@@ -1,5 +1,6 @@
 import type { Appliance } from "../hooks/useAppliances";
 import { normalizeEnergyProfile, referenceMonthly } from "../../backend/src/modules/catalog/reference";
+import { cyclesInMonth, powerTimeKWh } from "../../backend/src/modules/calculations/usage";
 
 // Reference values already used by the calculation API; these are not live tariffs.
 export const STATE_TARIFFS: Record<string, number> = {
@@ -50,21 +51,22 @@ export const normalizeSearch = (value: string) =>
     .trim();
 
 export function estimateAppliance(appliance: Appliance, daysInMonth = 31) {
+  if (appliance.monitoringOnly) return { consumption: 0, cost: 0, available: false };
   const profile = appliance.energyProfile && normalizeEnergyProfile(appliance.energyProfile);
   const consumption = profile?.method === "REFERENCE_PERIOD" ? referenceMonthly(profile)
-    : profile?.method === "PER_CYCLE" ? profile.energyPerCycleKwh * (appliance.cyclesPerMonth ?? 0) :
-    (appliance.power *
-      appliance.usageHours *
-      Math.min(appliance.days, daysInMonth)) /
-    1000;
+    : profile?.method === "PER_CYCLE" ? profile.energyPerCycleKwh * cyclesInMonth(appliance.cyclesPerMonth, appliance.cyclesPerWeek) :
+    powerTimeKWh(appliance.power, appliance.usageHours, Math.min(appliance.days, daysInMonth),
+      profile?.method === "POWER_TIME" && appliance.standbyEnabled ? profile.standbyPowerW ?? 0 : 0);
   const rate =
-    appliance.tariffValue ?? (appliance.monthlyConsumption > 0
+    appliance.tariffValue ?? (appliance.monthlyConsumption !== null && appliance.monthlyCost !== null && appliance.monthlyConsumption > 0
       ? appliance.monthlyCost / appliance.monthlyConsumption
       : STATE_TARIFFS[appliance.tariff] || 0);
-  return { consumption, cost: consumption * rate };
+  return { consumption, cost: consumption * rate, available: true };
 }
 
 export const applianceSourceLabel = (appliance: Partial<Appliance>): string => {
+  if (appliance.monitoringOnly && appliance.integrationProvider === "smartthings") return "Samsung SmartThings · medição";
+  if (appliance.estimateByUsage) return "Estimativa pelo uso informado; referência do catálogo preservada";
   const profile = appliance.energyProfile;
   if (profile?.method === "POWER_TIME" && appliance.source?.metrics?.typicalPowerW &&
       appliance.source.metrics.typicalPowerW !== appliance.source.reference) {
@@ -77,6 +79,7 @@ export const applianceSourceLabel = (appliance: Partial<Appliance>): string => {
   return appliance.source?.type === "PBE" ? "PBE / Inmetro"
   : appliance.source?.type === "MANUFACTURER" ? "Fabricante"
   : appliance.source?.type === "ENERGY_STAR" ? "ENERGY STAR (referência internacional)"
+  : appliance.source?.type === "EPREL" ? "EPREL (União Europeia)"
   : appliance.source?.type === "WATTSTATUS_GENERIC" ? "Perfil genérico WattStatus"
   : appliance.integrationProvider === "smartthings" ? "Samsung SmartThings"
   : appliance.integrationProvider ? `Integração: ${appliance.integrationProvider}` : "Dados informados pelo usuário";
@@ -90,6 +93,7 @@ export function getMonthlyEstimate(
   const days = new Date(year, month, 0).getDate();
   const rows = appliances
     .filter((appliance) => {
+      if (appliance.monitoringOnly) return false;
       const created = new Date(appliance.createdAt);
       return Number.isFinite(created.getTime()) && created < end;
     })

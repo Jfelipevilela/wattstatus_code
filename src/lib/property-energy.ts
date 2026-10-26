@@ -7,6 +7,7 @@ export interface EnergyBucket {
   estimatedKWh: number;
   estimatedCost: number;
   applianceCount: number;
+  estimatedApplianceCount?: number;
   measuredKWh: number;
   measuredCost: number;
   // Some measured interval had no tariff, so measuredCost is a lower bound.
@@ -18,6 +19,7 @@ const emptyBucket = (): EnergyBucket => ({
   estimatedKWh: 0,
   estimatedCost: 0,
   applianceCount: 0,
+  estimatedApplianceCount: 0,
   measuredKWh: 0,
   measuredCost: 0,
   measuredCostIncomplete: false,
@@ -57,11 +59,12 @@ export const aggregatePropertyEnergy = (
   for (const appliance of appliances) {
     if (appliancePropertyId(appliance, primaryId) !== propertyId) continue;
     const key = appliance.roomId && roomIds.has(appliance.roomId) ? appliance.roomId : UNASSIGNED;
-    const { consumption, cost } = estimateAppliance(appliance, daysInMonth);
+    const { consumption, cost, available } = estimateAppliance(appliance, daysInMonth);
     for (const bucket of [byRoom.get(key)!, total]) {
       bucket.estimatedKWh += consumption;
       bucket.estimatedCost += cost;
       bucket.applianceCount += 1;
+      if (available) bucket.estimatedApplianceCount! += 1;
     }
   }
 

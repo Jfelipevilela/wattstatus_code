@@ -11,9 +11,14 @@ const reference = ts.transpileModule(await readFile(new URL("../backend/src/modu
   compilerOptions: { module: ts.ModuleKind.ESNext },
 }).outputText;
 const referenceUrl = `data:text/javascript;base64,${Buffer.from(reference).toString("base64")}`;
+const usage = ts.transpileModule(await readFile(new URL("../backend/src/modules/calculations/usage.ts", import.meta.url), "utf8"), {
+  compilerOptions: { module: ts.ModuleKind.ESNext },
+}).outputText;
+const usageUrl = `data:text/javascript;base64,${Buffer.from(usage).toString("base64")}`;
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext },
-}).outputText.replace('"../../backend/src/modules/catalog/reference"', JSON.stringify(referenceUrl));
+}).outputText.replace('"../../backend/src/modules/catalog/reference"', JSON.stringify(referenceUrl))
+  .replace('"../../backend/src/modules/calculations/usage"', JSON.stringify(usageUrl));
 const {
   getMonthlyEstimate,
   getEstimateHistory,
@@ -43,6 +48,18 @@ test("catálogo usa snapshot mensal e ciclos sem converter contador em consumo m
   assert.equal(estimateAppliance(monthly, 28).cost, 40.5);
   assert.equal(estimateAppliance({ ...monthly, energyProfile: { method: "PER_CYCLE", energyPerCycleKwh: 0.143 }, cyclesPerMonth: 12 }).consumption, 0.143 * 12);
   assert.equal(estimateAppliance({ ...monthly, measuredConsumptionKWh: 999, consumptionType: "METERED" }).consumption, 40.5);
+});
+
+test("ciclos semanais, standby e monitoramento sem estimativa são consistentes", () => {
+  const cycle={...appliance,energyProfile:{method:'PER_CYCLE',energyPerCycleKwh:.45},cyclesPerWeek:4};
+  assert.ok(Math.abs(estimateAppliance(cycle).consumption-7.8)<1e-10);
+  const tv={...appliance,power:100,usageHours:5,energyProfile:{method:'POWER_TIME',standbyPowerW:.5},standbyEnabled:true};
+  assert.equal(estimateAppliance(tv).consumption,15.285);
+  assert.equal(estimateAppliance({...tv,standbyEnabled:false}).consumption,15);
+  const monitored={...tv,monitoringOnly:true,monthlyConsumption:null,monthlyCost:null};
+  assert.equal(estimateAppliance(monitored).available,false);
+  assert.equal(getMonthlyEstimate([monitored],2026,10).rows.length,0);
+  assert.equal(estimateAppliance({...cycle,cyclesPerWeek:null,cyclesPerMonth:12}).consumption,.45*12);
 });
 
 test("aparelhos continuam nas estimativas após o mês de cadastro e na virada do ano", () => {

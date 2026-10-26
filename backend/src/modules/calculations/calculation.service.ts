@@ -17,7 +17,8 @@ export const calculateAppliance = (
   }
 
   const { consumptionKWh } = calculateConsumption({ profile: input.energyProfile || { method: "POWER_TIME" },
-    power: input.power, usageHours: input.usageHours, days: input.days, cyclesPerMonth: input.cyclesPerMonth });
+    power: input.power, usageHours: input.usageHours, days: input.days, cyclesPerMonth: input.cyclesPerMonth,
+    cyclesPerWeek: input.cyclesPerWeek, standbyEnabled: input.standbyEnabled });
   const cost = consumptionKWh * tariff;
 
   let status: ApplianceStatus = "normal";

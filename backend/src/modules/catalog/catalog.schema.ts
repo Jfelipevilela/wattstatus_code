@@ -33,13 +33,13 @@ export const energyProfileSchema = z.discriminatedUnion("method", [
     .strict(),
 ]);
 export const catalogIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,99}$/);
-export const catalogDeviceSchema = z
+const catalogDeviceBaseSchema = z
   .object({
     id: catalogIdSchema,
     category: catalogIdSchema,
     subcategory: z.string().trim().min(1).max(80),
-    brand: z.string().trim().min(1).max(80).optional(),
-    model: z.string().trim().min(1).max(120).optional(),
+    brand: z.string().trim().min(1).max(120).optional(),
+    model: z.string().trim().min(1).max(300).optional(),
     displayName: z.string().trim().min(2).max(160),
     aliases: z.array(z.string().max(80)).max(30),
     energyProfile: energyProfileSchema,
@@ -48,6 +48,7 @@ export const catalogDeviceSchema = z
         type: z.enum([
           "PBE",
           "ENERGY_STAR",
+          "EPREL",
           "MANUFACTURER",
           "WATTSTATUS_GENERIC",
         ]),
@@ -72,8 +73,14 @@ export const catalogDeviceSchema = z
     variant: z.object({ voltage: z.number().finite().positive().max(1000).optional(), identifier: z.string().max(120).optional() }).strict().optional(),
     specifications: z.record(z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,79}$/).refine(value => !["constructor", "prototype", "__proto__"].includes(value)), z.union([z.string().max(200), z.number().finite()])).refine(value => Object.keys(value).length <= 30).optional(),
   })
-  .strict()
-  .superRefine((device, context) => {
+  .strict();
+export const catalogDeviceSchema = catalogDeviceBaseSchema.extend({
+  sources: z.array(catalogDeviceBaseSchema.shape.source).max(20).optional(),
+  profiles: z.array(z.object({ profile: energyProfileSchema, source: catalogDeviceBaseSchema.shape.source }).strict()).max(20).optional(),
+  equivalence: z.object({ key: z.string().regex(/^[A-Za-z0-9:._-]{1,160}$/), referenceUrl: z.string().url().max(1000).refine(value => {
+    const url = new URL(value); return url.protocol === "https:" && !url.username && !url.password;
+  }) }).strict().optional(),
+}).strict().superRefine((device, context) => {
     if (
       device.isGeneric &&
       (device.verified || device.source.type !== "WATTSTATUS_GENERIC")
@@ -100,7 +107,8 @@ export const catalogQuerySchema = z
     category: catalogIdSchema.optional(),
     subcategory: filter.optional(),
     brand: filter.optional(),
-    model: filter.optional(),
+    model: z.string().trim().min(1).max(300).optional(),
+    region: z.enum(["BR", "US", "EU"]).optional(),
     page: z.coerce.number().int().min(1).max(1000).default(1),
     limit: z.coerce.number().int().min(1).max(48).default(12),
   })

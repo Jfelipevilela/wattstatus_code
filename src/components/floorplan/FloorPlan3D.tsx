@@ -316,6 +316,7 @@ interface RoomInfo {
   // Level 2: hover preview.
   estimatedKWh: number;
   estimatedCost: number;
+  estimateAvailable: boolean;
   applianceCount: number;
   measurement: string;
 }
@@ -333,15 +334,16 @@ const roomInfo = (bucket: EnergyBucket | undefined, appliances: Appliance[], hea
     ? heatValue === null
       ? heat === "measured"
         ? "sem medição"
-        : "sem aparelhos"
+        : "sem estimativa"
       : `${formatNumber(heatValue, 1)} kWh${heat === "measured" && partial ? " · parcial" : ""}`
     : bucket && bucket.applianceCount > 0
-      ? `${formatNumber(bucket.estimatedKWh, 0)} kWh est.`
+      ? (bucket.estimatedApplianceCount ?? bucket.applianceCount) > 0 ? `${formatNumber(bucket.estimatedKWh, 0)} kWh est.` : "sem estimativa"
       : null;
   return {
     value,
     estimatedKWh: bucket?.estimatedKWh ?? 0,
     estimatedCost: bucket?.estimatedCost ?? 0,
+    estimateAvailable: Boolean(bucket && (bucket.estimatedApplianceCount ?? bucket.applianceCount) > 0),
     applianceCount: bucket?.applianceCount ?? 0,
     measurement,
   };
@@ -477,7 +479,7 @@ function RoomModel({
             <div className="absolute bottom-full mb-1.5 w-max min-w-[11rem] rounded-xl bg-zinc-900/95 px-3 py-2 text-left text-[11px] text-white shadow-xl">
               <p className="text-xs font-semibold">{room.name}</p>
               <p className="mt-1 tabular-nums">
-                {formatNumber(info.estimatedKWh, 1)} kWh · {formatCurrency(info.estimatedCost)} <span className="text-white/60">estimado</span>
+                {info.estimateAvailable ? <>{formatNumber(info.estimatedKWh, 1)} kWh · {formatCurrency(info.estimatedCost)} <span className="text-white/60">estimado</span></> : "Sem estimativa mensal"}
               </p>
               <p className="text-white/70">
                 {info.applianceCount} {info.applianceCount === 1 ? "aparelho" : "aparelhos"} · {info.measurement}

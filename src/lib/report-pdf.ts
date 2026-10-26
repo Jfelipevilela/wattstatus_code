@@ -115,7 +115,7 @@ export const createReportPdf = (input: PdfReportInput) => {
   const estimated = totals(input.estimated);
   const measured = totals(input.measured);
   const cards: Array<{ label: string; value: string; detail: string; accent: RGB }> = [
-    { label: "ESTIMADO", value: money(estimated.cost ?? 0), detail: `${number(estimated.kWh, 1)} kWh no mês`, accent: GREEN },
+    { label: "ESTIMADO", value: input.estimated.length ? money(estimated.cost ?? 0) : "Sem estimativa", detail: input.estimated.length ? `${number(estimated.kWh, 1)} kWh no mês` : "Ausência de dados não significa zero", accent: GREEN },
     input.measured.length
       ? {
           label: "MEDIDO",
@@ -283,7 +283,7 @@ export const createReportPdf = (input: PdfReportInput) => {
     y += boxHeight + 8;
   }
 
-  section("Consumo estimado", GREEN, input.estimated, "Nenhum aparelho no período selecionado.");
+  section("Consumo estimado", GREEN, input.estimated, "Sem estimativa disponível no período selecionado.");
   section("Consumo medido", BLUE, input.measured, "Sem medições suficientes neste período.");
 
   // Notes

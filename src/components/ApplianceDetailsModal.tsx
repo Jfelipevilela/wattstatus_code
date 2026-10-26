@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { X, Zap, InfoIcon } from "lucide-react";
 import { Appliance } from "@/hooks/useAppliances";
+import { estimateAppliance } from "@/lib/energy";
 
 interface ApplianceDetailsModalProps {
   appliance: Appliance | null;
@@ -20,8 +21,7 @@ const ApplianceDetailsModal: React.FC<ApplianceDetailsModalProps> = ({
   if (!isOpen || !appliance) return null;
 
   // Calcular consumo mensal em kWh
-  const monthlyConsumption =
-    (appliance.power * appliance.usageHours * (appliance.days || 30)) / 1000;
+  const estimate = estimateAppliance(appliance);
 
   // Obter tarifa baseada no estado
   const STATE_TARIFFS = {
@@ -112,7 +112,7 @@ const ApplianceDetailsModal: React.FC<ApplianceDetailsModalProps> = ({
                   Consumo mensal:
                 </span>
                 <p className="font-medium text-gray-900 dark:text-gray-100">
-                  {monthlyConsumption.toFixed(2)} kWh
+                  {estimate.available ? `${estimate.consumption.toFixed(2)} kWh (estimativa)` : "Indisponível; consulte o histórico medido"}
                 </p>
               </div>
               <div>
@@ -120,7 +120,7 @@ const ApplianceDetailsModal: React.FC<ApplianceDetailsModalProps> = ({
                   Custo mensal:
                 </span>
                 <p className="font-medium text-gray-900 dark:text-gray-100">
-                  R$ {appliance.monthlyCost.toFixed(2)}
+                  {estimate.available ? `R$ ${estimate.cost.toFixed(2)} (estimativa)` : "—"}
                 </p>
               </div>
               <div>

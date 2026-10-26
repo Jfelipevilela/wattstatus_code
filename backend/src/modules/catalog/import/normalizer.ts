@@ -3,9 +3,10 @@ export const decimal = (input: unknown, locale: "BR" | "US" = "BR") => {
   if (typeof input === "number" && Number.isFinite(input)) return input;
   if (typeof input !== "string") throw new Error("NUMBER_REQUIRED");
   let value = input.trim();
-  const pattern = locale === "BR" ? /^-?(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d+)?$/ : /^-?\d+(?:\.\d+)?$/;
+  const pattern = locale === "BR" ? /^-?(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d+)?$/ : /^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/;
   if (!pattern.test(value)) throw new Error("NUMBER_FORMAT");
   if (locale === "BR") value = value.replace(/\./g, "").replace(",", ".");
+  else value = value.replace(/,/g, "");
   const result = Number(value);
   if (!Number.isFinite(result)) throw new Error("NUMBER_INVALID");
   return result;

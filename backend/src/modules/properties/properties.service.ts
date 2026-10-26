@@ -79,14 +79,16 @@ const daysIn = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1,
 // Same formula as the frontend estimate: per-appliance cost with its own
 // tariff, then summed. Never an average tariff.
 export const estimateMonthly = (appliance: ApplianceRecord, daysInMonth: number) => {
-  const consumption = appliance.energyProfile && appliance.energyProfile.method !== "POWER_TIME"
+  if (appliance.monitoringOnly) return { consumption: 0, cost: 0, available: false };
+  const consumption = appliance.energyProfile && (appliance.energyProfile.method !== "POWER_TIME" || appliance.standbyEnabled === true)
     ? calculateConsumption({ profile: appliance.energyProfile, power: appliance.power, usageHours: appliance.usageHours,
-        days: Math.min(appliance.days, daysInMonth), cyclesPerMonth: appliance.cyclesPerMonth ?? 0 }).consumptionKWh
+        days: Math.min(appliance.days, daysInMonth), cyclesPerMonth: appliance.cyclesPerWeek == null ? appliance.cyclesPerMonth ?? 0 : undefined,
+        cyclesPerWeek: appliance.cyclesPerWeek ?? undefined, standbyEnabled: appliance.standbyEnabled ?? false }).consumptionKWh
     : (appliance.power * appliance.usageHours * Math.min(appliance.days, daysInMonth)) / 1000;
   const rate =
     appliance.tariffValue ??
-    (appliance.monthlyConsumption > 0 ? appliance.monthlyCost / appliance.monthlyConsumption : STATE_TARIFFS[appliance.tariff] ?? 0);
-  return { consumption, cost: consumption * rate };
+    (appliance.monthlyConsumption !== null && appliance.monthlyConsumption > 0 && appliance.monthlyCost !== null ? appliance.monthlyCost / appliance.monthlyConsumption : STATE_TARIFFS[appliance.tariff] ?? 0);
+  return { consumption, cost: consumption * rate, available: true };
 };
 
 export class PropertyService {

@@ -1,0 +1,108 @@
+{
+  "installed_for": "WattStatus",
+  "date": "2026-10-25",
+  "scope": "repository",
+  "skills": [
+    {
+      "name": "frontend-design",
+      "repository": "anthropics/skills",
+      "source_path": "skills/frontend-design",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "url": "https://github.com/anthropics/skills/tree/dbd4588f9e1033efb41dad4bef2f7947c8993d44/skills/frontend-design",
+      "original_skill_sha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+      "local_changes": [
+        "Normalize agents/openai.yaml filename; enable implicit invocation."
+      ]
+    },
+    {
+      "name": "landing-page-design",
+      "repository": "elayadesign/ai-design-skills",
+      "source_path": "skills/landing-page-design",
+      "ref": "a2735a3eaf092eaaffb6dc17df25de33ef3bd048",
+      "url": "https://github.com/elayadesign/ai-design-skills/tree/a2735a3eaf092eaaffb6dc17df25de33ef3bd048/skills/landing-page-design",
+      "original_skill_sha256": "203569792660ab6d71dcb2e4fa673c0c7a0df7c99801d04ab419a4cb08aceb2c",
+      "local_changes": [
+        "Normalize agents/openai.yaml filename; enable implicit invocation."
+      ]
+    },
+    {
+      "name": "design-to-motion",
+      "repository": "elayadesign/ai-design-skills",
+      "source_path": "skills/design-to-motion",
+      "ref": "a2735a3eaf092eaaffb6dc17df25de33ef3bd048",
+      "url": "https://github.com/elayadesign/ai-design-skills/tree/a2735a3eaf092eaaffb6dc17df25de33ef3bd048/skills/design-to-motion",
+      "original_skill_sha256": "12240f8065147f3623424cf38bc198a94857441446736bb449429451d87a3d55",
+      "local_changes": [
+        "Normalize agents/openai.yaml filename; enable implicit invocation."
+      ]
+    },
+    {
+      "name": "superdesign",
+      "repository": "superdesigndev/superdesign-skill",
+      "source_path": "skills/superdesign",
+      "ref": "f9f05cd988c247dce6c072eaf9ac6b162f2ffc4b",
+      "url": "https://github.com/superdesigndev/superdesign-skill/tree/f9f05cd988c247dce6c072eaf9ac6b162f2ffc4b/skills/superdesign",
+      "original_skill_sha256": "f782f8776dbf7277cea88d77ea6dfc35bc0437b02a094ef79bbcfc716ef8c567",
+      "local_changes": [
+        "Normalize agents/openai.yaml filename; enable implicit invocation."
+      ]
+    },
+    {
+      "name": "security-review",
+      "repository": "getsentry/skills",
+      "source_path": "skills/security-review",
+      "ref": "d12f250460ffd961f549dbebf7eeb0cf4afd4c2e",
+      "url": "https://github.com/getsentry/skills/tree/d12f250460ffd961f549dbebf7eeb0cf4afd4c2e/skills/security-review",
+      "original_skill_sha256": "26db9a5b1999adc19c4bf6eb7fbe37b56f0135b79f3054f33fd03baefa8e93ed",
+      "local_changes": [
+        "Normalize agents/openai.yaml filename; enable implicit invocation."
+      ]
+    },
+    {
+      "name": "better-auth-best-practices",
+      "repository": "better-auth/skills",
+      "source_path": "better-auth/best-practices",
+      "ref": "20c9e88a5c007461a703f1c213572b073196113e",
+      "url": "https://github.com/better-auth/skills/tree/20c9e88a5c007461a703f1c213572b073196113e/better-auth/best-practices",
+      "original_skill_sha256": "a5337f186300d187fea2c8f7af339e091afdd130d36c070d0a2dcb8ca04dd413",
+      "local_changes": [
+        "Normalize agents/openai.yaml filename; enable implicit invocation."
+      ]
+    },
+    {
+      "name": "email-and-password-best-practices",
+      "repository": "better-auth/skills",
+      "source_path": "better-auth/emailAndPassword",
+      "ref": "20c9e88a5c007461a703f1c213572b073196113e",
+      "url": "https://github.com/better-auth/skills/tree/20c9e88a5c007461a703f1c213572b073196113e/better-auth/emailAndPassword",
+      "original_skill_sha256": "70591495def0161b5adec5c697dd7740b75e80b16526654beff51f5611098e0a",
+      "local_changes": [
+        "Normalize agents/openai.yaml filename; enable implicit invocation."
+      ]
+    },
+    {
+      "name": "better-auth-security-best-practices",
+      "repository": "better-auth/skills",
+      "source_path": "security",
+      "ref": "20c9e88a5c007461a703f1c213572b073196113e",
+      "url": "https://github.com/better-auth/skills/tree/20c9e88a5c007461a703f1c213572b073196113e/security",
+      "original_skill_sha256": "042f01c76b63b436c71797c8a1b84470c5b6e0c7cd2400aa0928f733da96facf",
+      "local_changes": [
+        "Normalize agents/openai.yaml filename; enable implicit invocation."
+      ]
+    },
+    {
+      "name": "shadcn",
+      "repository": "shadcn-ui/ui",
+      "source_path": "skills/shadcn",
+      "ref": "481d523374745e77d0cf9c53a4115ab5dd7c8481",
+      "url": "https://github.com/shadcn-ui/ui/tree/481d523374745e77d0cf9c53a4115ab5dd7c8481/skills/shadcn",
+      "original_skill_sha256": "93951e5e83f616a3e046491c00d770bd54c0a64164706cd1191822a233d27592",
+      "local_changes": [
+        "Normalize agents/openai.yaml filename; enable implicit invocation."
+      ]
+    }
+  ],
+  "activation": "AGENTS.md routing + allow_implicit_invocation",
+  "superdesign": "Skill installed; remote canvas requires separate login and authorization."
+}

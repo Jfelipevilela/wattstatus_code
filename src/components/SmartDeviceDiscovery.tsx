@@ -86,6 +86,17 @@ export default function SmartDeviceDiscovery({
       if (status.online === false) throw new Error("Dispositivo offline");
       const main = status.raw?.components?.main;
       const delta = extractReportDelta(status.raw);
+      let energyInterval = delta ? { kWh: delta.deltaKWh, startAt: delta.startAt.toISOString(), endAt: delta.endAt.toISOString() } : undefined;
+      if (!energyInterval && (extractCumulativeKWh(status.raw) ?? extractReportCumulativeKWh(status.raw)) !== null) {
+        const end = new Date(); const start = new Date(end.getTime() - 31 * 86400000);
+        const query = new URLSearchParams({ start: start.toISOString(), end: end.toISOString() });
+        try {
+          const history = await apiRequest<{ intervals: Array<{ deviceId: string; provider: string; consumptionKWh: number; startAt: string; endAt: string }> }>(`/api/energy/history?${query}`, { signal: controller.signal, skipErrorToast: true });
+          const latest = history.intervals.filter(row => row.deviceId === device.id && row.provider === "smartthings")
+            .sort((a, b) => b.endAt.localeCompare(a.endAt))[0];
+          if (latest) energyInterval = { kWh: latest.consumptionKWh, startAt: latest.startAt, endAt: latest.endAt };
+        } catch { /* A single counter/history outage must not invent interval energy. */ }
+      }
       const power = main?.powerMeter?.power;
       if (!controller.signal.aborted)
         onSelect({
@@ -98,7 +109,7 @@ export default function SmartDeviceDiscovery({
               ? power.value * (power.unit === "kW" ? 1000 : 1)
               : undefined,
           counterKWh: extractCumulativeKWh(status.raw) ?? extractReportCumulativeKWh(status.raw) ?? undefined,
-          energyInterval: delta ? { kWh: delta.deltaKWh, startAt: delta.startAt.toISOString(), endAt: delta.endAt.toISOString() } : undefined,
+          energyInterval,
         });
     } catch {
       if (!controller.signal.aborted)

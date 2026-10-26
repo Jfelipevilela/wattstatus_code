@@ -12,8 +12,8 @@ export interface Appliance extends ApplianceCatalogFields {
   status: "critical" | "normal" | "warning";
   usageHours: number;
   days: number;
-  monthlyCost: number;
-  monthlyConsumption: number;
+  monthlyCost: number | null;
+  monthlyConsumption: number | null;
   tariff: string;
   tariffValue?: number;
   createdAt: string;
@@ -24,7 +24,7 @@ export interface Appliance extends ApplianceCatalogFields {
   roomId?: string | null;
 }
 
-export interface ApplianceInput extends Pick<ApplianceCatalogFields, "catalogDeviceId" | "energyProfile" | "cyclesPerMonth" | "room"> {
+export interface ApplianceInput extends Pick<ApplianceCatalogFields, "catalogDeviceId" | "energyProfile" | "cyclesPerMonth" | "cyclesPerWeek" | "standbyEnabled" | "monitoringOnly" | "estimateByUsage" | "room"> {
   name: string;
   power: number;
   usageHours: number;
