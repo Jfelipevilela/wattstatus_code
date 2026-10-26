@@ -1,0 +1,399 @@
+/* Public landing page: WattStatus Emerald Dark. Always dark, independent of
+   the app theme. Colours are semantic tokens; components never hardcode hex.
+   RGB triplets allow alpha: rgb(var(--l-accent-rgb) / 0.2). */
+.landing {
+  --l-bg-rgb: 7 20 17;            /* #071411 */
+  --l-surface-rgb: 16 36 29;      /* #10241D */
+  --l-elevated-rgb: 22 51 41;     /* #163329 */
+  --l-forest-rgb: 24 77 58;       /* #184D3A */
+  --l-accent-rgb: 69 224 164;     /* #45E0A4 */
+  --l-accent-2-rgb: 38 184 125;   /* #26B87D */
+  --l-amber-rgb: 215 168 110;     /* #D7A86E */
+  --l-line-rgb: 166 189 177;      /* #A6BDB1 */
+  --l-bg: rgb(var(--l-bg-rgb));
+  --l-bg-2: #0a1a16;
+  --l-surface: rgb(var(--l-surface-rgb));
+  --l-surface-2: rgb(var(--l-elevated-rgb));
+  --l-forest: rgb(var(--l-forest-rgb));
+  --l-line: rgb(var(--l-line-rgb) / 0.11);
+  --l-line-strong: rgb(var(--l-line-rgb) / 0.2);
+  --l-text: #f5f8f4;
+  --l-muted: #a6bdb1;
+  --l-faint: #7d978a;
+  --l-accent: rgb(var(--l-accent-rgb));
+  --l-accent-hover: #6ae9b8;
+  --l-accent-2: rgb(var(--l-accent-2-rgb));
+  --l-accent-subtle: rgb(var(--l-accent-rgb) / 0.1);
+  --l-amber: rgb(var(--l-amber-rgb));
+  --l-focus: #7ef0c2;
+  --l-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.75);
+  --l-glow: 0 0 40px -8px rgb(var(--l-accent-rgb) / 0.45);
+  /* Semantic states: never colour alone, always with a label or pattern. */
+  --l-success: #45e0a4;
+  --l-warning: #e8b45c;
+  --l-error: #f07a6a;
+  --l-measured: #45e0a4;
+  --l-estimated: #d7a86e;
+  --l-partial: #8fc9ae;
+  --l-nodata: #5d7468;
+  background: var(--l-bg);
+  color: var(--l-text);
+  font-family: "Manrope", "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+.landing ::selection {
+  background: rgb(var(--l-accent-rgb)/0.3);
+}
+
+.landing .l-container,
+.landing .l-container-wide {
+  width: 100%;
+  max-width: 1320px;
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+
+@media (min-width: 768px) {
+  .landing .l-container,
+  .landing .l-container-wide { padding-inline: 40px; }
+}
+@media (min-width: 1600px) {
+  .landing .l-container { max-width: 1400px; }
+  /* Wide sections open up only where there is room for them. */
+  .landing .l-container-wide { max-width: 1560px; }
+}
+
+/* Type scale: headings and lead paragraphs shared by every section. */
+.landing .l-h2 {
+  font-size: clamp(2.15rem, 1.4rem + 2.6vw, 3.75rem);
+  font-weight: 650;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+}
+.landing .l-lead {
+  font-size: clamp(1.05rem, 0.98rem + 0.3vw, 1.25rem);
+  line-height: 1.6;
+  color: var(--l-muted);
+}
+
+/* A lifted band: lighter surface with architectural light from above. */
+.landing .l-band {
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgb(var(--l-forest-rgb) / 0.55), transparent 70%),
+    linear-gradient(180deg, #0c1d18 0%, #0a1814 100%);
+  border-block: 1px solid var(--l-line);
+}
+
+.landing .l-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--l-accent);
+}
+.landing .l-eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.landing .l-gradient-text {
+  background: linear-gradient(100deg, #9ff5d0 0%, var(--l-accent) 45%, #2fc98c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.landing .l-focus:focus-visible,
+.landing a:focus-visible,
+.landing button:focus-visible {
+  outline: 2px solid var(--l-accent);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+
+/* Buttons */
+.landing .l-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 26px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+.landing .l-btn-primary {
+  color: #052117;
+  background: linear-gradient(180deg, #6eeab9 0%, var(--l-accent) 55%, #34cf93 100%);
+  box-shadow: 0 0 0 1px rgb(var(--l-accent-rgb)/0.4) inset, 0 10px 30px -10px rgb(var(--l-accent-rgb)/0.55);
+}
+.landing .l-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 1px rgb(var(--l-accent-rgb)/0.6) inset, 0 14px 36px -10px rgb(var(--l-accent-rgb)/0.7);
+}
+.landing .l-btn-ghost {
+  color: var(--l-text);
+  background: rgb(var(--l-surface-rgb) / 0.6);
+  border: 1px solid var(--l-line-strong);
+}
+.landing .l-btn-ghost:hover {
+  border-color: rgb(var(--l-accent-rgb)/0.5);
+  background: rgb(var(--l-accent-rgb)/0.06);
+}
+.landing .l-btn:active { transform: translateY(0) scale(0.98); }
+
+/* Header */
+.landing .l-header {
+  transition: background-color 0.35s ease, border-color 0.35s ease, backdrop-filter 0.35s ease;
+  border-bottom: 1px solid transparent;
+}
+.landing .l-header[data-scrolled="true"] {
+  background: rgb(var(--l-bg-rgb)/0.78);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-bottom-color: var(--l-line);
+}
+.landing .l-navlink {
+  position: relative;
+  padding: 8px 2px;
+  font-size: 15px;
+  color: var(--l-muted);
+  transition: color 0.2s ease;
+}
+.landing .l-navlink::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  height: 1px;
+  background: var(--l-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+.landing .l-navlink:hover { color: var(--l-text); }
+.landing .l-navlink:hover::after,
+.landing .l-navlink[data-active="true"]::after { transform: scaleX(1); }
+.landing .l-navlink[data-active="true"] { color: var(--l-text); }
+
+/* Hero backdrop: a quiet horizon glow, a faint blueprint grid. */
+.landing .l-hero-bg {
+  background:
+    radial-gradient(55% 60% at 70% 52%, rgb(var(--l-forest-rgb) / 0.55) 0%, rgb(var(--l-forest-rgb) / 0) 72%),
+    radial-gradient(30% 28% at 66% 46%, rgb(var(--l-amber-rgb) / 0.09) 0%, rgb(var(--l-amber-rgb) / 0) 70%),
+    radial-gradient(40% 50% at 0% 0%, rgb(var(--l-forest-rgb) / 0.3) 0%, transparent 70%),
+    linear-gradient(180deg, #06110e 0%, var(--l-bg) 55%, #050f0c 100%);
+}
+.landing .l-grid {
+  background-image:
+    linear-gradient(rgb(var(--l-line-rgb)/0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--l-line-rgb)/0.05) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(70% 60% at 65% 45%, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(70% 60% at 65% 45%, #000 0%, transparent 75%);
+}
+
+/* Entrance sequence. */
+/* Entrances are for secondary elements only: the headline and lead paint
+   at once, so nothing important waits on an animation. */
+@keyframes l-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes l-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes l-line {
+  from { opacity: 0.01; transform: translateY(100%); }
+  to { opacity: 1; transform: none; }
+}
+.landing .l-in { animation: l-rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.landing .l-in-fade { animation: l-fade 1s ease both; }
+.landing .l-title-line { display: block; overflow: hidden; padding-bottom: 0.14em; margin-bottom: -0.1em; }
+.landing .l-title-line > span { display: inline-block; padding-bottom: 0.12em; margin-bottom: -0.12em; animation: l-line 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* Scroll reveal. */
+.landing .l-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--d, 0ms);
+}
+.landing .l-reveal[data-shown="true"] { opacity: 1; transform: none; }
+
+/* Surfaces */
+.landing .l-panel {
+  background: linear-gradient(180deg, rgb(var(--l-elevated-rgb)/0.9) 0%, rgb(var(--l-surface-rgb)/0.9) 100%);
+  border: 1px solid var(--l-line);
+  border-radius: 20px;
+}
+.landing .l-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--l-muted);
+  border: 1px solid var(--l-line-strong);
+  background: rgb(var(--l-surface-rgb) / 0.5);
+}
+
+/* Room marker over the 3D house. */
+.landing .l-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px 7px 9px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--l-text);
+  white-space: nowrap;
+  background: rgb(var(--l-bg-rgb)/0.78);
+  border: 1px solid rgb(var(--l-line-rgb)/0.22);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+  animation: l-fade 0.6s ease both;
+}
+.landing .l-marker:hover,
+.landing .l-marker[data-active="true"] {
+  border-color: rgb(var(--l-accent-rgb)/0.7);
+  background: rgb(var(--l-surface-rgb)/0.9);
+}
+.landing .l-marker-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--l-accent);
+  box-shadow: 0 0 10px var(--l-accent);
+}
+
+/* AI orb: CSS only, so the page keeps a single WebGL canvas. */
+.landing .l-orb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 38% 32%, rgb(236 255 246 / 0.95) 0%, rgb(var(--l-accent-rgb) / 0.75) 16%, rgb(var(--l-accent-2-rgb) / 0.45) 38%, rgb(var(--l-forest-rgb) / 0.6) 60%, rgb(var(--l-bg-rgb) / 0) 72%),
+    radial-gradient(circle at 64% 72%, rgb(var(--l-amber-rgb) / 0.28) 0%, transparent 50%);
+  box-shadow: 0 0 90px -10px rgb(var(--l-accent-rgb) / 0.4), inset 0 0 40px rgb(var(--l-accent-rgb) / 0.25);
+}
+.landing .l-orb-ring {
+  position: absolute;
+  inset: -8%;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--l-accent-rgb)/0.22);
+  animation: l-spin 18s linear infinite;
+}
+.landing .l-orb-ring::after {
+  content: "";
+  position: absolute;
+  top: 12%;
+  left: 12%;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--l-accent);
+  box-shadow: 0 0 12px var(--l-accent);
+}
+.landing .l-orb-ring.r2 { inset: -22%; border-color: rgb(var(--l-accent-rgb)/0.1); animation-duration: 30s; animation-direction: reverse; transform: rotateX(60deg); }
+@keyframes l-spin { to { transform: rotate(360deg); } }
+@keyframes l-breathe {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.03); filter: brightness(1.12); }
+}
+.landing .l-orb-core { animation: l-breathe 5s ease-in-out infinite; }
+
+@keyframes l-caret { 50% { opacity: 0; } }
+.landing .l-caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--l-accent); animation: l-caret 1s steps(1) infinite; }
+
+/* Flowing dash for connector lines in illustrations. */
+@keyframes l-dash { to { stroke-dashoffset: -40; } }
+.landing .l-flow { stroke-dasharray: 4 6; animation: l-dash 2.4s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .landing *,
+  .landing *::before,
+  .landing *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .landing .l-reveal { opacity: 1; transform: none; }
+}
+
+/* Section rhythm: a chapter marker that ties the page into one story. */
+.landing .l-chapter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--l-faint);
+}
+.landing .l-chapter b { color: var(--l-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.landing .l-chapter::after { content: ""; width: 40px; height: 1px; background: var(--l-line-strong); }
+
+/* Elevated surface with a soft top light instead of a glowing border. */
+.landing .l-card {
+  position: relative;
+  border-radius: 24px;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgb(var(--l-forest-rgb) / 0.45), transparent 60%),
+    linear-gradient(180deg, rgb(var(--l-elevated-rgb) / 0.75), rgb(var(--l-surface-rgb) / 0.85));
+  border: 1px solid var(--l-line);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, var(--l-shadow);
+  transition: border-color 0.3s ease, transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.landing a.l-card:hover { border-color: rgb(var(--l-accent-rgb) / 0.3); transform: translateY(-3px); }
+
+.landing .l-legend { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--l-muted); }
+.landing .l-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+
+/* WattStatus AI — Energy Intelligence Lab */
+.landing .l-ai {
+  background:
+    radial-gradient(42% 50% at 66% 46%, rgb(var(--l-accent-rgb) / 0.09), transparent 70%),
+    radial-gradient(60% 70% at 66% 50%, rgb(var(--l-forest-rgb) / 0.55), transparent 75%),
+    radial-gradient(30% 40% at 0% 100%, rgb(var(--l-amber-rgb) / 0.05), transparent 70%),
+    #050f0c;
+}
+.landing .l-ai-stage {
+  background:
+    radial-gradient(55% 45% at 50% 30%, rgb(var(--l-forest-rgb) / 0.5), transparent 75%),
+    linear-gradient(180deg, rgb(var(--l-surface-rgb) / 0.55), rgb(var(--l-bg-rgb) / 0.6));
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 60px 120px -60px rgb(0 0 0 / 0.9);
+}
+.landing .l-ai-ctl {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--l-line-strong);
+  color: var(--l-text);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.landing .l-ai-ctl:hover:not(:disabled) { border-color: rgb(var(--l-accent-rgb) / 0.5); background: var(--l-accent-subtle); }
+.landing .l-ai-ctl:disabled { opacity: 0.35; }
+.landing .l-spin-slow { animation: l-spin 40s linear infinite; }
+.landing .l-spin-slower { animation: l-spin 70s linear infinite reverse; }
