@@ -1,0 +1,285 @@
+/* Public landing page. Always dark, independent of the app theme. */
+.landing {
+  --l-bg: #050a14;
+  --l-bg-2: #08111f;
+  --l-surface: #0c1626;
+  --l-surface-2: #101d31;
+  --l-line: rgba(148, 178, 214, 0.12);
+  --l-line-strong: rgba(148, 178, 214, 0.22);
+  --l-text: #eef4fb;
+  --l-muted: #93a4ba;
+  --l-faint: #64758c;
+  --l-blue: #3b82f6;
+  --l-cyan: #38d6f5;
+  --l-teal: #2dd4bf;
+  --l-green: #34d399;
+  background: var(--l-bg);
+  color: var(--l-text);
+  font-family: "Inter", "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+.landing ::selection {
+  background: rgba(56, 214, 245, 0.3);
+}
+
+.landing .l-container {
+  width: 100%;
+  max-width: 1240px;
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+@media (min-width: 768px) {
+  .landing .l-container { padding-inline: 32px; }
+}
+
+.landing .l-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--l-cyan);
+}
+.landing .l-eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.landing .l-gradient-text {
+  background: linear-gradient(100deg, #5aa9ff 0%, var(--l-cyan) 55%, var(--l-teal) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.landing .l-focus:focus-visible,
+.landing a:focus-visible,
+.landing button:focus-visible {
+  outline: 2px solid var(--l-cyan);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+
+/* Buttons */
+.landing .l-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+.landing .l-btn-primary {
+  color: #03111c;
+  background: linear-gradient(180deg, #6fe3ff 0%, #2ec4ec 100%);
+  box-shadow: 0 0 0 1px rgba(111, 227, 255, 0.4) inset, 0 10px 30px -10px rgba(56, 214, 245, 0.55);
+}
+.landing .l-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 1px rgba(111, 227, 255, 0.6) inset, 0 14px 36px -10px rgba(56, 214, 245, 0.7);
+}
+.landing .l-btn-ghost {
+  color: var(--l-text);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--l-line-strong);
+}
+.landing .l-btn-ghost:hover {
+  border-color: rgba(56, 214, 245, 0.5);
+  background: rgba(56, 214, 245, 0.06);
+}
+.landing .l-btn:active { transform: translateY(0) scale(0.98); }
+
+/* Header */
+.landing .l-header {
+  transition: background-color 0.35s ease, border-color 0.35s ease, backdrop-filter 0.35s ease;
+  border-bottom: 1px solid transparent;
+}
+.landing .l-header[data-scrolled="true"] {
+  background: rgba(5, 10, 20, 0.78);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-bottom-color: var(--l-line);
+}
+.landing .l-navlink {
+  position: relative;
+  padding: 8px 2px;
+  font-size: 14px;
+  color: var(--l-muted);
+  transition: color 0.2s ease;
+}
+.landing .l-navlink::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  height: 1px;
+  background: var(--l-cyan);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+.landing .l-navlink:hover { color: var(--l-text); }
+.landing .l-navlink:hover::after,
+.landing .l-navlink[data-active="true"]::after { transform: scaleX(1); }
+.landing .l-navlink[data-active="true"] { color: var(--l-text); }
+
+/* Hero backdrop: a quiet horizon glow, a faint blueprint grid. */
+.landing .l-hero-bg {
+  background:
+    radial-gradient(60% 55% at 72% 46%, rgba(37, 99, 235, 0.22) 0%, rgba(37, 99, 235, 0) 70%),
+    radial-gradient(40% 35% at 80% 70%, rgba(45, 212, 191, 0.1) 0%, rgba(45, 212, 191, 0) 70%),
+    linear-gradient(180deg, #050a14 0%, #071122 60%, #050a14 100%);
+}
+.landing .l-grid {
+  background-image:
+    linear-gradient(rgba(148, 178, 214, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 178, 214, 0.05) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(70% 60% at 65% 45%, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(70% 60% at 65% 45%, #000 0%, transparent 75%);
+}
+
+/* Entrance sequence. */
+@keyframes l-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes l-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes l-line {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: none; }
+}
+.landing .l-in { animation: l-rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.landing .l-in-fade { animation: l-fade 1s ease both; }
+.landing .l-title-line { display: block; overflow: hidden; padding-bottom: 0.14em; margin-bottom: -0.1em; }
+.landing .l-title-line > span { display: inline-block; padding-bottom: 0.12em; margin-bottom: -0.12em; animation: l-line 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* Scroll reveal. */
+.landing .l-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--d, 0ms);
+}
+.landing .l-reveal[data-shown="true"] { opacity: 1; transform: none; }
+
+/* Surfaces */
+.landing .l-panel {
+  background: linear-gradient(180deg, rgba(16, 29, 49, 0.9) 0%, rgba(10, 19, 34, 0.9) 100%);
+  border: 1px solid var(--l-line);
+  border-radius: 20px;
+}
+.landing .l-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--l-muted);
+  border: 1px solid var(--l-line-strong);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Room marker over the 3D house. */
+.landing .l-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px 6px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--l-text);
+  white-space: nowrap;
+  background: rgba(6, 14, 27, 0.78);
+  border: 1px solid rgba(148, 178, 214, 0.22);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+  animation: l-fade 0.6s ease both;
+}
+.landing .l-marker:hover,
+.landing .l-marker[data-active="true"] {
+  border-color: rgba(56, 214, 245, 0.7);
+  background: rgba(8, 30, 48, 0.9);
+}
+.landing .l-marker-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--l-cyan);
+  box-shadow: 0 0 10px var(--l-cyan);
+}
+
+/* AI orb: CSS only, so the page keeps a single WebGL canvas. */
+.landing .l-orb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(220, 248, 255, 0.95) 0%, rgba(111, 227, 255, 0.55) 14%, rgba(37, 99, 235, 0.35) 42%, rgba(5, 10, 20, 0) 70%),
+    radial-gradient(circle at 60% 70%, rgba(45, 212, 191, 0.4) 0%, rgba(45, 212, 191, 0) 55%);
+  box-shadow: 0 0 80px -10px rgba(56, 214, 245, 0.45), inset 0 0 40px rgba(111, 227, 255, 0.2);
+}
+.landing .l-orb-ring {
+  position: absolute;
+  inset: -8%;
+  border-radius: 999px;
+  border: 1px solid rgba(111, 227, 255, 0.22);
+  animation: l-spin 18s linear infinite;
+}
+.landing .l-orb-ring::after {
+  content: "";
+  position: absolute;
+  top: 12%;
+  left: 12%;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--l-cyan);
+  box-shadow: 0 0 12px var(--l-cyan);
+}
+.landing .l-orb-ring.r2 { inset: -22%; border-color: rgba(111, 227, 255, 0.1); animation-duration: 30s; animation-direction: reverse; transform: rotateX(60deg); }
+@keyframes l-spin { to { transform: rotate(360deg); } }
+@keyframes l-breathe {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.03); filter: brightness(1.12); }
+}
+.landing .l-orb-core { animation: l-breathe 5s ease-in-out infinite; }
+
+@keyframes l-caret { 50% { opacity: 0; } }
+.landing .l-caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--l-cyan); animation: l-caret 1s steps(1) infinite; }
+
+/* Flowing dash for connector lines in illustrations. */
+@keyframes l-dash { to { stroke-dashoffset: -40; } }
+.landing .l-flow { stroke-dasharray: 4 6; animation: l-dash 2.4s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .landing *,
+  .landing *::before,
+  .landing *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .landing .l-reveal { opacity: 1; transform: none; }
+}
