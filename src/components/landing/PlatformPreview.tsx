@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, Box, LayoutDashboard, Plug } from "lucide-react";
+import { Bot, Box, LayoutDashboard, Maximize2, Plug, X } from "lucide-react";
 import { Chapter } from "./Chapter";
 import { prefersReducedMotion, useReveal } from "./motion";
 
@@ -52,6 +52,11 @@ export function PlatformPreview() {
   const [view, setView] = useState<ViewId>("dashboard");
   const [auto, setAuto] = useState(true);
   const hovering = useRef(false);
+  const viewer = useRef<HTMLDialogElement>(null);
+  const openViewer = () => {
+    setAuto(false);
+    viewer.current?.showModal();
+  };
 
   // Cycle while in sight; stop for good after any manual choice, pause on
   // hover, never under reduced motion.
@@ -122,8 +127,38 @@ export function PlatformPreview() {
                     className={`absolute inset-0 h-full w-full object-cover object-left-top transition-opacity duration-700 ${item.id === view ? "opacity-100" : "opacity-0"}`}
                   />
                 ))}
+                <button
+                  type="button"
+                  onClick={openViewer}
+                  className="absolute bottom-3 right-3 flex min-h-[44px] items-center gap-2 rounded-xl border border-[var(--l-line-strong)] bg-[rgb(var(--l-bg-rgb)/0.85)] px-3.5 text-sm font-semibold text-[var(--l-text)] backdrop-blur hover:border-[rgb(var(--l-accent-rgb)/0.5)]"
+                >
+                  <Maximize2 className="h-4 w-4" aria-hidden="true" />
+                  Ampliar tela<span className="sr-only">: {active.label}</span>
+                </button>
               </div>
             </div>
+            {/* Full-size viewer. Native dialog: focus trap, Esc to close, and
+                the image can be scrolled and pinch-zoomed on phones. */}
+            <dialog
+              ref={viewer}
+              aria-label={`Captura ampliada: ${active.label}`}
+              className="m-0 h-[100dvh] max-h-none w-screen max-w-none bg-[var(--l-bg)] p-0 text-[var(--l-text)] backdrop:bg-black/80"
+              onClick={(event) => {
+                if (event.target === event.currentTarget) viewer.current?.close();
+              }}
+            >
+              <div className="flex h-full flex-col">
+                <div className="flex items-center justify-between gap-3 border-b border-[var(--l-line)] px-4 py-3">
+                  <p className="text-sm font-semibold">{active.label} · <span className="font-normal text-[var(--l-faint)]">dados sintéticos de demonstração</span></p>
+                  <button type="button" autoFocus onClick={() => viewer.current?.close()} className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--l-line-strong)]" aria-label="Fechar captura ampliada">
+                    <X className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-auto p-3 md:grid md:place-items-center">
+                  <img src={active.src} alt={active.alt} width={1600} height={1000} className="h-auto w-[1600px] max-w-none rounded-lg md:w-auto md:max-w-full" />
+                </div>
+              </div>
+            </dialog>
             <figcaption className="mt-4 text-sm text-[var(--l-faint)]">Capturas reais da plataforma, feitas com uma conta de demonstração e dados sintéticos. Os valores exibidos são exemplos.</figcaption>
           </figure>
 

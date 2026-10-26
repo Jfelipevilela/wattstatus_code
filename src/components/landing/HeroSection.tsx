@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { ArrowRight, Box, Image as ImageIcon, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { DEMO_ROOMS, HERO_HIGHLIGHTS, type DemoRoomId } from "./content";
 import { HouseIllustration } from "./HouseIllustration";
 import { supportsWebGL, useReducedMotion } from "./motion";
@@ -31,12 +31,58 @@ const useWide = () => {
 
 const ZOOM_STEPS = [1.25, 1, 0.82, 0.68];
 
+// Light mode: the interactive illustration instead of the live 3D scene.
+// Chosen automatically for data saving or very modest devices, and by the
+// visitor at any time (remembered in this browser only).
+const PREF_KEY = "wattstatus-landing-3d";
+const readPref = (): "on" | "off" | null => {
+  try {
+    const value = localStorage.getItem(PREF_KEY);
+    return value === "on" || value === "off" ? value : null;
+  } catch {
+    return null;
+  }
+};
+const writePref = (value: "on" | "off") => {
+  try {
+    localStorage.setItem(PREF_KEY, value);
+  } catch {
+    // Storage unavailable (private mode): the choice lasts for this visit.
+  }
+};
+const prefersLight = () => {
+  const nav = navigator as Navigator & { connection?: { saveData?: boolean }; deviceMemory?: number };
+  return !!nav.connection?.saveData || (nav.deviceMemory ?? 8) <= 2 || (navigator.hardwareConcurrency ?? 8) <= 2;
+};
+
+// Catches a failed chunk download or a WebGL error inside the scene, so the
+// hero falls back to the illustration instead of breaking the page.
+class SceneBoundary extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {
+    this.props.onError();
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 function HouseStage() {
   const reducedMotion = useReducedMotion();
   const compact = useCompact();
   const wide = useWide();
   const stage = useRef<HTMLDivElement>(null);
   const [webgl] = useState(supportsWebGL);
+  const [lite, setLite] = useState(() => {
+    const pref = readPref();
+    return pref ? pref === "off" : prefersLight();
+  });
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const live = webgl && !lite && !failed;
   const [mount, setMount] = useState(false);
   const [ready, setReady] = useState(false);
   const [active, setActive] = useState(true);
@@ -48,16 +94,20 @@ function HouseStage() {
   // Start downloading the 3D chunk right after the first paint. Mounting
   // still waits for idle time; this only overlaps the download with it.
   useEffect(() => {
-    if (!webgl) return;
+    if (!live) return;
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => void import("./HeroHouse3D"));
     });
     return () => cancelAnimationFrame(frame);
-  }, [webgl]);
+  }, [live]);
 
   // Load the 3D chunk after first paint so it never delays the headline.
   useEffect(() => {
-    if (!webgl) return;
+    if (!live) {
+      setMount(false);
+      setReady(false);
+      return;
+    }
     // Measured against "after load + 1.2 s": waiting did not improve LCP
     // (the headline is bound by the web font) and delayed the live house by
     // ~0.4 s. The static poster covers the gap instead.
@@ -67,7 +117,16 @@ function HouseStage() {
     }
     const handle = globalThis.setTimeout(() => setMount(true), 250);
     return () => globalThis.clearTimeout(handle);
-  }, [webgl]);
+  }, [live, attempt]);
+
+  const switchTo3D = (on: boolean) => {
+    writePref(on ? "on" : "off");
+    setLite(!on);
+    if (on) {
+      setFailed(false);
+      setAttempt((n) => n + 1);
+    }
+  };
 
   // Stop rendering when the hero is off screen or the tab is hidden.
   useEffect(() => {
@@ -90,7 +149,7 @@ function HouseStage() {
   return (
     <div className="relative flex h-full flex-col">
       <div ref={stage} className="relative min-h-0 flex-1" aria-label="Casa demonstrativa em 3D" role="group">
-        {webgl ? (
+        {live ? (
           // Static render of the same scene: the hero looks complete while
           // the 3D chunk loads, then the live canvas fades in on top.
           <picture>
@@ -110,7 +169,8 @@ function HouseStage() {
             className="absolute inset-y-0 right-0 m-auto h-full w-full max-w-[760px] object-contain p-6 lg:left-auto lg:w-[56%]"
           />
         )}
-        {mount && (
+        {live && mount && (
+          <SceneBoundary key={attempt} onError={() => setFailed(true)}>
           <Suspense fallback={null}>
             <div className={`absolute inset-0 transition-opacity duration-1000 ${ready ? "opacity-100" : "opacity-0"}`}>
               <HeroHouse3D
@@ -128,9 +188,11 @@ function HouseStage() {
                   performance.mark?.("hero-3d-ready");
                   setReady(true);
                 }}
+                onLost={() => setFailed(true)}
               />
             </div>
           </Suspense>
+          </SceneBoundary>
         )}
 
         {/* Keeps the headline legible when the house moves under it. */}
@@ -151,14 +213,30 @@ function HouseStage() {
             <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--l-line-strong)] bg-[rgb(var(--l-bg-rgb)/0.7)] text-[var(--l-muted)] backdrop-blur hover:text-[var(--l-text)]" aria-label="Restaurar visualização" onClick={() => { setZoomIndex(1); setSelected(null); }}>
               <RotateCcw className="h-4 w-4" aria-hidden="true" />
             </button>
+            <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--l-line-strong)] bg-[rgb(var(--l-bg-rgb)/0.7)] text-[var(--l-muted)] backdrop-blur hover:text-[var(--l-text)]" aria-label="Usar modo leve, sem 3D" title="Modo leve" onClick={() => switchTo3D(false)}>
+              <ImageIcon className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
+        {/* Light mode or failure: say why there is no live scene, offer 3D. */}
+        {!live && webgl && (
+          <div className="absolute right-3 top-8 flex items-center gap-2 md:right-6 md:top-10 lg:top-[112px]" role="status">
+            <span className="hidden text-xs text-[var(--l-faint)] sm:inline">
+              {failed ? "Não foi possível carregar o 3D." : "Modo leve"}
+            </span>
+            <button type="button" onClick={() => switchTo3D(true)} className="flex min-h-[40px] items-center gap-2 rounded-xl border border-[var(--l-line-strong)] bg-[rgb(var(--l-bg-rgb)/0.7)] px-3 text-sm font-semibold text-[var(--l-text)] backdrop-blur hover:border-[rgb(var(--l-accent-rgb)/0.5)]">
+              <Box className="h-4 w-4 text-[var(--l-accent)]" aria-hidden="true" />
+              {failed ? "Tentar novamente" : "Ver em 3D"}
+            </button>
           </div>
         )}
 
       </div>
 
       {/* Touch and keyboard friendly room picker; on desktop the markers live in the scene. */}
-      {(compact || !webgl) && (
-        <div className={`l-container mt-3 ${webgl ? "md:hidden" : "lg:absolute lg:bottom-8 lg:right-0 lg:mt-0 lg:w-[56%] lg:max-w-none"}`}>
+      {(compact || !live) && (
+        <div className={`l-container mt-3 ${live ? "md:hidden" : "lg:absolute lg:bottom-8 lg:right-0 lg:mt-0 lg:w-[56%] lg:max-w-none"}`}>
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] lg:flex-wrap lg:justify-center" role="group" aria-label="Escolha um ambiente">
             {DEMO_ROOMS.map((item) => (
               <button
@@ -175,7 +253,7 @@ function HouseStage() {
         </div>
       )}
 
-        <div aria-live="polite" className={`pointer-events-none mt-3 px-5 md:absolute md:left-6 md:mt-0 md:w-auto md:px-0 lg:left-auto ${webgl ? "md:bottom-6 lg:right-[170px]" : "md:bottom-24 lg:bottom-28 lg:right-10"}`}>
+        <div aria-live="polite" className={`pointer-events-none mt-3 px-5 md:absolute md:left-6 md:mt-0 md:w-auto md:px-0 lg:left-auto ${live ? "md:bottom-6 lg:right-[170px]" : "md:bottom-24 lg:bottom-28 lg:right-10"}`}>
         {room && (
           <div key={room.id} className="l-in pointer-events-auto rounded-2xl md:max-w-[320px] border border-[rgb(var(--l-accent-rgb)/0.35)] bg-[rgb(var(--l-bg-rgb)/0.86)] p-4 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)] backdrop-blur-md" style={{ animationDuration: "0.45s" }}>
             <div className="flex items-start justify-between gap-3">

@@ -600,6 +600,7 @@ function ShadowsLater({ ready }: { ready: boolean }) {
     gl.shadowMap.autoUpdate = ready;
     if (ready) {
       gl.shadowMap.needsUpdate = true;
+      performance.mark?.("hero-3d-shadows");
       invalidate();
     }
   }, [gl, ready, invalidate]);
@@ -609,6 +610,9 @@ function ShadowsLater({ ready }: { ready: boolean }) {
 export interface HeroHouse3DProps extends Omit<SceneProps, "shadowsReady"> {
   active: boolean;
   onReady?: () => void;
+  // The GPU dropped the context (driver reset, memory pressure): the page
+  // falls back to the illustration and offers a retry.
+  onLost?: () => void;
 }
 
 // Compiles every shader before the first frame. With compileAsync the
@@ -648,10 +652,11 @@ function FirstFrame() {
   return null;
 }
 
-export default function HeroHouse3D({ active, onReady, ...props }: HeroHouse3DProps) {
+export default function HeroHouse3D({ active, onReady, onLost, ...props }: HeroHouse3DProps) {
   const [dpr, setDpr] = useState(() => Math.min(window.devicePixelRatio || 1, props.compact ? 1.5 : 1.75));
   const [warm, setWarm] = useState(false);
   const [shadowsReady, setShadowsReady] = useState(false);
+  const [contactReady, setContactReady] = useState(false);
   useEffect(() => {
     if (!warm) return;
     if ("requestIdleCallback" in window) {
@@ -661,6 +666,16 @@ export default function HeroHouse3D({ active, onReady, ...props }: HeroHouse3DPr
     const handle = globalThis.setTimeout(() => setShadowsReady(true), 300);
     return () => globalThis.clearTimeout(handle);
   }, [warm]);
+  // Contact shadows compile their own shaders: a separate, later idle slot.
+  useEffect(() => {
+    if (!shadowsReady) return;
+    if ("requestIdleCallback" in window) {
+      const handle = window.requestIdleCallback(() => setContactReady(true), { timeout: 1500 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const handle = globalThis.setTimeout(() => setContactReady(true), 400);
+    return () => globalThis.clearTimeout(handle);
+  }, [shadowsReady]);
   const frameloop = !active || !warm ? "never" : props.reducedMotion ? "demand" : "always";
   return (
     <Canvas
@@ -673,12 +688,16 @@ export default function HeroHouse3D({ active, onReady, ...props }: HeroHouse3DPr
       onCreated={({ gl }) => {
         gl.setClearColor(0x000000, 0);
         gl.toneMappingExposure = 1.05;
+        gl.domElement.addEventListener("webglcontextlost", (event) => {
+          event.preventDefault();
+          onLost?.();
+        }, { once: true });
       }}
       onPointerMissed={() => props.onSelect(null)}
       aria-hidden="true"
     >
       <PerformanceMonitor onDecline={() => setDpr((value) => Math.max(1, value - 0.25))} />
-      <Scene {...props} shadowsReady={shadowsReady} />
+      <Scene {...props} shadowsReady={contactReady} />
       <ShadowsLater ready={shadowsReady} />
       <FirstFrame />
       <Warmup

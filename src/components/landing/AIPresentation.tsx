@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Check, Database, GitCompare, Lightbulb, MessageSquareText, Sparkles } from "lucide-react";
+import { Check, Database, GitCompare, Lightbulb, MessageSquareText, Play, Sparkles } from "lucide-react";
 import { AI_EXAMPLE } from "./content";
 import { Chapter } from "./Chapter";
-import { prefersReducedMotion, useReveal } from "./motion";
+import { useReducedMotion, useReveal } from "./motion";
 
 // The illustrative investigation, step by step. Fixed copy: nothing is sent
 // to the AI provider from the public page.
@@ -26,16 +26,17 @@ const BENEFITS = [
   "Sugere simulações e planos de economia",
 ];
 
-const useStage = (run: boolean) => {
-  const [stage, setStage] = useState(-1);
-  const [typed, setTyped] = useState(0);
+// The demo starts complete: every stage is readable without waiting for an
+// animation. "Ver passo a passo" replays the investigation on request.
+const FINAL = STAGES.length - 1;
+const useStage = () => {
+  const [stage, setStage] = useState(FINAL);
+  const [typed, setTyped] = useState<number>(AI_EXAMPLE.answer.length);
+  const [run, setRun] = useState(0);
   useEffect(() => {
     if (!run) return;
-    if (prefersReducedMotion()) {
-      setStage(STAGES.length - 1);
-      setTyped(AI_EXAMPLE.answer.length);
-      return;
-    }
+    setStage(-1);
+    setTyped(0);
     const timers = [200, 1100, 2000, 3000, 6200].map((delay, index) => window.setTimeout(() => setStage(index), delay));
     return () => timers.forEach(window.clearTimeout);
   }, [run]);
@@ -44,13 +45,15 @@ const useStage = (run: boolean) => {
     const id = window.setTimeout(() => setTyped((n) => Math.min(AI_EXAMPLE.answer.length, n + 3)), 16);
     return () => window.clearTimeout(id);
   }, [stage, typed]);
-  return { stage, typed };
+  const playing = stage < FINAL || typed < AI_EXAMPLE.answer.length;
+  return { stage, typed, playing, replay: () => setRun((n) => n + 1) };
 };
 
 export function AIPresentation() {
   const head = useReveal<HTMLDivElement>();
   const demo = useReveal<HTMLDivElement>(0.3);
-  const { stage, typed } = useStage(demo.shown);
+  const { stage, typed, playing, replay } = useStage();
+  const reducedMotion = useReducedMotion();
   const done = typed >= AI_EXAMPLE.answer.length;
 
   return (
@@ -87,7 +90,15 @@ export function AIPresentation() {
           <div className="l-card overflow-hidden p-5 md:p-7">
             <div className="flex items-center justify-between gap-3 border-b border-[var(--l-line)] pb-4">
               <span className="text-sm font-semibold">Investigação</span>
-              <span className="l-chip">Exemplo ilustrativo</span>
+              <div className="flex items-center gap-2">
+                {!reducedMotion && (
+                  <button type="button" onClick={replay} disabled={playing} className="flex min-h-[36px] items-center gap-1.5 rounded-full border border-[rgb(var(--l-accent-rgb)/0.35)] px-3 text-sm font-semibold text-[var(--l-accent)] hover:bg-[var(--l-accent-subtle)] disabled:opacity-50">
+                    <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                    {playing ? "Reproduzindo…" : "Ver passo a passo"}
+                  </button>
+                )}
+                <span className="l-chip">Exemplo ilustrativo</span>
+              </div>
             </div>
 
             {/* Stepper: the connector sits behind the icon row, from the first

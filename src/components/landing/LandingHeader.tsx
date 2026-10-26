@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ArrowRight, Menu, X } from "lucide-react";
 import icon from "@/components/logo_wattstatus_icon.png";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,6 +45,11 @@ export function LandingHeader() {
   const [open, setOpen] = useState(false);
   const active = useActiveSection();
   const toggle = useRef<HTMLButtonElement>(null);
+  const location = useLocation();
+
+  // Any navigation closes the menu, including route links that keep this
+  // page mounted during the transition and the browser's back button.
+  useEffect(() => setOpen(false), [location.pathname, location.hash]);
 
   useEffect(() => {
     const update = () => setScrolled(window.scrollY > 12);
@@ -135,11 +140,11 @@ export function LandingHeader() {
             ))}
             <div className="mt-8 grid gap-3 pb-10">
               {user ? (
-                <Link to="/dashboard" className="l-btn l-btn-primary w-full">Ir para o painel</Link>
+                <Link to="/dashboard" onClick={() => setOpen(false)} className="l-btn l-btn-primary w-full">Ir para o painel</Link>
               ) : (
                 <>
-                  <Link to="/signup" className="l-btn l-btn-primary w-full">Começar agora</Link>
-                  <Link to="/login" className="l-btn l-btn-ghost w-full">Entrar</Link>
+                  <Link to="/signup" onClick={() => setOpen(false)} className="l-btn l-btn-primary w-full">Começar agora</Link>
+                  <Link to="/login" onClick={() => setOpen(false)} className="l-btn l-btn-ghost w-full">Entrar</Link>
                 </>
               )}
             </div>
