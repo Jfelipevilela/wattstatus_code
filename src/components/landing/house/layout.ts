@@ -80,14 +80,37 @@ export const SKIRTING: Box[] = [...EXTERIOR, ...INTERIOR].map((box) => ({
   s: [box.s[0] + (box.s[0] > box.s[2] ? 0 : 0.03), 0.09, box.s[2] + (box.s[2] > box.s[0] ? 0 : 0.03)],
 }));
 
-// The camera-facing sides stay open like a cutaway model. A low sill gives
-// the floor a finished edge without rails crossing the rooms and furniture.
-export const OPEN_EDGE: Box[] = [
-  span(0, D, W, D, 0, 0.12, 0.08),
-  span(W, 0, W, D, 0, 0.12, 0.08),
-];
-export const GLASS: Box[] = [...back.glass, ...left.glass];
-export const FRAMES: Box[] = [...back.frame, ...left.frame];
+// Camera-facing glass facade. Panels stop short of their posts, and the
+// shared corner has one post; rails meet it without overlapping each other.
+const facade = () => {
+  const glass: Box[] = [];
+  const frame: Box[] = [];
+  const frontBays = 6;
+  const sideBays = 4;
+  const post = 0.04;
+  const rail = 0.05;
+  const gap = 0.025;
+  for (let i = 0; i < frontBays; i++) {
+    const bay = W / frontBays;
+    glass.push({ p: [(i + 0.5) * bay, H / 2, D], s: [bay - 2 * gap, H - 2 * rail, 0.018] });
+  }
+  for (let i = 0; i < sideBays; i++) {
+    const bay = D / sideBays;
+    glass.push({ p: [W, H / 2, (i + 0.5) * bay], s: [0.018, H - 2 * rail, bay - 2 * gap] });
+  }
+  for (let i = 0; i <= frontBays; i++) frame.push({ p: [(W / frontBays) * i, H / 2, D], s: [post, H - 2 * rail, post] });
+  for (let i = 0; i < sideBays; i++) frame.push({ p: [W, H / 2, (D / sideBays) * i], s: [post, H - 2 * rail, post] });
+  for (const y of [rail / 2, H - rail / 2]) {
+    const frontLength = W - post / 2;
+    const sideLength = D - post / 2;
+    frame.push({ p: [frontLength / 2, y, D], s: [frontLength, rail, post] });
+    frame.push({ p: [W, y, sideLength / 2], s: [post, rail, sideLength] });
+  }
+  return { glass, frame };
+};
+const FACADE = facade();
+export const GLASS: Box[] = [...FACADE.glass, ...back.glass, ...left.glass];
+export const FRAMES: Box[] = [...FACADE.frame, ...back.frame, ...left.frame];
 
 // Cantilevered roof over the private rooms and a slim side canopy.
 // Slim slab (12 cm) so the roof frames the house instead of dominating it.

@@ -43,7 +43,6 @@ import {
   HUB,
   INTERIOR,
   LAWN,
-  OPEN_EDGE,
   outline,
   PLINTH,
   PLINTH_EDGE,
@@ -453,13 +452,13 @@ function FrameOffset({ shift }: { shift: number }) {
   return null;
 }
 
-// Gentle sway and pointer parallax on the whole house.
+// A small pointer response keeps the house steady when no one interacts.
 function Parallax({ children, reducedMotion }: { children: React.ReactNode; reducedMotion: boolean }) {
   const ref = useRef<Group>(null);
-  useFrame(({ clock, pointer }) => {
+  useFrame(({ pointer }) => {
     const group = ref.current;
     if (!group || reducedMotion) return;
-    const goal = Math.sin(clock.elapsedTime * 0.16) * 0.03 + pointer.x * 0.045;
+    const goal = pointer.x * 0.015;
     group.rotation.y += (goal - group.rotation.y) * 0.035;
   });
   return <group ref={ref}>{children}</group>;
@@ -537,7 +536,6 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
             <Room key={room.id} room={room} resources={resources} onHover={onHover} onSelect={onSelect} state={roomState(room.id)} />
           ))}
 
-          <Boxes boxes={OPEN_EDGE} material={m.stone} geometry={g.box} receiveShadow />
           <Boxes boxes={EXTERIOR} material={m.wall} geometry={g.box} castShadow={shadows} receiveShadow />
           <Boxes boxes={INTERIOR} material={m.wall} geometry={g.box} castShadow={shadows} receiveShadow />
           <Boxes boxes={WALL_CAPS} material={m.cap} geometry={g.box} />
