@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "vite";
+import { createServer } from "./vite-test-server.mjs";
 
 // Render real React components with their existing contexts. Not a substitute for browser E2E.
 test("renderização do fluxo mantém biblioteca padrão, alternativas e formulários por método", async () => {

@@ -25,6 +25,8 @@ import { createHttpLimiter, createRequestLimiter, protectMutation } from "./midd
 import { createAIRouter } from "./modules/ai/ai.routes";
 import { MongoAIStore } from "./modules/ai/ai.store";
 import { createCatalogRouter } from "./modules/catalog/catalog.routes";
+import { SimulationService } from "./modules/simulations/simulations.service";
+import { createSimulationRouter } from "./modules/simulations/simulations.routes";
 
 export interface AppDependencies {
   db: MongoDatabase;
@@ -71,6 +73,7 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
     createApplianceRouter(applianceService)
   );
   app.use("/api/calculations", authenticate, createCalculationRouter());
+  app.use("/api/simulations", authenticate, createSimulationRouter(new SimulationService(db)));
   app.use("/api/properties", authenticate, createPropertyRouter(propertyService));
   app.use(
     "/api/integrations",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import type { PropertyInput } from "@/hooks/useProperties";
 import { PROPERTY_TYPES, type Property, type PropertyType } from "@/types/property";
 import { PROPERTY_COLORS, PROPERTY_ICONS } from "./propertyVisual";
+import RegionalTariffHint from "@/components/RegionalTariffHint";
+import { useRegionalTariffDefault } from "@/hooks/useRegionalTariff";
 
 
 const selectClass =
@@ -27,8 +29,10 @@ export function PropertyForm({ initial, submitting, submitLabel, onSubmit, onCan
   const [state, setState] = useState("");
   const [color, setColor] = useState(PROPERTY_COLORS[0]);
   const [tariff, setTariff] = useState("");
+  const tariffTouched = useRef(Boolean(initial));
 
   useEffect(() => {
+    tariffTouched.current = Boolean(initial);
     setName(initial?.name ?? "");
     setType(initial?.type ?? "house");
     setCity(initial?.city ?? "");
@@ -36,6 +40,10 @@ export function PropertyForm({ initial, submitting, submitLabel, onSubmit, onCan
     setColor(initial?.color ?? PROPERTY_COLORS[0]);
     setTariff(initial?.tariffValue ? String(initial.tariffValue) : "");
   }, [initial]);
+  const applyRegionalTariff = (suggestion: { state: string; rate: number }) => {
+    tariffTouched.current = true; setState(suggestion.state); setTariff(String(suggestion.rate));
+  };
+  useRegionalTariffDefault(applyRegionalTariff, () => !initial && !tariffTouched.current, initial);
 
   const tariffValue = tariff ? Number(tariff.replace(",", ".")) : null;
   const valid = name.trim().length >= 1 && (tariffValue === null || (tariffValue > 0 && tariffValue <= 10));
@@ -92,7 +100,7 @@ export function PropertyForm({ initial, submitting, submitLabel, onSubmit, onCan
         </div>
         <div className="space-y-2">
           <Label htmlFor="property-state">Estado</Label>
-          <select id="property-state" className={selectClass} value={state} onChange={(e) => setState(e.target.value)}>
+          <select id="property-state" className={selectClass} value={state} onChange={(e) => { tariffTouched.current = true; setState(e.target.value); setTariff(String(STATE_TARIFFS[e.target.value] ?? "")); }}>
             <option value="">—</option>
             {Object.keys(STATE_TARIFFS).map((uf) => (
               <option key={uf} value={uf}>
@@ -109,10 +117,11 @@ export function PropertyForm({ initial, submitting, submitLabel, onSubmit, onCan
           className="h-11 rounded-xl"
           inputMode="decimal"
           value={tariff}
-          onChange={(e) => setTariff(e.target.value.replace(/[^\d.,]/g, ""))}
+          onChange={(e) => { tariffTouched.current = true; setTariff(e.target.value.replace(/[^\d.,]/g, "")); }}
           placeholder={state ? `Referência ${state}: ${STATE_TARIFFS[state]}` : "Ex.: 0,82"}
           aria-describedby="property-tariff-help"
         />
+        <RegionalTariffHint onApply={applyRegionalTariff} />
         <p id="property-tariff-help" className="text-xs text-muted-foreground">
           Usada como sugestão ao cadastrar aparelhos aqui. Cada aparelho guarda a própria tarifa. Valores de referência não são a tarifa
           oficial vigente.

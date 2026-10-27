@@ -121,8 +121,8 @@ export default function SmartDeviceDiscovery({
     }
   };
   return (
-    <section className="space-y-4" aria-label="Dispositivos inteligentes">
-      <Card className="space-y-3 p-5">
+    <section className="flex flex-col gap-4" aria-label="Dispositivos inteligentes">
+      <Card className="flex flex-col gap-4 rounded-xl p-6 shadow-none">
         <h2 className="font-semibold">Samsung SmartThings</h2>
         <p className="text-sm text-muted-foreground">
           {configured === null
@@ -187,10 +187,6 @@ export default function SmartDeviceDiscovery({
           </Card>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">
-        Outros ecossistemas podem ser adicionados por providers. Nenhum conector
-        novo é ativado nesta versão.
-      </p>
     </section>
   );
 }

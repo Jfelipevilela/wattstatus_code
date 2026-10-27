@@ -23,7 +23,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogIcon,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -42,6 +41,7 @@ import {
 } from "@/lib/energy";
 import { cn } from "@/lib/utils";
 import { referenceLabel } from "../../../backend/src/modules/catalog/reference";
+import { useAuth } from "@/hooks/useAuth";
 
 const PAGE_SIZE = 9;
 const SOURCES = [
@@ -72,6 +72,7 @@ export default function AppliancesTab({
   onAddAppliance,
   initialAddOpen = false,
 }: Props) {
+  const { user } = useAuth();
   const [adding, setAdding] = useState(initialAddOpen);
   const [busy, setBusy] = useState(false);
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
@@ -126,13 +127,12 @@ export default function AppliancesTab({
 
   const addDialog = (
     <Dialog open={adding} onOpenChange={(open) => !busy && setAdding(open)}>
-      <DialogContent className="max-h-[90dvh] w-[calc(100%_-_1rem)] overflow-y-auto sm:max-w-6xl">
+      <DialogContent className="appliance-flow-theme appliance-flow-dialog sm:max-w-6xl">
         <DialogHeader>
-          <DialogIcon><Plus /></DialogIcon>
-          <DialogTitle>Adicionar aparelho</DialogTitle>
-          <DialogDescription>Escolha um modelo ou preencha os dados do seu equipamento.</DialogDescription>
+          <DialogTitle className="text-2xl font-semibold">Adicionar aparelho</DialogTitle>
+          <DialogDescription>Encontre o modelo, ajuste seu uso e acompanhe o consumo.</DialogDescription>
         </DialogHeader>
-        <AddApplianceFlow onAddAppliance={onAddAppliance} onSaved={() => setAdding(false)} onBusyChange={setBusy} />
+        <AddApplianceFlow key={user?.id ?? "no-session"} onAddAppliance={onAddAppliance} onSaved={() => setAdding(false)} onBusyChange={setBusy} />
       </DialogContent>
     </Dialog>
   );

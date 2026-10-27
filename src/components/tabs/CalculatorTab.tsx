@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Calculator, Check, ChevronDown, Loader2, Plus, Sparkles, TrendingDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import type { ApplianceInput } from "@/hooks/useAppliances";
 import { applianceVisual } from "@/components/appliances/applianceVisual";
 import { STATE_TARIFFS, formatCurrency, formatDuration, formatNumber } from "@/lib/energy";
 import { cn } from "@/lib/utils";
+import RegionalTariffHint from "@/components/RegionalTariffHint";
+import { useRegionalTariffDefault } from "@/hooks/useRegionalTariff";
 
 const PRESETS = [
   { name: "Ar-condicionado", power: 1400, hours: 6 },
@@ -36,22 +38,27 @@ export default function CalculatorTab({ onAddAppliance, householdCost = 0 }: Pro
   const [power, setPower] = useState("1400");
   const [hours, setHours] = useState(6);
   const [days, setDays] = useState(30);
-  const [state, setState] = useState("SP");
-  const [tariff, setTariff] = useState(String(STATE_TARIFFS.SP));
+  const [state, setState] = useState("");
+  const [tariff, setTariff] = useState("");
+  const tariffTouched = useRef(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   // Start from the user's saved tariff once preferences load.
   useEffect(() => {
-    if (preferences.tariffState && STATE_TARIFFS[preferences.tariffState]) {
+    if (!tariffTouched.current && preferences.tariffState && STATE_TARIFFS[preferences.tariffState]) {
       setState(preferences.tariffState);
       setTariff(String(preferences.tariffValue ?? STATE_TARIFFS[preferences.tariffState]));
     }
   }, [preferences.tariffState, preferences.tariffValue]);
+  const applyRegionalTariff = (suggestion: { state: string; rate: number }) => {
+    tariffTouched.current = true; setState(suggestion.state); setTariff(String(suggestion.rate)); setSaved(false);
+  };
+  useRegionalTariffDefault(applyRegionalTariff, () => !tariffTouched.current);
 
   const powerW = numberFrom(power);
   const rate = numberFrom(tariff);
-  const valid = name.trim().length >= 2 && powerW > 0 && hours > 0 && rate > 0;
+  const valid = name.trim().length >= 2 && powerW > 0 && hours > 0 && rate > 0 && Boolean(STATE_TARIFFS[state]);
   const monthlyKWh = valid ? (powerW * hours * days) / 1000 : 0;
   const monthlyCost = monthlyKWh * rate;
   const savingPerHour = valid && hours >= 1 ? ((powerW * days) / 1000) * rate : 0;
@@ -230,12 +237,14 @@ export default function CalculatorTab({ onAddAppliance, householdCost = 0 }: Pro
                 <select
                   value={state}
                   onChange={(event) => {
+                    tariffTouched.current = true;
                     setState(event.target.value);
-                    setTariff(String(STATE_TARIFFS[event.target.value]));
+                    setTariff(String(STATE_TARIFFS[event.target.value] ?? ""));
                     touch();
                   }}
                   className="h-12 w-full appearance-none rounded-2xl border bg-background px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
+                  <option value="">Selecione seu estado</option>
                   {Object.keys(STATE_TARIFFS).map((uf) => (
                     <option key={uf} value={uf}>
                       {uf}
@@ -253,6 +262,7 @@ export default function CalculatorTab({ onAddAppliance, householdCost = 0 }: Pro
                   inputMode="decimal"
                   value={tariff}
                   onChange={(event) => {
+                    tariffTouched.current = true;
                     setTariff(event.target.value.replace(/[^\d.,]/g, ""));
                     touch();
                   }}
@@ -262,6 +272,7 @@ export default function CalculatorTab({ onAddAppliance, householdCost = 0 }: Pro
               </div>
             </label>
           </div>
+          <RegionalTariffHint onApply={applyRegionalTariff} />
           <p className="-mt-2 text-xs text-muted-foreground">
             Tarifas de referência por estado. Use o valor da sua conta para mais precisão (impostos e bandeiras mudam o total).
           </p>

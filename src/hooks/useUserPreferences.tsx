@@ -19,6 +19,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 
 interface UserPreferencesContextValue {
   preferences: UserPreferences;
+  loadedForUserId?: string;
   loading: boolean;
   refresh: () => Promise<void>;
   updatePreferences: (input: Partial<UserPreferences>) => Promise<void>;
@@ -29,6 +30,7 @@ const UserPreferencesContext = createContext<UserPreferencesContextValue | undef
 export const UserPreferencesProvider = ({ children }: { children: React.ReactNode }) => {
   const { user, token } = useAuth();
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  const [loadedForUserId, setLoadedForUserId] = useState<string>();
   const [loading, setLoading] = useState(false);
   const requestVersion = useRef(0);
 
@@ -42,6 +44,7 @@ export const UserPreferencesProvider = ({ children }: { children: React.ReactNod
     const version = ++requestVersion.current;
     if (!user) {
       setPreferences(DEFAULT_PREFERENCES);
+      setLoadedForUserId(undefined);
       setLoading(false);
       return;
     }
@@ -58,6 +61,7 @@ export const UserPreferencesProvider = ({ children }: { children: React.ReactNod
         ...res.settings,
         apps: sanitizeApps(res.settings?.apps),
       });
+      setLoadedForUserId(user.id);
     } catch {
       if (!signal?.aborted && version === requestVersion.current) setPreferences(DEFAULT_PREFERENCES);
     } finally {
@@ -99,6 +103,7 @@ export const UserPreferencesProvider = ({ children }: { children: React.ReactNod
     <UserPreferencesContext.Provider
       value={{
         preferences,
+        loadedForUserId,
         loading,
         refresh,
         updatePreferences,

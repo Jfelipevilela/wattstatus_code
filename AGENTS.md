@@ -4,15 +4,20 @@
 
 Por solicitação do responsável pelo projeto, em TODA tarefa de criação ou alteração
 de código, aplique as regras abaixo sem depender de menção manual às skills.
-Leia o SKILL.md das skills pertinentes antes da implementação; carregue apenas as
-referências necessárias. As skills estão em `.agents/skills/<nome>/SKILL.md`.
+Leia integralmente o SKILL.md das skills pertinentes antes da implementação;
+carregue as referências necessárias à tarefa. Não use leituras parciais com
+`-TotalCount`, `Select-Object -First`, `head` ou saída truncada como substituto da
+leitura completa. Se precisar dividir a leitura, cubra todas as partes sem lacunas. As skills estão em `.agents/skills/<nome>/SKILL.md`.
 
 - Sempre: `security-review`. Planeje a mudança considerando segurança e revise o
   diff produzido antes de concluir. Verifique também correção, legibilidade,
   manutenção, tratamento de erros, regressões e testes adequados ao comportamento.
-- Frontend, páginas, componentes ou redesign: `frontend-design` e `shadcn`.
-  Consulte também `landing-page-design` para decisões visuais aplicáveis à tarefa.
-- Landing pages e páginas de divulgação: `landing-page-design`.
+- Toda criação ou alteração visual de frontend, páginas e componentes:
+  `frontend-design` e `landing-page-design` (Elaya) são obrigatórias e prioritárias
+  para direção de arte e composição. Leia ambas integralmente antes de desenhar.
+  Use `shadcn` para a implementação dos componentes, não como direção estética.
+- Landing pages e páginas de divulgação: aplique também a estratégia e a estrutura
+  de conteúdo de `landing-page-design`, com conteúdo verdadeiro do WattStatus.
 - Animação de mockups, demonstrações, bento visual, vídeo ou GIF de UI:
   `design-to-motion`. Não imponha loops de demonstração aos controles do produto.
 - Design, redesign e exploração visual: consulte `superdesign`. A geração no canvas
@@ -32,14 +37,67 @@ referências necessárias. As skills estão em `.agents/skills/<nome>/SKILL.md`.
 
 As instruções explícitas do usuário e estas decisões específicas do WattStatus
 prevalecem sobre sugestões genéricas ou conflitantes das skills importadas.
-Preserve a identidade visual e os componentes existentes, salvo pedido de redesign.
+A base visual obrigatória do WattStatus é o VERDE como cor principal de marca,
+ligada ao meio ambiente e ao consumo sustentável. Preserve o nome, o significado da
+marca e a coerência entre telas, com contraste acessível e uso funcional das cores
+de estado. O verde não exige fundo preto, brilho neon ou a mesma tonalidade atual.
+Há autorização para melhorar ou redesenhar a composição das telas solicitadas:
+layout, tipografia, espaçamento, superfícies, gráficos e apresentação dos componentes
+podem mudar substancialmente para obter um resultado melhor. Não preserve um layout
+fraco apenas porque ele já existe. Preserve contratos, dados, fluxos e funcionalidades;
+a aparência atual dos componentes não é uma restrição de design. A liberdade visual
+vale para o escopo solicitado, sem iniciar uma reformulação global não pedida.
 Priorize acessibilidade, comportamento correto, responsividade e desempenho.
 O projeto usa React 18, TypeScript, Vite, Tailwind 3 e componentes shadcn/Radix;
 confirme versões e APIs no código e no lockfile antes de aplicar exemplos mais novos.
-Não transforme telas funcionais do dashboard em páginas de marketing nem imponha
-tipografia, animação ou novos componentes incompatíveis por regras de outro contexto.
+Adapte as skills ao tipo de tela: no dashboard, aplique os princípios visuais da
+Elaya (tipografia, espaçamento, alinhamento, superfícies, estados e acabamento), sem
+importar hero, FAQ, provas sociais, CTA de venda ou tagline de landing page. Na landing,
+aplique a estratégia de página pertinente. Não invente clientes, depoimentos, preços,
+resultados ou métricas para preencher uma composição. Resolva conflitos de direção
+visual entre skills pelo objetivo da tela, pela marca verde e pela qualidade do
+resultado; registre brevemente a decisão. Compatibilidade técnica não obriga a
+manter estética genérica ou componentes sem personalização.
 Não execute sintaxe especial de outro agente como se fosse comando suportado pelo
 Codex; obtenha o contexto equivalente com as ferramentas realmente disponíveis.
+
+## Processo obrigatório de design e revisão estética
+
+Esta seção se aplica a tarefas com impacto visual. Não exige redesign em tarefas
+exclusivamente de backend, correção de lógica ou texto sem efeito na composição.
+
+1. **Entender e olhar.** Leia integralmente `frontend-design` e
+   `landing-page-design`; inspecione a tela atual e os componentes pertinentes.
+   Em animações de demonstração ou mockups, leia também `design-to-motion`
+   integralmente. Use o contexto do produto; não repita perguntas já respondidas.
+2. **Definir a direção antes do código.** Declare em poucas linhas o objetivo da
+   tela, a informação/ação principal, o conceito de composição, a hierarquia
+   tipográfica, a paleta com verde e neutros e a adaptação para celular. Em uma
+   tela nova ou redesign relevante, compare internamente ao menos duas composições
+   e explique a escolha. Isso não cria uma etapa adicional de aprovação quando o
+   pedido já autoriza implementar e o contexto basta para decidir.
+3. **Compor para o conteúdo.** Crie uma hierarquia clara; diferencie resumo,
+   comparação, edição e detalhe. Evite empilhar painéis idênticos ou apenas trocar
+   cores e raios de um template. Dimensione espaços e componentes pelo volume e
+   importância da informação. Em gráficos, use nomes compreensíveis, unidades,
+   legendas, escalas e contraste; números como 1/2/3 não substituem nomes úteis.
+   Use movimento com propósito e respeite movimento reduzido e desempenho.
+4. **Implementar com acabamento.** Reutilize lógica e primitivas acessíveis quando
+   úteis, personalizando sua apresentação. Trabalhe estados de foco, hover,
+   carregamento, vazio e erro. Preserve o comportamento e as proteções de segurança.
+5. **Revisar imagens, não apenas testes.** Abra a tela implementada, capture e
+   inspecione screenshots de desktop e celular. Avalie composição, hierarquia,
+   legibilidade, respiro, alinhamento, densidade, contraste, gráficos e consistência
+   com a marca. Teste também teclado, overflow e os estados alterados. Não trate
+   captura salva, ausência de overflow ou build aprovado como aprovação estética.
+6. **Corrigir e conferir novamente.** Corrija problemas visuais concretos antes
+   de concluir e faça nova captura após alterações visuais. Evite ciclos cosméticos
+   sem objetivo. Se a primeira revisão não indicar correções, registre por que a
+   tela atende à direção definida, sem inventar uma alteração para cumprir tabela.
+7. **Entregar evidência.** Resuma a direção aplicada, quais skills foram lidas,
+   ajustes surgidos na revisão e capturas finais. Diferencie validação funcional
+   de avaliação estética. Se navegador/captura estiver indisponível, declare a
+   limitação e não afirme que houve verificação visual.
 
 ## Segurança em toda alteração de código
 

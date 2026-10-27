@@ -2,6 +2,102 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "WattStatus Manrope";
+  src: url("/fonts/manrope-latin-variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+/* Scoped to appliance setup: the rest of the dashboard keeps its own theme. */
+.appliance-flow-theme {
+  --background: 120 14% 97%; --foreground: 150 18% 12%; --card: 0 0% 100%; --card-foreground: 150 18% 12%;
+  --primary: 153 88% 25%; --primary-foreground: 0 0% 100%; --muted: 135 12% 94%; --muted-foreground: 150 7% 39%;
+  --border: 135 10% 85%; --input: 135 10% 80%; --ring: 153 88% 25%; --secondary: 135 12% 94%; --secondary-foreground: 150 18% 12%;
+  font-family: "WattStatus Manrope", ui-sans-serif, system-ui, sans-serif;
+  color: hsl(var(--foreground));
+}
+.dark .appliance-flow-theme {
+  --background: 0 0% 9.4%; --foreground: 120 10% 95%; --card: 0 0% 12.2%; --card-foreground: 120 10% 95%;
+  --primary: 148 61% 57%; --primary-foreground: 151 72% 10%; --muted: 0 0% 15.3%; --muted-foreground: 130 6% 68%;
+  --border: 0 0% 23%; --input: 0 0% 29%; --ring: 148 61% 57%; --secondary: 0 0% 15.3%; --secondary-foreground: 120 10% 95%;
+}
+.appliance-flow-dialog { max-height: 94dvh; background: hsl(var(--background)); border-radius: 1rem; }
+.appliance-flow-dialog > div[aria-hidden="true"] { display: none; }
+.appliance-flow-dialog > div.relative { padding: 1.5rem; gap: 1rem; }
+.appliance-flow-dialog [aria-label="Selecionar aparelho"] { gap: 1rem; }
+.appliance-flow-theme h2,.appliance-flow-theme h3 { text-wrap: balance; }
+.appliance-flow-theme p { text-wrap: pretty; }
+.appliance-flow-theme button { box-shadow: none; border-radius: .5rem; font-weight: 600; transition-duration: 250ms; transition-timing-function: cubic-bezier(.22,1,.36,1); }
+.appliance-flow-theme button:active:not(:disabled) { transform: translateY(1px); }
+.appliance-flow-theme input:not([type="checkbox"]),.appliance-flow-theme select { height: 3rem; border-radius: .5rem; background: hsl(var(--card)); }
+.appliance-flow-theme input[type="checkbox"] { accent-color: hsl(var(--primary)); }
+.appliance-flow-theme :is(button,a,input,select,summary):focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
+.appliance-flow-theme [tabindex="-1"]:focus { outline: none; }
+.appliance-flow-progress { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; font-size: .75rem; color: hsl(var(--muted-foreground)); }
+.appliance-flow-progress li { display: inline-flex; align-items: center; gap: .5rem; }
+.appliance-flow-progress li > span { width: .5rem; height: .5rem; border-radius: 50%; background: hsl(var(--border)); }
+.appliance-flow-progress [aria-current="step"] { color: hsl(var(--primary)); font-weight: 600; }
+.appliance-flow-progress [aria-current="step"] > span { background: currentColor; }
+.appliance-mode-switch { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .25rem; padding: .25rem; border: 1px solid hsl(var(--border)); border-radius: .75rem; background: hsl(var(--muted)); }
+.appliance-mode-switch button { display: flex; align-items: center; justify-content: center; gap: .5rem; padding: .75rem; min-height: 3rem; font-size: .875rem; color: hsl(var(--muted-foreground)); }
+.appliance-mode-switch button[aria-pressed="true"] { color: hsl(var(--primary)); background: hsl(var(--card)); }
+.appliance-library-search { display: flex; flex-direction: column; gap: .75rem; }
+.appliance-library-search input[type="search"] { height: 3.5rem; }
+.appliance-control { min-width: 0; width: 100%; border: 1px solid hsl(var(--input)); padding: 0 .75rem; font-size: .875rem; }
+.appliance-filter-tools { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.appliance-advanced-filters { flex: 1; min-width: 0; font-size: .875rem; }
+.appliance-advanced-filters > summary { display: flex; align-items: center; gap: .5rem; width: fit-content; cursor: pointer; min-height: 2.5rem; }
+.appliance-advanced-filters[open] > summary { color: hsl(var(--primary)); }
+.appliance-all-filters { background: hsl(var(--muted)); border-radius: .5rem; padding: 0 .75rem; }
+.appliance-all-filters[open] { padding-bottom: 1rem; }
+.appliance-filter-tools:empty { display: none; }
+.appliance-count { min-width: 1.5rem; text-align: center; border-radius: .5rem; background: hsl(var(--muted)); font-size: .75rem; }
+.appliance-device-card { display: flex; min-width: 0; flex-direction: column; gap: 1rem; border: 1px solid hsl(var(--border)); border-radius: .75rem; padding: 1rem; background: hsl(var(--card)); }
+.appliance-device-card:focus-within { border-color: hsl(var(--primary)); }
+.appliance-device-icon { display: inline-flex; align-items: center; justify-content: center; width: 3rem; height: 3rem; flex-shrink: 0; border-radius: .75rem; color: hsl(var(--primary)); background: hsl(var(--primary)/.1); }
+.appliance-source-tag { max-width: 75%; font-size: .75rem; color: hsl(var(--muted-foreground)); }
+.appliance-device-metric { font-size: .875rem; line-height: 1.5; padding: .75rem; background: hsl(var(--muted)); border-radius: .5rem; }
+.appliance-small-detail { font-size: .75rem; color: hsl(var(--muted-foreground)); }
+.appliance-small-detail > summary { cursor: pointer; min-height: 2rem; padding: .25rem 0; }
+.appliance-small-detail[open] > :not(summary) { margin-top: .5rem; line-height: 1.6; }
+.appliance-empty { display: flex; min-height: 12rem; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; border-radius: .75rem; background: hsl(var(--muted)); padding: 2rem; text-align: center; }
+.appliance-library-footer { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: .5rem; padding: 1rem 0; }
+.appliance-setup { background: transparent; border: 0; box-shadow: none; }
+.appliance-setup > :is(header,div) { padding-left: 0; padding-right: 0; }
+.appliance-setup-layout { display: grid; min-width: 0; grid-template-columns: minmax(0,1fr) 19rem; align-items: start; gap: 2rem; }
+.appliance-setup-fields { display: flex; min-width: 0; flex-direction: column; gap: 1.5rem; }
+.appliance-field-section { display: flex; min-width: 0; flex-direction: column; gap: 1rem; }
+.appliance-field-section > h3 { font-size: 1rem; font-weight: 600; }
+.appliance-origin { border: 1px solid hsl(var(--border)); border-radius: .75rem; padding: 1rem; }
+.appliance-origin > summary { cursor: pointer; font-size: .875rem; font-weight: 600; }
+.appliance-origin > div { display: flex; flex-direction: column; gap: .75rem; padding-top: 1rem; }
+.appliance-selected-product { display: flex; flex-direction: column; gap: .5rem; border-radius: .75rem; background: hsl(var(--muted)); padding: 1rem; }
+.appliance-setup-summary { position: sticky; top: 0; min-width: 0; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: .75rem; overflow: hidden; }
+.appliance-estimate { padding: 1.5rem; background: hsl(var(--primary)/.1); color: hsl(var(--foreground)); }
+.appliance-estimate > div:first-child { color: hsl(var(--primary)); }
+.appliance-setup-summary button { width: 100%; min-height: 3rem; }
+.appliance-setup-summary button[type="submit"] { font-size: 1rem; }
+.appliance-success { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; padding: 3rem 1rem; text-align: center; }
+.appliance-success-icon { display: flex; align-items: center; justify-content: center; width: 4rem; height: 4rem; border-radius: 50%; background: hsl(var(--primary)/.12); color: hsl(var(--primary)); }
+.appliance-success button { flex: 1; min-height: 3rem; }
+@media(max-width: 767px) {
+  .appliance-flow-dialog > div.relative { padding: 1.5rem 1rem; gap: 1rem; }
+  .appliance-mode-switch { grid-template-columns: 1fr 1fr 1fr; }
+  .appliance-mode-switch button { font-size: .75rem; padding: .5rem; gap: .5rem; }
+  .appliance-mode-switch button { flex-direction: column; }
+  .appliance-setup-layout { grid-template-columns: minmax(0,1fr); gap: 1.5rem; }
+  .appliance-setup-summary { position: static; }
+  .appliance-flow-progress { gap: .5rem; }
+  .appliance-flow-progress li { gap: .25rem; }
+  .appliance-filter-tools { flex-wrap: wrap; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .appliance-flow-theme *, .appliance-flow-theme *::before, .appliance-flow-theme *::after { animation: none !important; transition: none !important; }
+  .appliance-flow-theme button:active { transform: none; }
+}
+
 @layer base {
   :root {
     --background: 200 20% 90%;

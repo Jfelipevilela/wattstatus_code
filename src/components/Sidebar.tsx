@@ -28,6 +28,7 @@ import {
   LayoutDashboard,
   FileBarChart,
   Calculator,
+  FlaskConical,
   Plug,
   Lightbulb,
   Zap,
@@ -61,6 +62,7 @@ const menuItems: NavItem[] = [
   { title: "Meus imóveis", url: "/imoveis", icon: Building },
   { title: "Relatórios", url: "/relatorios", icon: FileBarChart },
   { title: "Calculadora", url: "/calculadora", icon: Calculator },
+  { title: "Simulação por ambiente", url: "/simulacao-ambiente", icon: FlaskConical },
   { title: "Aparelhos", url: "/aparelhos", icon: Plug },
   { title: "Dicas", url: "/dicas", icon: Lightbulb },
 ];
