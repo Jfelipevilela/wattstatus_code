@@ -8,7 +8,7 @@ import { NAV_LINKS } from "./content";
 export function LandingLogo() {
   return (
     <span className="flex items-center gap-2.5">
-      <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-gradient-to-b from-[var(--l-forest)] to-[var(--l-surface)] ring-1 ring-white/10">
+      <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-[var(--l-surface)] ring-1 ring-[var(--l-line-strong)]">
         <img src={icon} alt="" width={20} height={20} className="h-5 w-5" />
       </span>
       <span className="text-[15px] font-semibold tracking-[0.14em] text-[var(--l-text)]">WATTSTATUS</span>
@@ -16,25 +16,33 @@ export function LandingLogo() {
   );
 }
 
-// Highlights the nav link of the section in view.
+// Follow the page's section order, and clear the highlight above the first section.
 const useActiveSection = () => {
   const [active, setActive] = useState<string | null>(null);
   useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return;
     const ids = NAV_LINKS.map((link) => link.href.slice(1));
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) setActive(entry.target.id);
-        });
-      },
-      { rootMargin: "-45% 0px -50% 0px" },
-    );
-    ids.forEach((id) => {
-      const node = document.getElementById(id);
-      if (node) observer.observe(node);
-    });
-    return () => observer.disconnect();
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const marker = Math.min(window.innerHeight * 0.38, 320);
+      let current: string | null = null;
+      for (const id of ids) {
+        const section = document.getElementById(id);
+        if (section && section.getBoundingClientRect().top <= marker) current = id;
+      }
+      setActive(current);
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+    schedule();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      window.cancelAnimationFrame(frame);
+    };
   }, []);
   return active;
 };
@@ -67,25 +75,26 @@ export function LandingHeader() {
       }
     };
     document.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
     };
   }, [open]);
 
   return (
     <header className="l-header l-in-fade fixed inset-x-0 top-0 z-50" data-scrolled={scrolled || open}>
-      <div className="l-container flex h-16 items-center justify-between gap-6 md:h-[72px]">
+      <div className="l-container flex h-16 items-center justify-between gap-6 md:h-[72px] lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
         <Link to="/" aria-label="WattStatus, página inicial" className="shrink-0 rounded-lg">
           <LandingLogo />
         </Link>
 
         <nav aria-label="Seções da página" className="hidden lg:block">
-          <ul className="flex items-center gap-8">
+          <ul className="flex items-center gap-5 xl:gap-8">
             {NAV_LINKS.map((link) => (
               <li key={link.href}>
-                <a href={link.href} className="l-navlink" data-active={active === link.href.slice(1)}>
+                <a href={link.href} className="l-navlink" data-active={active === link.href.slice(1)} aria-current={active === link.href.slice(1) ? "location" : undefined}>
                   {link.label}
                 </a>
               </li>
@@ -93,7 +102,7 @@ export function LandingHeader() {
           </ul>
         </nav>
 
-        <div className="hidden items-center gap-2 lg:flex">
+        <div className="hidden items-center justify-self-end gap-2 lg:flex">
           {user ? (
             <Link to="/dashboard" className="l-btn l-btn-primary !min-h-[40px] !px-4 !text-sm">
               Ir para o painel <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -113,7 +122,7 @@ export function LandingHeader() {
         <button
           ref={toggle}
           type="button"
-          className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--l-line-strong)] text-[var(--l-text)] lg:hidden"
+          className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--l-line-strong)] bg-[rgb(var(--l-surface-rgb)/0.45)] text-[var(--l-text)] lg:hidden"
           aria-expanded={open}
           aria-controls="landing-mobile-menu"
           aria-label={open ? "Fechar menu" : "Abrir menu"}
@@ -124,17 +133,20 @@ export function LandingHeader() {
       </div>
 
       {open && (
-        <div id="landing-mobile-menu" className="l-in-fade h-[calc(100dvh-64px)] overflow-y-auto border-t border-[var(--l-line)] bg-[var(--l-bg)] lg:hidden">
+        <div id="landing-mobile-menu" className="l-in-fade h-[calc(100dvh-64px)] overflow-y-auto border-t border-[var(--l-line)] bg-[var(--l-bg)] md:h-[calc(100dvh-72px)] lg:hidden">
           <nav aria-label="Seções da página" className="l-container flex flex-col pt-4">
             {NAV_LINKS.map((link, index) => (
               <a
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="l-in flex items-center justify-between border-b border-[var(--l-line)] py-5 text-xl font-medium tracking-tight"
+                className="l-mobile-link l-in flex items-center gap-4 border-b border-[var(--l-line)] py-5 text-xl font-medium tracking-tight"
+                data-active={active === link.href.slice(1)}
+                aria-current={active === link.href.slice(1) ? "location" : undefined}
                 style={{ animationDelay: `${60 + index * 50}ms` }}
               >
-                {link.label}
+                <span className="w-7 shrink-0 text-xs font-semibold tabular-nums tracking-[0.12em] text-[var(--l-faint)]">{String(index + 1).padStart(2, "0")}</span>
+                <span className="flex-1">{link.label}</span>
                 <ArrowRight className="h-5 w-5 text-[var(--l-faint)]" aria-hidden="true" />
               </a>
             ))}

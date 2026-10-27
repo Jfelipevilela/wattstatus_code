@@ -174,6 +174,11 @@
 .landing .l-navlink:hover::after,
 .landing .l-navlink[data-active="true"]::after { transform: scaleX(1); }
 .landing .l-navlink[data-active="true"] { color: var(--l-text); }
+.landing .l-mobile-link { color: var(--l-muted); }
+.landing .l-mobile-link:hover,
+.landing .l-mobile-link[data-active="true"] { color: var(--l-text); }
+.landing .l-mobile-link[data-active="true"] > span:first-child,
+.landing .l-mobile-link[data-active="true"] > svg { color: var(--l-accent); }
 
 /* The house supplies the light; the page keeps one continuous surface. */
 .landing .l-hero-bg {
