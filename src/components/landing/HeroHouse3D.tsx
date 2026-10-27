@@ -43,6 +43,7 @@ import {
   HUB,
   INTERIOR,
   LAWN,
+  OPEN_EDGE,
   outline,
   PLINTH,
   PLINTH_EDGE,
@@ -536,6 +537,7 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
             <Room key={room.id} room={room} resources={resources} onHover={onHover} onSelect={onSelect} state={roomState(room.id)} />
           ))}
 
+          <Boxes boxes={OPEN_EDGE} material={m.stone} geometry={g.box} receiveShadow />
           <Boxes boxes={EXTERIOR} material={m.wall} geometry={g.box} castShadow={shadows} receiveShadow />
           <Boxes boxes={INTERIOR} material={m.wall} geometry={g.box} castShadow={shadows} receiveShadow />
           <Boxes boxes={WALL_CAPS} material={m.cap} geometry={g.box} />

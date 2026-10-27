@@ -80,22 +80,14 @@ export const SKIRTING: Box[] = [...EXTERIOR, ...INTERIOR].map((box) => ({
   s: [box.s[0] + (box.s[0] > box.s[2] ? 0 : 0.03), 0.09, box.s[2] + (box.s[2] > box.s[0] ? 0 : 0.03)],
 }));
 
-// Glass facades on the two sides that face the camera.
-const facade = () => {
-  const glass: Box[] = [];
-  const frame: Box[] = [];
-  const bays = 6;
-  for (let i = 0; i < bays; i++) glass.push(span((W / bays) * i, D, (W / bays) * (i + 1), D, 0.05, H - 0.05, 0.02));
-  for (let i = 0; i < 4; i++) glass.push(span(W, (D / 4) * i, W, (D / 4) * (i + 1), 0.05, H - 0.05, 0.02));
-  for (let i = 0; i <= bays; i++) frame.push({ p: [(W / bays) * i, H / 2, D], s: [0.035, H, 0.05] });
-  for (let i = 0; i <= 4; i++) frame.push({ p: [W, H / 2, (D / 4) * i], s: [0.05, H, 0.035] });
-  frame.push({ p: [W / 2, H - 0.025, D], s: [W + 0.05, 0.05, 0.06] }, { p: [W / 2, 0.025, D], s: [W + 0.05, 0.05, 0.06] });
-  frame.push({ p: [W, H - 0.025, D / 2], s: [0.06, 0.05, D + 0.05] }, { p: [W, 0.025, D / 2], s: [0.06, 0.05, D + 0.05] });
-  return { glass, frame };
-};
-const FACADE = facade();
-export const GLASS: Box[] = [...FACADE.glass, ...back.glass, ...left.glass];
-export const FRAMES: Box[] = [...FACADE.frame, ...back.frame, ...left.frame];
+// The camera-facing sides stay open like a cutaway model. A low sill gives
+// the floor a finished edge without rails crossing the rooms and furniture.
+export const OPEN_EDGE: Box[] = [
+  span(0, D, W, D, 0, 0.12, 0.08),
+  span(W, 0, W, D, 0, 0.12, 0.08),
+];
+export const GLASS: Box[] = [...back.glass, ...left.glass];
+export const FRAMES: Box[] = [...back.frame, ...left.frame];
 
 // Cantilevered roof over the private rooms and a slim side canopy.
 // Slim slab (12 cm) so the roof frames the house instead of dominating it.
@@ -118,8 +110,8 @@ export const SCONCES: Box[] = [
   { p: [0.09 + T / 2, 1.75, 2.2], s: [0.04, 0.22, 0.09] },
   { p: [5.1, 1.75, 0.09 + T / 2], s: [0.09, 0.22, 0.04] },
 ];
-// Kitchen under-counter strip and office desk light: small amber accents.
-export const ACCENT_STRIPS: Box[] = [{ p: [9.85, 0.9, 5.7], s: [0.02, 0.015, 3.6] }];
+// Warm strip follows the kitchen worktop's front edge (the counter runs on X).
+export const ACCENT_STRIPS: Box[] = [{ p: [8.195, 0.9, 4.37], s: [3.08, 0.015, 0.02] }];
 
 // Outdoor: plinth, terrace, pool, garden.
 export const PLINTH: Box = { p: [CX, -0.22, CZ + 0.7], s: [W + 2.2, 0.44, D + 3.4] };
