@@ -112,14 +112,27 @@ const FACADE = facade();
 export const GLASS: Box[] = [...FACADE.glass, ...back.glass, ...left.glass];
 export const FRAMES: Box[] = [...FACADE.frame, ...back.frame, ...left.frame];
 
-// Cantilevered roof over the private rooms and a slim side canopy.
-// Slim slab (12 cm) so the roof frames the house instead of dominating it.
-export const ROOF: Box[] = [
-  { p: [CX + 0.1, H + 0.06, 0.45], s: [W + 1.0, 0.12, 1.75] },
-  { p: [-0.1, H + 0.06, CZ + 0.3], s: [0.8, 0.12, D + 0.6] },
+// One continuous L-shaped roof: joining two boxes left a visible notch and
+// coplanar top faces at the back corner.
+const roofLeft = -0.5;
+const roofJoint = 0.3;
+const roofRight = W + 0.6;
+const roofBack = -0.425;
+const roofFront = 1.325;
+const roofSideFront = D + 0.6;
+export const ROOF_THICKNESS = 0.12;
+export const ROOF_OUTLINE: Array<[number, number]> = [
+  [roofLeft, roofBack],
+  [roofRight, roofBack],
+  [roofRight, roofFront],
+  [roofJoint, roofFront],
+  [roofJoint, roofSideFront],
+  [roofLeft, roofSideFront],
 ];
-// Thin warm fascia along the roof's front edge.
-export const FASCIA: Box[] = [{ p: [CX + 0.1, H + 0.005, 1.33], s: [W + 1.0, 0.02, 0.02] }];
+// The warm front trim starts where the side canopy ends.
+export const FASCIA: Box[] = [
+  { p: [(roofJoint + roofRight) / 2, H + 0.005, roofFront + 0.005], s: [roofRight - roofJoint, 0.02, 0.02] },
+];
 // Warm downlights under the roof edge (exterior soffit).
 export const SOFFIT_LIGHTS: Box[] = Array.from({ length: 9 }, (_, i) => ({ p: [0.4 + i * 1.18, H - 0.005, 1.2], s: [0.1, 0.012, 0.1] }));
 

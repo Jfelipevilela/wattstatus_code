@@ -8,6 +8,7 @@ import {
   Color,
   CylinderGeometry,
   DoubleSide,
+  ExtrudeGeometry,
   type Group,
   type InstancedMesh,
   type Material,
@@ -19,6 +20,7 @@ import {
   type PerspectiveCamera,
   type PointLight,
   RingGeometry,
+  Shape,
   SphereGeometry,
   type Texture,
   Vector3,
@@ -47,7 +49,8 @@ import {
   PLINTH,
   PLINTH_EDGE,
   pointOnPath,
-  ROOF,
+  ROOF_OUTLINE,
+  ROOF_THICKNESS,
   roomCenter,
   SCONCES,
   SKIRTING,
@@ -108,8 +111,17 @@ const useSceneResources = () => {
     deckMap.needsUpdate = true;
     deckMap.repeat.set(5.8 / WOOD_TILE_METRES, 2.2 / WOOD_TILE_METRES);
     const textures = { wood, deck: deckMap, tile: tileTexture(), halo: haloTexture(), lightPool: haloTexture("amber") };
+    const roofShape = new Shape();
+    ROOF_OUTLINE.forEach(([x, z], index) => {
+      if (index === 0) roofShape.moveTo(x, z);
+      else roofShape.lineTo(x, z);
+    });
+    roofShape.closePath();
+    const roof = new ExtrudeGeometry(roofShape, { depth: ROOF_THICKNESS, bevelEnabled: false });
+    roof.rotateX(Math.PI / 2).translate(0, H + ROOF_THICKNESS, 0);
     const geometries = {
       box: new BoxGeometry(1, 1, 1),
+      roof,
       // Softened edges so furniture reads as objects, not blocks.
       rounded: new RoundedBoxGeometry(1, 1, 1, 2, 0.08),
       cylinder: new CylinderGeometry(0.5, 0.5, 1, 20),
@@ -542,7 +554,7 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
           <Boxes boxes={SKIRTING} material={m.skirting} geometry={g.box} />
           <Boxes boxes={FASCIA} material={m.warm} geometry={g.box} />
           <LightPools resources={resources} />
-          <Boxes boxes={ROOF} material={m.roof} geometry={g.box} castShadow={shadows} />
+          <mesh geometry={g.roof} material={m.roof} castShadow={shadows} receiveShadow raycast={() => null} />
           <Boxes boxes={SOFFIT_LIGHTS} material={m.soffit} geometry={g.box} />
           <Boxes boxes={COVES} material={m.warm} geometry={g.box} />
           <Boxes boxes={SCONCES} material={m.warm} geometry={g.box} />
