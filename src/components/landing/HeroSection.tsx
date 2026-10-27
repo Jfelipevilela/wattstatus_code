@@ -250,7 +250,6 @@ function HouseStage() {
 export function HeroSection() {
   return (
     <section aria-labelledby="hero-title" className="l-hero-bg relative isolate overflow-hidden pt-16 md:pt-[72px]">
-      <div className="l-grid pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
       <div>
         <div className="l-container relative z-10 grid lg:pointer-events-none lg:min-h-[calc(min(100svh,960px)-72px)] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:items-center">
           <div className="pb-6 pt-10 md:pt-16 lg:pointer-events-auto lg:py-20 lg:pr-4">
@@ -258,7 +257,7 @@ export function HeroSection() {
             <h1 id="hero-title" className="mt-5 text-[2.35rem] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-[3.2rem] lg:text-[3.3rem] xl:text-[3.8rem] 2xl:text-[4.2rem]">
               {/* Critical text paints at once; only secondary elements animate. */}
               <span className="block">A nova forma de</span>
-              <span className="l-gradient-text block pb-[0.08em]">enxergar a energia</span>
+              <span className="l-accent-text block pb-[0.08em]">enxergar a energia</span>
               <span className="block">da sua casa.</span>
             </h1>
             <p className="mt-6 max-w-[34rem] text-[16.5px] leading-relaxed text-[var(--l-muted)] md:text-lg">

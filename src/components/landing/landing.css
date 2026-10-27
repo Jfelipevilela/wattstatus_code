@@ -11,9 +11,7 @@
   --l-amber-rgb: 215 168 110;     /* #D7A86E */
   --l-line-rgb: 166 189 177;      /* #A6BDB1 */
   --l-bg: rgb(var(--l-bg-rgb));
-  --l-bg-2: #0a1a16;
   --l-surface: rgb(var(--l-surface-rgb));
-  --l-surface-2: rgb(var(--l-elevated-rgb));
   --l-forest: rgb(var(--l-forest-rgb));
   --l-line: rgb(var(--l-line-rgb) / 0.11);
   --l-line-strong: rgb(var(--l-line-rgb) / 0.2);
@@ -26,8 +24,6 @@
   --l-accent-subtle: rgb(var(--l-accent-rgb) / 0.1);
   --l-amber: rgb(var(--l-amber-rgb));
   --l-focus: #7ef0c2;
-  --l-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.75);
-  --l-glow: 0 0 40px -8px rgb(var(--l-accent-rgb) / 0.45);
   /* Semantic states: never colour alone, always with a label or pattern. */
   --l-success: #45e0a4;
   --l-warning: #e8b45c;
@@ -78,14 +74,6 @@
   color: var(--l-muted);
 }
 
-/* A lifted band: lighter surface with architectural light from above. */
-.landing .l-band {
-  background:
-    radial-gradient(60% 50% at 50% 0%, rgb(var(--l-forest-rgb) / 0.55), transparent 70%),
-    linear-gradient(180deg, #0c1d18 0%, #0a1814 100%);
-  border-block: 1px solid var(--l-line);
-}
-
 .landing .l-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -104,11 +92,8 @@
   opacity: 0.7;
 }
 
-.landing .l-gradient-text {
-  background: linear-gradient(100deg, #9ff5d0 0%, var(--l-accent) 45%, #2fc98c 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.landing .l-accent-text {
+  color: #77e7b8;
 }
 
 .landing .l-focus:focus-visible,
@@ -136,12 +121,13 @@
 }
 .landing .l-btn-primary {
   color: #052117;
-  background: linear-gradient(180deg, #6eeab9 0%, var(--l-accent) 55%, #34cf93 100%);
-  box-shadow: 0 0 0 1px rgb(var(--l-accent-rgb)/0.4) inset, 0 10px 30px -10px rgb(var(--l-accent-rgb)/0.55);
+  background: var(--l-accent);
+  box-shadow: 0 8px 24px -14px rgb(var(--l-accent-rgb)/0.6);
 }
 .landing .l-btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 0 1px rgb(var(--l-accent-rgb)/0.6) inset, 0 14px 36px -10px rgb(var(--l-accent-rgb)/0.7);
+  background: var(--l-accent-hover);
+  box-shadow: 0 12px 28px -14px rgb(var(--l-accent-rgb)/0.65);
 }
 .landing .l-btn-ghost {
   color: var(--l-text);
@@ -189,21 +175,9 @@
 .landing .l-navlink[data-active="true"]::after { transform: scaleX(1); }
 .landing .l-navlink[data-active="true"] { color: var(--l-text); }
 
-/* Hero backdrop: a quiet horizon glow, a faint blueprint grid. */
+/* The house supplies the light; the page keeps one continuous surface. */
 .landing .l-hero-bg {
-  background:
-    radial-gradient(55% 60% at 70% 52%, rgb(var(--l-forest-rgb) / 0.55) 0%, rgb(var(--l-forest-rgb) / 0) 72%),
-    radial-gradient(30% 28% at 66% 46%, rgb(var(--l-amber-rgb) / 0.09) 0%, rgb(var(--l-amber-rgb) / 0) 70%),
-    radial-gradient(40% 50% at 0% 0%, rgb(var(--l-forest-rgb) / 0.3) 0%, transparent 70%),
-    linear-gradient(180deg, #06110e 0%, var(--l-bg) 55%, #050f0c 100%);
-}
-.landing .l-grid {
-  background-image:
-    linear-gradient(rgb(var(--l-line-rgb)/0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(var(--l-line-rgb)/0.05) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(70% 60% at 65% 45%, #000 0%, transparent 75%);
-  -webkit-mask-image: radial-gradient(70% 60% at 65% 45%, #000 0%, transparent 75%);
+  background: var(--l-bg);
 }
 
 /* Entrance sequence. */
@@ -236,11 +210,6 @@
 .landing .l-reveal[data-shown="true"] { opacity: 1; transform: none; }
 
 /* Surfaces */
-.landing .l-panel {
-  background: linear-gradient(180deg, rgb(var(--l-elevated-rgb)/0.9) 0%, rgb(var(--l-surface-rgb)/0.9) 100%);
-  border: 1px solid var(--l-line);
-  border-radius: 20px;
-}
 .landing .l-chip {
   display: inline-flex;
   align-items: center;
@@ -353,15 +322,13 @@
 .landing .l-chapter b { color: var(--l-accent); font-weight: 700; font-variant-numeric: tabular-nums; }
 .landing .l-chapter::after { content: ""; width: 40px; height: 1px; background: var(--l-line-strong); }
 
-/* Elevated surface with a soft top light instead of a glowing border. */
+/* Restrained material depth; shadows are contact shadows. */
 .landing .l-card {
   position: relative;
-  border-radius: 24px;
-  background:
-    radial-gradient(120% 80% at 50% -10%, rgb(var(--l-forest-rgb) / 0.45), transparent 60%),
-    linear-gradient(180deg, rgb(var(--l-elevated-rgb) / 0.75), rgb(var(--l-surface-rgb) / 0.85));
+  border-radius: 18px;
+  background: var(--l-surface);
   border: 1px solid var(--l-line);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, var(--l-shadow);
+  box-shadow: 0 18px 40px -32px rgb(0 0 0 / 0.8);
   transition: border-color 0.3s ease, transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .landing a.l-card:hover { border-color: rgb(var(--l-accent-rgb) / 0.3); transform: translateY(-3px); }
@@ -371,17 +338,11 @@
 
 /* WattStatus AI — Energy Intelligence Lab */
 .landing .l-ai {
-  background:
-    radial-gradient(42% 50% at 66% 46%, rgb(var(--l-accent-rgb) / 0.09), transparent 70%),
-    radial-gradient(60% 70% at 66% 50%, rgb(var(--l-forest-rgb) / 0.55), transparent 75%),
-    radial-gradient(30% 40% at 0% 100%, rgb(var(--l-amber-rgb) / 0.05), transparent 70%),
-    #050f0c;
+  background: transparent;
 }
 .landing .l-ai-stage {
-  background:
-    radial-gradient(55% 45% at 50% 30%, rgb(var(--l-forest-rgb) / 0.5), transparent 75%),
-    linear-gradient(180deg, rgb(var(--l-surface-rgb) / 0.55), rgb(var(--l-bg-rgb) / 0.6));
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 60px 120px -60px rgb(0 0 0 / 0.9);
+  background: #0d211a;
+  box-shadow: 0 28px 72px -48px rgb(0 0 0 / 0.85);
 }
 .landing .l-ai-ctl {
   display: grid;
