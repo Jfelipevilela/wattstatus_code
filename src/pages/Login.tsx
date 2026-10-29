@@ -11,6 +11,8 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const submitting = useRef(false);
   const csrfPrefetched = useRef(false);
   const navigate = useNavigate();
   const { login, loading: sessionLoading } = useAuth();
@@ -26,14 +28,17 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!email || !password) {
-      notifyError("Por favor, preencha todos os campos.", {
-        title: "Campos obrigatórios",
-      });
+    if (submitting.current) return;
+    const nextErrors: typeof errors = {};
+    if (!email.trim()) nextErrors.email = "Informe seu e-mail.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) nextErrors.email = "Informe um e-mail válido.";
+    if (!password) nextErrors.password = "Informe sua senha.";
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) {
+      document.getElementById(nextErrors.email ? "email" : "password")?.focus();
       return;
     }
-
+    submitting.current = true;
     setIsLoading(true);
     try {
       await login(email, password);
@@ -44,6 +49,7 @@ const Login = () => {
         fallbackMessage: "Erro ao entrar.",
       });
     } finally {
+      submitting.current = false;
       setIsLoading(false);
     }
   };
@@ -55,13 +61,13 @@ const Login = () => {
       footer={
         <>
           Não tem uma conta?{" "}
-          <Link to="/signup" className="font-semibold text-energy-700 hover:underline dark:text-energy-green-light">
+          <Link to="/signup">
             Criar conta grátis
           </Link>
         </>
       }
     >
-      <form onSubmit={handleSubmit} onFocusCapture={prefetchCsrf} className="space-y-5" noValidate>
+      <form onSubmit={handleSubmit} onFocusCapture={prefetchCsrf} className="auth-form" noValidate>
         <AuthField
           id="email"
           label="E-mail"
@@ -71,7 +77,8 @@ const Login = () => {
           maxLength={254}
           placeholder="seu@email.com"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => { setEmail(e.target.value); setErrors((value) => ({ ...value, email: undefined })); }}
+          error={errors.email}
           autoFocus
           required
         />
@@ -84,7 +91,8 @@ const Login = () => {
           maxLength={1024}
           placeholder="Sua senha"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => { setPassword(e.target.value); setErrors((value) => ({ ...value, password: undefined })); }}
+          error={errors.password}
           required
         />
         <SubmitButton loading={isLoading} label="Entrar" loadingLabel="Entrando..." />
