@@ -54,6 +54,7 @@ export function MeasuredDetails({ measured, imported }: Props) {
               ` · ${measured.longGaps} com mais de 2 h sem leitura (o total é real, a distribuição dentro da lacuna é desconhecida)`}
             .
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">Última leitura: {new Date(measured.lastReadingAt).toLocaleString("pt-BR")}.</p>
         </SectionCard>
       )}
       {imported.length > 0 && (

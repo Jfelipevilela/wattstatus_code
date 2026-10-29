@@ -16,6 +16,7 @@ export interface EstimateRow {
 
 export interface MeasuredSummary {
   consumptionKWh: number;
+  lastReadingAt: string;
   knownCost: number;
   costComplete: boolean;
   intervals: number;
@@ -50,6 +51,7 @@ export function summarizeMonth(
   }
   return {
     ...totals,
+    lastReadingAt: current.reduce((latest, row) => row.endAt > latest ? row.endAt : latest, current[0].endAt),
     intervals: current.length,
     longGaps: current.filter(
       (row) =>

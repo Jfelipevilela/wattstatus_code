@@ -1,10 +1,9 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   CalendarX,
   ChevronDown,
-  Info,
   PlugZap,
   TrendingDown,
   TrendingUp,
@@ -19,18 +18,12 @@ import { SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { DataState } from "@/components/DataState";
 import { SummarySkeleton } from "@/components/dashboard/SummarySkeleton";
-import IntegrationUsage from "@/components/IntegrationUsage";
 import { SummaryHeader } from "@/components/dashboard/SummaryHeader";
 import { EnergyHero } from "@/components/dashboard/EnergyHero";
 import { EnergyInsights, type Insight } from "@/components/dashboard/EnergyInsights";
 import { AIInsights } from "@/components/wattai/AIInsights";
 import { useWattAI } from "@/components/wattai/WattAI";
-import {
-  ConsumptionTrendChart,
-  type TrendPoint,
-} from "@/components/dashboard/ConsumptionTrendChart";
-import { ConsumptionDistribution } from "@/components/dashboard/ConsumptionDistribution";
-import { ApplianceRanking } from "@/components/dashboard/ApplianceRanking";
+import type { TrendPoint } from "@/components/dashboard/ConsumptionTrendChart";
 import { MeasuredDetails } from "@/components/dashboard/MeasuredDetails";
 import { SummaryEmptyState } from "@/components/dashboard/SummaryEmptyState";
 import {
@@ -52,6 +45,11 @@ import {
   formatNumber,
 } from "@/lib/energy";
 
+const ConsumptionTrendChart = lazy(() => import("@/components/dashboard/ConsumptionTrendChart").then((module) => ({ default: module.ConsumptionTrendChart })));
+const ConsumptionDistribution = lazy(() => import("@/components/dashboard/ConsumptionDistribution").then((module) => ({ default: module.ConsumptionDistribution })));
+const ApplianceRanking = lazy(() => import("@/components/dashboard/ApplianceRanking").then((module) => ({ default: module.ApplianceRanking })));
+const IntegrationUsage = lazy(() => import("@/components/IntegrationUsage"));
+
 const monthName = (year: number, month: number, format: "long" | "short" = "long") =>
   new Date(year, month - 1, 1).toLocaleDateString("pt-BR", {
     month: format,
@@ -59,8 +57,9 @@ const monthName = (year: number, month: number, format: "long" | "short" = "long
   });
 
 export default function Dashboard() {
+  const [showAIInsights, setShowAIInsights] = useState(false);
   const { appliances: allAppliances, loading, error, refetch, lastUpdated } = useAppliances();
-  const { properties, primary } = useProperties();
+  const { properties, primary, loading: propertiesLoading, error: propertiesError, refetch: refetchProperties } = useProperties();
   const now = new Date();
   const [searchParams, setSearchParams] = useSearchParams();
   const periodMatch = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(
@@ -183,7 +182,7 @@ export default function Dashboard() {
   };
 
   const insights: Insight[] = [];
-  if (topConsumer && estimate.consumption > 0) {
+  if (topConsumer && estimate.consumption > 0 && estimate.rows.length > 1) {
     const appliance = appliances.find((item) => item.id === topConsumer.id);
     const share = (topConsumer.consumo / estimate.consumption) * 100;
     const rate = topConsumer.consumo > 0 ? topConsumer.custo / topConsumer.consumo : 0;
@@ -211,25 +210,7 @@ export default function Dashboard() {
       body: "Reflete aparelhos cadastrados e dias do mês, não leituras reais.",
     });
   }
-  if (measured) {
-    const measuredNames = new Set(measured.byAppliance.keys());
-    const comparable = estimate.rows
-      .filter((row) => measuredNames.has(row.name))
-      .reduce((sum, row) => sum + row.consumo, 0);
-    const measuredComparable = [...measured.byAppliance]
-      .filter(([name]) => estimate.rows.some((row) => row.name === name))
-      .reduce((sum, [, value]) => sum + value, 0);
-    const diff = percentChange(measuredComparable, comparable);
-    if (diff !== null)
-      insights.push({
-        id: "accuracy",
-        icon: Info,
-        tone: "neutral",
-        title: `Medido está ${formatNumber(Math.abs(diff), 0)}% ${diff >= 0 ? "acima" : "abaixo"} do estimado`,
-        body: "Comparação só entre aparelhos com medição neste mês. Ajuste o tempo de uso para aproximar a estimativa.",
-        action: { label: "Revisar aparelhos", to: "/aparelhos" },
-      });
-  } else if (integrated.length > 0) {
+  if (!energy.loading && !energy.error && !measured && integrated.length > 0) {
     insights.push({
       id: "no-reading",
       icon: AlertTriangle,
@@ -238,7 +219,7 @@ export default function Dashboard() {
       body: `${integrated.length} aparelho(s) integrado(s), mas nenhuma medição foi registrada no período.`,
       action: { label: "Ver integrações", to: "/apps" },
     });
-  } else if (appliances.length > 0) {
+  } else if (!energy.loading && !energy.error && !measured && appliances.length > 0) {
     insights.push({
       id: "connect",
       icon: PlugZap,
@@ -248,7 +229,7 @@ export default function Dashboard() {
       action: { label: "Conectar", to: "/apps" },
     });
   }
-  if ((measured?.longGaps ?? 0) > 0 || monthsWithoutReading > 0) {
+  if (!energy.loading && !energy.error && ((measured?.longGaps ?? 0) > 0 || monthsWithoutReading > 0)) {
     insights.push({
       id: "gaps",
       icon: CalendarX,
@@ -302,20 +283,21 @@ export default function Dashboard() {
             periodLabel={periodLabel}
             scopeLabel={properties.length > 1 ? scopeProperty?.name ?? "todos os imóveis" : undefined}
             isCurrentMonth={isCurrentMonth}
-            refreshing={loading || energy.loading}
+            refreshing={loading || propertiesLoading || energy.loading}
             onChange={setPeriod}
             onReset={resetPeriod}
             onRefresh={() => {
               refetch();
+              void refetchProperties();
               energy.refresh();
             }}
           />
-          {loading && allAppliances.length === 0 ? (
+          {loading || propertiesLoading ? (
             <SummarySkeleton />
           ) : (
-            <DataState loading={false} error={error} onRetry={refetch} />
+            <DataState loading={false} error={error || propertiesError} onRetry={() => { void refetch(); void refetchProperties(); }} />
           )}
-          {!error && !(loading && allAppliances.length === 0) && (
+          {!error && !propertiesError && !loading && !propertiesLoading && (
             <>
               {allAppliances.length === 0 ? (
                 <SummaryEmptyState />
@@ -349,8 +331,19 @@ export default function Dashboard() {
                     status={status}
                   />
                   <EnergyInsights insights={insights.slice(0, 4)} />
-                  <AIInsights />
-                  <div className="grid min-w-0 gap-6 lg:grid-cols-[1.6fr_1fr]">
+                  <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-5" aria-label="WattStatus AI">
+                    <div>
+                      <h2 className="font-semibold">Investigue seu consumo com o WattStatus AI</h2>
+                      <p className="mt-1 text-sm text-muted-foreground">Peça uma explicação dos dados ou abra análises quando precisar.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" onClick={() => openAssistant({ message: "Analise meu consumo neste período", context: scopeId ? { propertyId: scopeId } : undefined })}>Perguntar à IA</Button>
+                      <Button variant="outline" onClick={() => setShowAIInsights((value) => !value)} aria-expanded={showAIInsights}>{showAIInsights ? "Ocultar análises" : "Ver análises"}</Button>
+                    </div>
+                  </section>
+                  {showAIInsights && <AIInsights propertyId={scopeId ?? primary?.id} />}
+                  <Suspense fallback={<div className="min-h-72 rounded-2xl border bg-card p-6 text-sm text-muted-foreground" role="status">Carregando visualizações…</div>}>
+                  <div className={estimate.rows.length > 1 ? "grid min-w-0 gap-6 lg:grid-cols-[1.6fr_1fr]" : "grid min-w-0 gap-6"}>
                     <ConsumptionTrendChart
                       data={trend}
                       onExplain={() => openAssistant({
@@ -358,10 +351,10 @@ export default function Dashboard() {
                         chart: { kind: "consumption_trend", year: selectedYear, month: selectedMonth, ...(scopeId ? { propertyId: scopeId } : {}) },
                       })}
                     />
-                    <ConsumptionDistribution
+                    {estimate.rows.length > 1 && <ConsumptionDistribution
                       rows={estimate.rows}
                       total={estimate.consumption}
-                    />
+                    />}
                   </div>
                   <ApplianceRanking
                     rows={estimate.rows}
@@ -369,6 +362,7 @@ export default function Dashboard() {
                     measuredByName={measured?.byAppliance ?? new Map()}
                     total={estimate.consumption}
                   />
+                  </Suspense>
                 </>
               )}
               {appliances.length > 0 && (
@@ -410,7 +404,7 @@ export default function Dashboard() {
                   </div>
                 </details>
               )}
-              <IntegrationUsage appliances={appliances} />
+              {integrated.length > 0 && <Suspense fallback={null}><IntegrationUsage appliances={appliances} /></Suspense>}
             </>
           )}
           {!error && appliances.length > 0 && integrated.length === 0 && (

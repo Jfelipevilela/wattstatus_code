@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Lock, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,11 +6,13 @@ import { toast } from "@/components/ui/use-toast";
 import { notifyError } from "@/lib/error-toast";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthField, SubmitButton } from "@/components/auth/AuthField";
+import { getCsrfToken } from "@/lib/api";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const csrfPrefetched = useRef(false);
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -55,7 +57,11 @@ const Login = () => {
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+      <form onSubmit={handleSubmit} onFocusCapture={() => {
+        if (csrfPrefetched.current) return;
+        csrfPrefetched.current = true;
+        void getCsrfToken().catch(() => { csrfPrefetched.current = false; });
+      }} className="space-y-5" noValidate>
         <AuthField
           id="email"
           label="E-mail"
