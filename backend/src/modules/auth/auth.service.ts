@@ -52,21 +52,32 @@ export class AuthService {
     };
   }
 
-  async login(input: LoginInput) {
+  async login(input: LoginInput, onTiming?: (stages: { lookupMs: number; verifyMs: number; upgradeMs: number; sessionMs: number }) => void) {
+    const startedAt = process.hrtime.bigint();
+    const msSince = (at: bigint) => Number(process.hrtime.bigint() - at) / 1_000_000;
     const user = await this.db.getUserByEmail(input.email);
+    const lookupMs = msSince(startedAt);
+    const verifyStartedAt = process.hrtime.bigint();
     const isValid = await verifyPassword(input.password, user?.passwordHash);
+    const verifyMs = msSince(verifyStartedAt);
     if (!user || !isValid) {
       throw new ApiError(401, "Credenciais inv\u00e1lidas");
     }
 
     // At 72 bytes bcrypt cannot prove the original suffix; do not silently redefine it.
+    const upgradeStartedAt = process.hrtime.bigint();
     if (user.passwordHash.startsWith("$2") && Buffer.byteLength(input.password, "utf8") < 72) {
       const passwordHash = await hashPassword(input.password);
       await this.db.updatePasswordHash(user.id, user.passwordHash, passwordHash);
     }
+    const upgradeMs = msSince(upgradeStartedAt);
+
+    const sessionStartedAt = process.hrtime.bigint();
+    const token = await this.signToken(user.id);
+    onTiming?.({ lookupMs, verifyMs, upgradeMs, sessionMs: msSince(sessionStartedAt) });
 
     return {
-      token: await this.signToken(user.id),
+      token,
       user: { id: user.id, name: user.name, email: user.email },
     };
   }

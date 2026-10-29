@@ -49,8 +49,17 @@ export const createAuthRouter = (service: AuthService, db: MongoDatabase) => {
 
   router.post("/login", async (req, res, next) => {
     try {
+      const loginStartedAt = process.hrtime.bigint();
       const parsed = loginSchema.parse(req.body);
-      const result = await service.login(parsed);
+      const securityMs = typeof res.locals.requestStartedAt === "bigint"
+        ? Number(loginStartedAt - res.locals.requestStartedAt) / 1_000_000 : 0;
+      const result = await service.login(parsed, (stages) => {
+        if (process.env.PERF_DIAGNOSTICS !== "1" || process.env.NODE_ENV === "production") return;
+        const durations = { securityMs, ...stages };
+        logger.info("auth.login_timing", durations);
+        res.setHeader("Server-Timing", Object.entries(durations)
+          .map(([name, value]) => `${name};dur=${value.toFixed(2)}`).join(", "));
+      });
       updateLogContext({ userId: result.user.id });
       logger.info("auth.login_succeeded");
       setAuthCookie(res, result.token);

@@ -1,8 +1,7 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Lock, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { toast } from "@/components/ui/use-toast";
 import { notifyError } from "@/lib/error-toast";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthField, SubmitButton } from "@/components/auth/AuthField";
@@ -14,7 +13,16 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const csrfPrefetched = useRef(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, loading: sessionLoading } = useAuth();
+  const prefetchCsrf = useCallback(() => {
+    if (sessionLoading || csrfPrefetched.current) return;
+    csrfPrefetched.current = true;
+    void getCsrfToken().catch(() => { csrfPrefetched.current = false; });
+  }, [sessionLoading]);
+
+  useEffect(() => {
+    if (document.activeElement?.id === "email") prefetchCsrf();
+  }, [prefetchCsrf]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,10 +37,6 @@ const Login = () => {
     setIsLoading(true);
     try {
       await login(email, password);
-      toast({
-        title: "Login realizado com sucesso!",
-        description: "Redirecionando para o dashboard...",
-      });
       navigate("/dashboard");
     } catch (err) {
       notifyError(err, {
@@ -57,11 +61,7 @@ const Login = () => {
         </>
       }
     >
-      <form onSubmit={handleSubmit} onFocusCapture={() => {
-        if (csrfPrefetched.current) return;
-        csrfPrefetched.current = true;
-        void getCsrfToken().catch(() => { csrfPrefetched.current = false; });
-      }} className="space-y-5" noValidate>
+      <form onSubmit={handleSubmit} onFocusCapture={prefetchCsrf} className="space-y-5" noValidate>
         <AuthField
           id="email"
           label="E-mail"

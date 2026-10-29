@@ -16,6 +16,7 @@ export const requestLogging = (
   const provided = req.header("x-request-id");
   const requestId = provided && validRequestId.test(provided) ? provided : randomUUID();
   const startedAt = process.hrtime.bigint();
+  res.locals.requestStartedAt = startedAt;
   let completed = false;
   const context = {
     requestId,
