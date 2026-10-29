@@ -15,11 +15,11 @@ const statusLabel: Record<Appliance["status"], { label: string; dot: string }> =
 interface Props {
   rows: EstimateRow[];
   appliances: Appliance[];
-  measuredByName: Map<string, number>;
+  measuredById: Map<string, number>;
   total: number;
 }
 
-export function ApplianceRanking({ rows, appliances, measuredByName, total }: Props) {
+export function ApplianceRanking({ rows, appliances, measuredById, total }: Props) {
   const sorted = [...rows].sort((a, b) => b.consumo - a.consumo);
   const max = sorted[0]?.consumo ?? 0;
   return (
@@ -39,7 +39,7 @@ export function ApplianceRanking({ rows, appliances, measuredByName, total }: Pr
         {sorted.map((row, index) => {
           const appliance = appliances.find((item) => item.id === row.id);
           const status = appliance ? statusLabel[appliance.status] : undefined;
-          const measured = measuredByName.get(row.name);
+          const measured = row.id ? measuredById.get(row.id) : undefined;
           return (
             <li key={row.id ?? row.name} className="rounded-xl px-2 py-3 transition-colors hover:bg-muted/40">
               <div className="flex items-center gap-3">

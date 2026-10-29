@@ -94,7 +94,8 @@ export default function Dashboard() {
   // Scope: all properties or one. Legacy appliances count in the primary one.
   const scopeId = properties.some((item) => item.id === searchParams.get("imovel")) ? searchParams.get("imovel") : null;
   const scopeProperty = properties.find((item) => item.id === scopeId) ?? null;
-  const setScope = (id: string | null) =>
+  const setScope = (id: string | null) => {
+    setShowAIInsights(false);
     setSearchParams(
       (params) => {
         const next = new URLSearchParams(params);
@@ -104,6 +105,7 @@ export default function Dashboard() {
       },
       { replace: true },
     );
+  };
   const appliances = scopeId
     ? allAppliances.filter((item) => appliancePropertyId(item, primary?.id ?? null) === scopeId)
     : allAppliances;
@@ -334,11 +336,11 @@ export default function Dashboard() {
                   <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-5" aria-label="WattStatus AI">
                     <div>
                       <h2 className="font-semibold">Investigue seu consumo com o WattStatus AI</h2>
-                      <p className="mt-1 text-sm text-muted-foreground">Peça uma explicação dos dados ou abra análises quando precisar.</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{properties.length > 1 && !scopeId ? "Selecione um imóvel para receber análises específicas." : "Peça uma explicação dos dados ou abra análises quando precisar."}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" onClick={() => openAssistant({ message: "Analise meu consumo neste período", context: scopeId ? { propertyId: scopeId } : undefined })}>Perguntar à IA</Button>
-                      <Button variant="outline" onClick={() => setShowAIInsights((value) => !value)} aria-expanded={showAIInsights}>{showAIInsights ? "Ocultar análises" : "Ver análises"}</Button>
+                      <Button variant="outline" disabled={properties.length > 1 && !scopeId} onClick={() => openAssistant({ message: "Analise meu consumo neste período", context: scopeId ? { propertyId: scopeId } : undefined })}>Perguntar à IA</Button>
+                      <Button variant="outline" disabled={properties.length > 1 && !scopeId} onClick={() => setShowAIInsights((value) => !value)} aria-expanded={showAIInsights}>{showAIInsights ? "Ocultar análises" : "Ver análises"}</Button>
                     </div>
                   </section>
                   {showAIInsights && <AIInsights propertyId={scopeId ?? primary?.id} />}
@@ -359,7 +361,7 @@ export default function Dashboard() {
                   <ApplianceRanking
                     rows={estimate.rows}
                     appliances={appliances}
-                    measuredByName={measured?.byAppliance ?? new Map()}
+                    measuredById={measured?.byAppliance ?? new Map()}
                     total={estimate.consumption}
                   />
                   </Suspense>

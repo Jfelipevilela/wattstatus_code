@@ -16,7 +16,7 @@ Branch inicial `main`, HEAD `738c742`. A aplicação foi aberta em Chrome headle
 | EnergyInsights | Comparação medido versus estimado não verificava cobertura do mês; insight de 100% com um aparelho | Conclusão sem base e informação óbvia | Comparação removida; insight só com mais de um aparelho | Alta |
 | ConsumptionDistribution | Uma rosca de 100% repetia o ranking de um único aparelho | Ocupa espaço sem ajudar a comparar | Omitida com um aparelho | Média |
 | ConsumptionTrendChart | Projeção de seis meses é calculada com o cadastro atual, não histórico da época | Pode ser confundida com leitura histórica | Descrição atual já distingue projeção; manter ressalva visível | Alta |
-| ApplianceRanking | Barras e custo são estimados; status do cadastro pode parecer estado da medição | Ambiguidade residual | Badge estimado já existe; revisar semântica do status em etapa futura | Média |
+| ApplianceRanking | Barras e custo são estimados; duas unidades com o mesmo nome recebiam a soma medida de ambas | Valor medido atribuído ao aparelho errado | Leituras agora associadas por ID; teste de regressão com nomes iguais | Alta |
 | MeasuredDetails | Não mostrava a hora da última leitura | Não permite avaliar atualização | Horário adicionado | Alta |
 | AIInsights | Chamada de análise no primeiro carregamento; bloco competia com as métricas | Rede e distração | Abrir análises por ação explícita | Alta |
 | IntegrationUsage | Dois endpoints chamados sem dispositivo conectado; períodos diferentes do filtro mensal | Rede inútil e possível confusão de escopo | Montagem condicionada; texto atual informa período independente | Alta |

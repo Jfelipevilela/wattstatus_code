@@ -40,12 +40,12 @@ export function summarizeMonth(
   if (current.length === 0) return null;
   const totals = summarizeMeasured(current);
   const byAppliance = new Map<string, number>();
+  const knownApplianceIds = new Set(appliances.map((item) => item.id));
   const daily = new Map<number, number>();
   for (const row of current) {
-    const name =
-      appliances.find((item) => item.id === row.applianceId)?.name ||
-      `Dispositivo ${row.deviceId}`;
-    byAppliance.set(name, (byAppliance.get(name) ?? 0) + row.consumptionKWh);
+    if (row.applianceId && knownApplianceIds.has(row.applianceId)) {
+      byAppliance.set(row.applianceId, (byAppliance.get(row.applianceId) ?? 0) + row.consumptionKWh);
+    }
     const day = zonedParts(new Date(row.endAt), timeZone).day;
     daily.set(day, (daily.get(day) ?? 0) + row.consumptionKWh);
   }
