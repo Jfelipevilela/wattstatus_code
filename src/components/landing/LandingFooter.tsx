@@ -30,6 +30,8 @@ export function LandingFooter() {
             <li><Link to="/login" className="text-[var(--l-muted)] transition-colors hover:text-[var(--l-text)]">Entrar</Link></li>
             <li><Link to="/signup" className="text-[var(--l-muted)] transition-colors hover:text-[var(--l-text)]">Criar conta</Link></li>
             <li><Link to="/sobre" className="text-[var(--l-muted)] transition-colors hover:text-[var(--l-text)]">Sobre o WattStatus</Link></li>
+            <li><Link to="/termos" className="text-[var(--l-muted)] transition-colors hover:text-[var(--l-text)]">Termos (pendentes)</Link></li>
+            <li><Link to="/privacidade" className="text-[var(--l-muted)] transition-colors hover:text-[var(--l-text)]">Privacidade (pendente)</Link></li>
           </ul>
         </nav>
       </div>
