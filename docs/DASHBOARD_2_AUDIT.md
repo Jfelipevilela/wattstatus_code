@@ -32,7 +32,7 @@ Branch inicial `main`, HEAD `738c742`. A aplicação foi aberta em Chrome headle
 
 ## Verificações
 
-- Frontend: TypeScript, build e 45 testes passaram. ESLint: zero erros, 13 avisos preexistentes.
+- Frontend: TypeScript, build e 46 testes passaram. ESLint: zero erros, 13 avisos preexistentes.
 - Backend: build e 153 testes passaram; 45 testes foram pulados pela suíte existente, incluindo cenários dependentes de MongoDB.
 - Navegador: capturas em 390 e 1440 px com API simulada. Sem rolagem horizontal involuntária em 360, 390, 768, 1024, 1440 e 1920 px. Estados de erro e medição parcial ainda precisam de homologação visual.
 - A troca de mês foi exercitada com a nova resposta de histórico atrasada em 600 ms; os 9,0 kWh do mês anterior desapareceram durante o carregamento. O formulário de login obteve CSRF antes do clique em Entrar no teste com API simulada.
