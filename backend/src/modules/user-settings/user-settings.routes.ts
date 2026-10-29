@@ -11,6 +11,7 @@ const updateSchema = z.object({
   tariffState: z.string().refine((value) => Object.prototype.hasOwnProperty.call(STATE_TARIFFS, value), "Estado inválido").optional(),
   tariffValue: z.number().finite().positive().optional(),
   energyCollectionEnabled: z.boolean().optional(),
+  onboarding: z.object({ status: z.enum(["in_progress", "later", "complete"]), step: z.number().int().min(0).max(5) }).optional(),
   historicalData: z
     .array(
       z.object({

@@ -34,6 +34,7 @@ import {
 } from "@/components/dashboard/summary";
 import { useAppliances } from "@/hooks/useAppliances";
 import { useProperties } from "@/hooks/useProperties";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { appliancePropertyId } from "@/lib/property-energy";
 import { PropertyScopeBar } from "@/components/dashboard/PropertyScopeBar";
 import { useEnergyHistory } from "@/hooks/useEnergyHistory";
@@ -58,6 +59,7 @@ const monthName = (year: number, month: number, format: "long" | "short" = "long
   });
 
 export default function Dashboard() {
+  const { preferences } = useUserPreferences();
   const [showAIInsights, setShowAIInsights] = useState(false);
   const { appliances: allAppliances, loading, error, refetch, lastUpdated } = useAppliances();
   const { properties, primary, loading: propertiesLoading, error: propertiesError, refetch: refetchProperties } = useProperties();
@@ -273,6 +275,12 @@ export default function Dashboard() {
           <span className="font-semibold">Visão geral</span>
         </header>
         <main className="container mx-auto min-w-0 max-w-7xl space-y-8 px-4 py-6 sm:py-8">
+          {preferences.onboarding && preferences.onboarding.status !== "complete" && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+              <span>Continue sua configuração para ver a primeira estimativa de energia.</span>
+              <Link to="/onboarding" className="font-semibold text-primary underline underline-offset-4">Retomar primeiros passos</Link>
+            </div>
+          )}
           {properties.length > 1 && (
             <PropertyScopeBar
               properties={properties}

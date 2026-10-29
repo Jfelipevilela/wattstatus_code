@@ -68,6 +68,7 @@ export interface UserSettingsRecord {
   tariffState?: string;
   tariffValue?: number;
   energyCollectionEnabled?: boolean;
+  onboarding?: { status: "in_progress" | "later" | "complete"; step: number };
   createdAt: string;
   updatedAt: string;
 }

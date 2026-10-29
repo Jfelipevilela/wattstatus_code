@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Lock, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { notifyError } from "@/lib/error-toast";
@@ -15,7 +15,7 @@ const Login = () => {
   const submitting = useRef(false);
   const csrfPrefetched = useRef(false);
   const navigate = useNavigate();
-  const { login, loading: sessionLoading } = useAuth();
+  const { login, loading: sessionLoading, user } = useAuth();
   const prefetchCsrf = useCallback(() => {
     if (sessionLoading || csrfPrefetched.current) return;
     csrfPrefetched.current = true;
@@ -54,6 +54,7 @@ const Login = () => {
     }
   };
 
+  if (user && !isLoading) return <Navigate to="/dashboard" replace />;
   return (
     <AuthLayout
       title="Bem-vindo de volta"

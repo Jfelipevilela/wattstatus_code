@@ -10,17 +10,9 @@ import type { ApplianceInput } from "@/hooks/useAppliances";
 import { applianceVisual } from "@/components/appliances/applianceVisual";
 import { STATE_TARIFFS, formatCurrency, formatDuration, formatNumber } from "@/lib/energy";
 import { cn } from "@/lib/utils";
+import { APPLIANCE_PRESETS } from "@/lib/appliance-presets";
 
-const PRESETS = [
-  { name: "Ar-condicionado", power: 1400, hours: 6 },
-  { name: "Chuveiro elétrico", power: 5500, hours: 0.5 },
-  { name: "Geladeira", power: 150, hours: 24 },
-  { name: "TV LED 50\"", power: 100, hours: 4 },
-  { name: "Computador", power: 300, hours: 8 },
-  { name: "Máquina de lavar", power: 1000, hours: 1 },
-  { name: "Micro-ondas", power: 1200, hours: 0.5 },
-  { name: "Ventilador", power: 60, hours: 8 },
-];
+const PRESETS = APPLIANCE_PRESETS;
 const HOUR_CHIPS = [0.5, 1, 4, 8, 24];
 
 interface Props {

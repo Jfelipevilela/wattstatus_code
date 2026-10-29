@@ -35,6 +35,7 @@ type SettingsDoc = {
   tariffState?: string;
   tariffValue?: number;
   energyCollectionEnabled?: boolean;
+  onboarding?: UserSettingsRecord["onboarding"];
   createdAt: Date;
   updatedAt: Date;
 };
@@ -811,6 +812,7 @@ export class MongoDatabase {
       tariffState: row?.tariffState,
       tariffValue: row?.tariffValue,
       energyCollectionEnabled: row?.energyCollectionEnabled === true,
+        onboarding: row?.onboarding,
       createdAt: row?.createdAt?.toISOString?.() || now.toISOString(),
       updatedAt: row?.updatedAt?.toISOString?.() || now.toISOString(),
     };
@@ -818,7 +820,7 @@ export class MongoDatabase {
 
   async updateUserSettings(userId: string, input: Partial<UserSettingsRecord>) {
     const now = new Date();
-    const fields = ["theme", "apps", "historicalData", "tariffState", "tariffValue", "energyCollectionEnabled"] as const;
+      const fields = ["theme", "apps", "historicalData", "tariffState", "tariffValue", "energyCollectionEnabled", "onboarding"] as const;
     const updates: Partial<SettingsDoc> = { updatedAt: now };
     for (const field of fields) {
       if (input[field] !== undefined) (updates as Record<string, unknown>)[field] = input[field];

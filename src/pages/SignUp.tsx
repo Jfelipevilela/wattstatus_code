@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Lock, Mail, ShieldCheck, User } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,8 +25,9 @@ export default function SignUp() {
   const [errors, setErrors] = useState<Errors>({});
   const [loading, setLoading] = useState(false);
   const submitting = useRef(false);
+  const justRegistered = useRef(false);
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, user } = useAuth();
   const score = strengthScore(form.password);
   const change = (field: keyof Fields, value: string | boolean) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -54,6 +55,7 @@ export default function SignUp() {
     setLoading(true);
     try {
       await register(form.name.trim(), form.email.trim(), form.password, form.confirmPassword);
+      justRegistered.current = true;
       navigate("/onboarding", { replace: true });
     } catch (error) {
       notifyError(error, { title: "Erro ao criar conta", fallbackMessage: "Não foi possível criar a conta. Tente novamente." });
@@ -63,6 +65,7 @@ export default function SignUp() {
     }
   };
 
+  if (user && !loading && !justRegistered.current) return <Navigate to="/dashboard" replace />;
   return (
     <AuthLayout title="Crie sua conta" subtitle="Comece com sua casa e descubra suas primeiras estimativas."
       footer={<>Já tem uma conta? <Link to="/login">Entrar</Link></>}>
