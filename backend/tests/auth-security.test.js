@@ -127,6 +127,8 @@ test("cadastro, sessão, CSRF vinculado, API autenticada e logout revogável", a
   await browser.refreshCsrf();
   const signup = await browser.request("POST", "/api/auth/register", registration("ana+teste@example.com"));
   assert.equal(signup.statusCode, 201);
+  assert.equal(db.users.get(signup.data.user.id).termsAcceptedAt, undefined,
+    "cadastro provisório não pode registrar aceite de termos inexistentes");
   assert.equal(signup.data.token, undefined);
   const token = browser.cookies.get(AUTH_COOKIE_NAME);
   assert.ok(token);

@@ -41,7 +41,7 @@ export default function SignUp() {
     else if (form.password.length > 128) next.password = "A senha deve ter no máximo 128 caracteres.";
     if (!form.confirmPassword) next.confirmPassword = "Confirme sua senha.";
     else if (form.password !== form.confirmPassword) next.confirmPassword = "As senhas não coincidem.";
-    if (!form.acceptTerms) next.acceptTerms = "Marque o aceite para continuar.";
+    if (!form.acceptTerms) next.acceptTerms = "Confirme o aviso de homologação para continuar.";
     return next;
   };
   const submit = async (event: FormEvent) => {
@@ -54,7 +54,7 @@ export default function SignUp() {
     submitting.current = true;
     setLoading(true);
     try {
-      await register(form.name.trim(), form.email.trim(), form.password, form.confirmPassword);
+      await register(form.name.trim(), form.email.trim(), form.password, form.confirmPassword, form.acceptTerms);
       justRegistered.current = true;
       navigate("/onboarding", { replace: true });
     } catch (error) {
@@ -85,7 +85,7 @@ export default function SignUp() {
           <div className="auth-terms">
             <Checkbox id="acceptTerms" checked={form.acceptTerms} onCheckedChange={(checked) => change("acceptTerms", checked === true)}
               aria-invalid={Boolean(errors.acceptTerms)} aria-describedby="legal-note terms-error" />
-            <label htmlFor="acceptTerms">Confirmo meu aceite explícito para criar a conta durante esta homologação local.</label>
+            <label htmlFor="acceptTerms">Entendi que esta conta é para homologação local e que os documentos jurídicos ainda estão pendentes.</label>
           </div>
           {errors.acceptTerms && <p id="terms-error" className="auth-field-error" role="alert">{errors.acceptTerms}</p>}
           <p id="legal-note" className="auth-legal-note">Termos de uso e política de privacidade ainda aguardam textos aprovados. A publicação do cadastro depende dessa entrega.</p>

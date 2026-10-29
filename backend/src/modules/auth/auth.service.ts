@@ -33,7 +33,8 @@ export class AuthService {
       name: input.name,
       email: input.email,
       emailCanonical: normalizeEmail(input.email),
-      termsAcceptedAt: new Date().toISOString(),
+      // No approved, versioned terms exist yet. Do not record an acceptance
+      // timestamp for a document the user could not read.
       passwordHash,
       createdAt: new Date().toISOString(),
     };
