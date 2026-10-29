@@ -1,0 +1,1365 @@
+{
+  "environment": "local MongoDB 8.2.6, backend development, Vite production preview",
+  "results": [
+    {
+      "scenario": "empty",
+      "cache": "cold",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 1186,
+      "loginToEssentialMs": 1189,
+      "loginToChartsMs": 1189,
+      "interactiveMs": 1204,
+      "loginResponseToHeadingMs": 552,
+      "browserTiming": {
+        "headingMs": 761,
+        "essentialMs": 790,
+        "chartsMs": null
+      },
+      "observedThroughMs": 1716,
+      "preClickMs": 428,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 10,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 6,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 263,
+          "ttfbMs": 261,
+          "finishedSinceClickMs": 636,
+          "serverTiming": "securityMs;dur=9.28, lookupMs;dur=1.02, verifyMs;dur=247.92, upgradeMs;dur=0.00, sessionMs;dur=1.46"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 16,
+          "ttfbMs": 11,
+          "finishedSinceClickMs": 665,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 13,
+          "ttfbMs": 12,
+          "finishedSinceClickMs": 786,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 15,
+          "ttfbMs": 10,
+          "finishedSinceClickMs": 786,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 16,
+          "ttfbMs": 12,
+          "finishedSinceClickMs": 786,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "empty",
+      "cache": "warm",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 885,
+      "loginToEssentialMs": 889,
+      "loginToChartsMs": 889,
+      "interactiveMs": 913,
+      "loginResponseToHeadingMs": 599,
+      "browserTiming": {
+        "headingMs": 402,
+        "essentialMs": 435,
+        "chartsMs": null
+      },
+      "observedThroughMs": 1425,
+      "preClickMs": 200,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 5,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 5,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 235,
+          "ttfbMs": 234,
+          "finishedSinceClickMs": 286,
+          "serverTiming": "securityMs;dur=9.80, lookupMs;dur=1.37, verifyMs;dur=220.24, upgradeMs;dur=0.00, sessionMs;dur=1.18"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 9,
+          "ttfbMs": 8,
+          "finishedSinceClickMs": 344,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 13,
+          "ttfbMs": 12,
+          "finishedSinceClickMs": 428,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 15,
+          "ttfbMs": 14,
+          "finishedSinceClickMs": 428,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 16,
+          "ttfbMs": 15,
+          "finishedSinceClickMs": 428,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "one",
+      "cache": "cold",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 877,
+      "loginToEssentialMs": 881,
+      "loginToChartsMs": 883,
+      "interactiveMs": 899,
+      "loginResponseToHeadingMs": 520,
+      "browserTiming": {
+        "headingMs": 461,
+        "essentialMs": 495,
+        "chartsMs": 521
+      },
+      "observedThroughMs": 1404,
+      "preClickMs": 363,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 13,
+          "ttfbMs": 6,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 8,
+          "ttfbMs": 5,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 306,
+          "ttfbMs": 304,
+          "finishedSinceClickMs": 358,
+          "serverTiming": "securityMs;dur=7.50, lookupMs;dur=1.06, verifyMs;dur=291.77, upgradeMs;dur=0.00, sessionMs;dur=1.12"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 14,
+          "ttfbMs": 11,
+          "finishedSinceClickMs": 392,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 16,
+          "ttfbMs": 13,
+          "finishedSinceClickMs": 487,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 17,
+          "ttfbMs": 11,
+          "finishedSinceClickMs": 487,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 18,
+          "ttfbMs": 13,
+          "finishedSinceClickMs": 487,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "one",
+      "cache": "warm",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 878,
+      "loginToEssentialMs": 881,
+      "loginToChartsMs": 884,
+      "interactiveMs": 906,
+      "loginResponseToHeadingMs": 534,
+      "browserTiming": {
+        "headingMs": 448,
+        "essentialMs": 474,
+        "chartsMs": 501
+      },
+      "observedThroughMs": 1415,
+      "preClickMs": 152,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 8,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 4,
+          "ttfbMs": 3,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 295,
+          "ttfbMs": 294,
+          "finishedSinceClickMs": 345,
+          "serverTiming": "securityMs;dur=9.91, lookupMs;dur=2.03, verifyMs;dur=279.89, upgradeMs;dur=0.00, sessionMs;dur=1.23"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 13,
+          "ttfbMs": 12,
+          "finishedSinceClickMs": 393,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 14,
+          "ttfbMs": 13,
+          "finishedSinceClickMs": 466,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 15,
+          "ttfbMs": 14,
+          "finishedSinceClickMs": 466,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 16,
+          "ttfbMs": 16,
+          "finishedSinceClickMs": 466,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "many",
+      "cache": "cold",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 378,
+      "loginToEssentialMs": 406,
+      "loginToChartsMs": 441,
+      "interactiveMs": 459,
+      "loginResponseToHeadingMs": 132,
+      "browserTiming": {
+        "headingMs": 353,
+        "essentialMs": 388,
+        "chartsMs": 417
+      },
+      "observedThroughMs": 976,
+      "preClickMs": 371,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 9,
+          "ttfbMs": 5,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 6,
+          "ttfbMs": 3,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 197,
+          "ttfbMs": 194,
+          "finishedSinceClickMs": 247,
+          "serverTiming": "securityMs;dur=6.62, lookupMs;dur=2.17, verifyMs;dur=182.86, upgradeMs;dur=0.00, sessionMs;dur=1.14"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 9,
+          "ttfbMs": 7,
+          "finishedSinceClickMs": 266,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 15,
+          "ttfbMs": 10,
+          "finishedSinceClickMs": 378,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 17,
+          "ttfbMs": 15,
+          "finishedSinceClickMs": 378,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 19,
+          "ttfbMs": 15,
+          "finishedSinceClickMs": 378,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "many",
+      "cache": "warm",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 892,
+      "loginToEssentialMs": 897,
+      "loginToChartsMs": 901,
+      "interactiveMs": 928,
+      "loginResponseToHeadingMs": 546,
+      "browserTiming": {
+        "headingMs": 467,
+        "essentialMs": 500,
+        "chartsMs": 534
+      },
+      "observedThroughMs": 1438,
+      "preClickMs": 162,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 7,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 5,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 281,
+          "ttfbMs": 280,
+          "finishedSinceClickMs": 347,
+          "serverTiming": "securityMs;dur=10.43, lookupMs;dur=2.80, verifyMs;dur=263.22, upgradeMs;dur=0.00, sessionMs;dur=1.62"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 12,
+          "ttfbMs": 11,
+          "finishedSinceClickMs": 410,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 15,
+          "ttfbMs": 14,
+          "finishedSinceClickMs": 490,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 17,
+          "ttfbMs": 16,
+          "finishedSinceClickMs": 490,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 19,
+          "ttfbMs": 18,
+          "finishedSinceClickMs": 490,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "multi",
+      "cache": "cold",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 891,
+      "loginToEssentialMs": 894,
+      "loginToChartsMs": 896,
+      "interactiveMs": 918,
+      "loginResponseToHeadingMs": 582,
+      "browserTiming": {
+        "headingMs": 419,
+        "essentialMs": 454,
+        "chartsMs": 486
+      },
+      "observedThroughMs": 1427,
+      "preClickMs": 390,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 11,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 7,
+          "ttfbMs": 3,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 261,
+          "ttfbMs": 258,
+          "finishedSinceClickMs": 309,
+          "serverTiming": "securityMs;dur=7.34, lookupMs;dur=1.48, verifyMs;dur=246.93, upgradeMs;dur=0.00, sessionMs;dur=1.16"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 10,
+          "ttfbMs": 8,
+          "finishedSinceClickMs": 339,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 19,
+          "ttfbMs": 16,
+          "finishedSinceClickMs": 442,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 18,
+          "ttfbMs": 13,
+          "finishedSinceClickMs": 442,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 22,
+          "ttfbMs": 16,
+          "finishedSinceClickMs": 442,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "multi",
+      "cache": "warm",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 900,
+      "loginToEssentialMs": 903,
+      "loginToChartsMs": 909,
+      "interactiveMs": 932,
+      "loginResponseToHeadingMs": 599,
+      "browserTiming": {
+        "headingMs": 422,
+        "essentialMs": 461,
+        "chartsMs": 495
+      },
+      "observedThroughMs": 1436,
+      "preClickMs": 152,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 8,
+          "ttfbMs": 3,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 4,
+          "ttfbMs": 3,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 238,
+          "ttfbMs": 237,
+          "finishedSinceClickMs": 301,
+          "serverTiming": "securityMs;dur=11.80, lookupMs;dur=2.05, verifyMs;dur=220.77, upgradeMs;dur=0.00, sessionMs;dur=1.05"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 15,
+          "ttfbMs": 10,
+          "finishedSinceClickMs": 354,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 15,
+          "ttfbMs": 14,
+          "finishedSinceClickMs": 449,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 16,
+          "ttfbMs": 15,
+          "finishedSinceClickMs": 449,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 17,
+          "ttfbMs": 17,
+          "finishedSinceClickMs": 449,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "history",
+      "cache": "cold",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 897,
+      "loginToEssentialMs": 900,
+      "loginToChartsMs": 908,
+      "interactiveMs": 926,
+      "loginResponseToHeadingMs": 552,
+      "browserTiming": {
+        "headingMs": 495,
+        "essentialMs": 539,
+        "chartsMs": 574
+      },
+      "observedThroughMs": 1436,
+      "preClickMs": 438,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 8,
+          "ttfbMs": 5,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 6,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 294,
+          "ttfbMs": 286,
+          "finishedSinceClickMs": 346,
+          "serverTiming": "securityMs;dur=9.62, lookupMs;dur=2.36, verifyMs;dur=270.21, upgradeMs;dur=0.00, sessionMs;dur=2.01"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 13,
+          "ttfbMs": 10,
+          "finishedSinceClickMs": 387,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 19,
+          "ttfbMs": 16,
+          "finishedSinceClickMs": 522,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 22,
+          "ttfbMs": 17,
+          "finishedSinceClickMs": 522,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 101,
+          "ttfbMs": 92,
+          "finishedSinceClickMs": 611,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/analytics/usage",
+          "status": 200,
+          "durationMs": 32,
+          "ttfbMs": 11,
+          "finishedSinceClickMs": 616,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/integrations/smartthings/usage",
+          "status": 200,
+          "durationMs": 32,
+          "ttfbMs": 11,
+          "finishedSinceClickMs": 616,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "history",
+      "cache": "warm",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 884,
+      "loginToEssentialMs": 894,
+      "loginToChartsMs": 899,
+      "interactiveMs": 936,
+      "loginResponseToHeadingMs": 544,
+      "browserTiming": {
+        "headingMs": 465,
+        "essentialMs": 508,
+        "chartsMs": 543
+      },
+      "observedThroughMs": 1440,
+      "preClickMs": 153,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 10,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 5,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 289,
+          "ttfbMs": 288,
+          "finishedSinceClickMs": 341,
+          "serverTiming": "securityMs;dur=11.33, lookupMs;dur=2.03, verifyMs;dur=271.02, upgradeMs;dur=0.00, sessionMs;dur=1.62"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 12,
+          "ttfbMs": 10,
+          "finishedSinceClickMs": 400,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 18,
+          "ttfbMs": 17,
+          "finishedSinceClickMs": 492,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 20,
+          "ttfbMs": 19,
+          "finishedSinceClickMs": 492,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 90,
+          "ttfbMs": 88,
+          "finishedSinceClickMs": 577,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/analytics/usage",
+          "status": 200,
+          "durationMs": 20,
+          "ttfbMs": 18,
+          "finishedSinceClickMs": 578,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/integrations/smartthings/usage",
+          "status": 200,
+          "durationMs": 19,
+          "ttfbMs": 17,
+          "finishedSinceClickMs": 578,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "partial",
+      "cache": "cold",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 885,
+      "loginToEssentialMs": 889,
+      "loginToChartsMs": 895,
+      "interactiveMs": 916,
+      "loginResponseToHeadingMs": 621,
+      "browserTiming": {
+        "headingMs": 379,
+        "essentialMs": 440,
+        "chartsMs": 486
+      },
+      "observedThroughMs": 1423,
+      "preClickMs": 397,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 11,
+          "ttfbMs": 6,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 7,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 224,
+          "ttfbMs": 222,
+          "finishedSinceClickMs": 264,
+          "serverTiming": "securityMs;dur=9.75, lookupMs;dur=1.06, verifyMs;dur=207.35, upgradeMs;dur=0.00, sessionMs;dur=2.48"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 10,
+          "ttfbMs": 7,
+          "finishedSinceClickMs": 289,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 20,
+          "ttfbMs": 18,
+          "finishedSinceClickMs": 410,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 24,
+          "ttfbMs": 19,
+          "finishedSinceClickMs": 410,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 25,
+          "ttfbMs": 18,
+          "finishedSinceClickMs": 410,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/analytics/usage",
+          "status": 200,
+          "durationMs": 14,
+          "ttfbMs": 11,
+          "finishedSinceClickMs": 518,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/integrations/smartthings/usage",
+          "status": 200,
+          "durationMs": 14,
+          "ttfbMs": 12,
+          "finishedSinceClickMs": 518,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "partial",
+      "cache": "warm",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 898,
+      "loginToEssentialMs": 903,
+      "loginToChartsMs": 907,
+      "interactiveMs": 937,
+      "loginResponseToHeadingMs": 579,
+      "browserTiming": {
+        "headingMs": 416,
+        "essentialMs": 460,
+        "chartsMs": 497
+      },
+      "observedThroughMs": 1445,
+      "preClickMs": 170,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 11,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 5,
+          "ttfbMs": 3,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 278,
+          "ttfbMs": 277,
+          "finishedSinceClickMs": 319,
+          "serverTiming": "securityMs;dur=9.57, lookupMs;dur=1.66, verifyMs;dur=261.49, upgradeMs;dur=0.03, sessionMs;dur=1.16"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 9,
+          "ttfbMs": 8,
+          "finishedSinceClickMs": 359,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 14,
+          "ttfbMs": 13,
+          "finishedSinceClickMs": 437,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 14,
+          "ttfbMs": 14,
+          "finishedSinceClickMs": 437,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 16,
+          "ttfbMs": 15,
+          "finishedSinceClickMs": 437,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/analytics/usage",
+          "status": 200,
+          "durationMs": 10,
+          "ttfbMs": 9,
+          "finishedSinceClickMs": 535,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/integrations/smartthings/usage",
+          "status": 200,
+          "durationMs": 11,
+          "ttfbMs": 10,
+          "finishedSinceClickMs": 535,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "stale",
+      "cache": "cold",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 885,
+      "loginToEssentialMs": 889,
+      "loginToChartsMs": 893,
+      "interactiveMs": 914,
+      "loginResponseToHeadingMs": 525,
+      "browserTiming": {
+        "headingMs": 479,
+        "essentialMs": 510,
+        "chartsMs": 549
+      },
+      "observedThroughMs": 1424,
+      "preClickMs": 438,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 11,
+          "ttfbMs": 5,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 5,
+          "ttfbMs": 3,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 315,
+          "ttfbMs": 313,
+          "finishedSinceClickMs": 361,
+          "serverTiming": "securityMs;dur=7.59, lookupMs;dur=2.58, verifyMs;dur=300.26, upgradeMs;dur=0.00, sessionMs;dur=1.23"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 13,
+          "ttfbMs": 9,
+          "finishedSinceClickMs": 394,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 17,
+          "ttfbMs": 15,
+          "finishedSinceClickMs": 501,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 20,
+          "ttfbMs": 15,
+          "finishedSinceClickMs": 501,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 21,
+          "ttfbMs": 15,
+          "finishedSinceClickMs": 502,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/analytics/usage",
+          "status": 200,
+          "durationMs": 14,
+          "ttfbMs": 12,
+          "finishedSinceClickMs": 591,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/integrations/smartthings/usage",
+          "status": 200,
+          "durationMs": 14,
+          "ttfbMs": 12,
+          "finishedSinceClickMs": 591,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "stale",
+      "cache": "warm",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 913,
+      "loginToEssentialMs": 917,
+      "loginToChartsMs": 921,
+      "interactiveMs": 939,
+      "loginResponseToHeadingMs": 536,
+      "browserTiming": {
+        "headingMs": 485,
+        "essentialMs": 522,
+        "chartsMs": 548
+      },
+      "observedThroughMs": 1450,
+      "preClickMs": 171,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 9,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 5,
+          "ttfbMs": 3,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 310,
+          "ttfbMs": 309,
+          "finishedSinceClickMs": 377,
+          "serverTiming": "securityMs;dur=16.07, lookupMs;dur=2.52, verifyMs;dur=286.83, upgradeMs;dur=0.00, sessionMs;dur=1.25"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 10,
+          "ttfbMs": 8,
+          "finishedSinceClickMs": 428,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 17,
+          "ttfbMs": 16,
+          "finishedSinceClickMs": 510,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 18,
+          "ttfbMs": 17,
+          "finishedSinceClickMs": 510,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 19,
+          "ttfbMs": 19,
+          "finishedSinceClickMs": 510,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/analytics/usage",
+          "status": 200,
+          "durationMs": 9,
+          "ttfbMs": 8,
+          "finishedSinceClickMs": 587,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/integrations/smartthings/usage",
+          "status": 200,
+          "durationMs": 9,
+          "ttfbMs": 8,
+          "finishedSinceClickMs": 587,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "integrated",
+      "cache": "cold",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 879,
+      "loginToEssentialMs": 883,
+      "loginToChartsMs": 888,
+      "interactiveMs": 907,
+      "loginResponseToHeadingMs": 540,
+      "browserTiming": {
+        "headingMs": 486,
+        "essentialMs": 529,
+        "chartsMs": 559
+      },
+      "observedThroughMs": 1420,
+      "preClickMs": 458,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 9,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 6,
+          "ttfbMs": 3,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 296,
+          "ttfbMs": 294,
+          "finishedSinceClickMs": 340,
+          "serverTiming": "securityMs;dur=9.12, lookupMs;dur=1.25, verifyMs;dur=281.02, upgradeMs;dur=0.00, sessionMs;dur=1.22"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 18,
+          "ttfbMs": 15,
+          "finishedSinceClickMs": 384,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 19,
+          "ttfbMs": 17,
+          "finishedSinceClickMs": 515,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 21,
+          "ttfbMs": 15,
+          "finishedSinceClickMs": 515,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 22,
+          "ttfbMs": 18,
+          "finishedSinceClickMs": 517,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/analytics/usage",
+          "status": 200,
+          "durationMs": 13,
+          "ttfbMs": 10,
+          "finishedSinceClickMs": 595,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/integrations/smartthings/usage",
+          "status": 200,
+          "durationMs": 13,
+          "ttfbMs": 10,
+          "finishedSinceClickMs": 595,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    },
+    {
+      "scenario": "integrated",
+      "cache": "warm",
+      "csrfReadyBeforeClick": true,
+      "loginToHeadingMs": 885,
+      "loginToEssentialMs": 892,
+      "loginToChartsMs": 899,
+      "interactiveMs": 925,
+      "loginResponseToHeadingMs": 551,
+      "browserTiming": {
+        "headingMs": 449,
+        "essentialMs": 489,
+        "chartsMs": 522
+      },
+      "observedThroughMs": 1437,
+      "preClickMs": 195,
+      "requests": [
+        {
+          "path": "/api/auth/me",
+          "status": 401,
+          "durationMs": 14,
+          "ttfbMs": 8,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/csrf",
+          "status": 200,
+          "durationMs": 5,
+          "ttfbMs": 4,
+          "finishedSinceClickMs": null,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/auth/login",
+          "status": 200,
+          "durationMs": 290,
+          "ttfbMs": 289,
+          "finishedSinceClickMs": 335,
+          "serverTiming": "securityMs;dur=10.51, lookupMs;dur=1.37, verifyMs;dur=274.45, upgradeMs;dur=0.00, sessionMs;dur=1.49"
+        },
+        {
+          "path": "/api/user-settings",
+          "status": 200,
+          "durationMs": 9,
+          "ttfbMs": 8,
+          "finishedSinceClickMs": 384,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/energy/history",
+          "status": 200,
+          "durationMs": 15,
+          "ttfbMs": 14,
+          "finishedSinceClickMs": 475,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/properties",
+          "status": 200,
+          "durationMs": 17,
+          "ttfbMs": 16,
+          "finishedSinceClickMs": 475,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/appliances",
+          "status": 200,
+          "durationMs": 18,
+          "ttfbMs": 18,
+          "finishedSinceClickMs": 475,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/analytics/usage",
+          "status": 200,
+          "durationMs": 10,
+          "ttfbMs": 8,
+          "finishedSinceClickMs": 563,
+          "serverTiming": null
+        },
+        {
+          "path": "/api/integrations/smartthings/usage",
+          "status": 200,
+          "durationMs": 12,
+          "ttfbMs": 10,
+          "finishedSinceClickMs": 563,
+          "serverTiming": null
+        }
+      ],
+      "errors": [],
+      "scrollWidth": 1440
+    }
+  ]
+}

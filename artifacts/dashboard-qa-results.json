@@ -1,0 +1,155 @@
+[
+  {
+    "scenario": "empty",
+    "width": 360,
+    "theme": "light",
+    "initial": {
+      "viewport": 360,
+      "scrollWidth": 360,
+      "theme": "light"
+    },
+    "interactions": {},
+    "errors": [],
+    "screenshot": "artifacts/dashboard-qa-empty-360-light.png"
+  },
+  {
+    "scenario": "one",
+    "width": 390,
+    "theme": "dark",
+    "initial": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "theme": "dark",
+      "heading": "Consumo estimado · outubro de 2026"
+    },
+    "interactions": {},
+    "errors": [],
+    "screenshot": "artifacts/dashboard-qa-one-390-dark.png"
+  },
+  {
+    "scenario": "many",
+    "width": 768,
+    "theme": "light",
+    "initial": {
+      "viewport": 768,
+      "scrollWidth": 768,
+      "theme": "light",
+      "heading": "Consumo estimado · outubro de 2026"
+    },
+    "interactions": {},
+    "errors": [],
+    "screenshot": "artifacts/dashboard-qa-many-768-light.png"
+  },
+  {
+    "scenario": "multi",
+    "width": 1024,
+    "theme": "dark",
+    "initial": {
+      "viewport": 1024,
+      "scrollWidth": 1024,
+      "theme": "dark",
+      "heading": "Consumo estimado · outubro de 2026"
+    },
+    "interactions": {
+      "expanded": true,
+      "scopeUrl": "86f29374-b3a7-4559-8329-df21d4fa160c",
+      "scopeHero": "Consumo estimado · outubro de 2026"
+    },
+    "errors": [],
+    "screenshot": "artifacts/dashboard-qa-multi-1024-dark.png"
+  },
+  {
+    "scenario": "history",
+    "width": 1440,
+    "theme": "light",
+    "initial": {
+      "viewport": 1440,
+      "scrollWidth": 1440,
+      "theme": "light",
+      "heading": "Consumo estimado · outubro de 2026"
+    },
+    "interactions": {
+      "periodUrl": "2026-09",
+      "resetPeriod": true
+    },
+    "errors": [],
+    "screenshot": "artifacts/dashboard-qa-history-1440-light.png"
+  },
+  {
+    "scenario": "partial",
+    "width": 1920,
+    "theme": "dark",
+    "initial": {
+      "viewport": 1920,
+      "scrollWidth": 1920,
+      "theme": "dark",
+      "heading": "Consumo estimado · outubro de 2026"
+    },
+    "interactions": {},
+    "errors": [],
+    "screenshot": "artifacts/dashboard-qa-partial-1920-dark.png"
+  },
+  {
+    "scenario": "stale",
+    "width": 390,
+    "theme": "light",
+    "initial": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "theme": "light",
+      "heading": "Consumo estimado · outubro de 2026"
+    },
+    "interactions": {},
+    "errors": [],
+    "screenshot": "artifacts/dashboard-qa-stale-390-light.png"
+  },
+  {
+    "scenario": "integrated",
+    "width": 360,
+    "theme": "dark",
+    "initial": {
+      "viewport": 360,
+      "scrollWidth": 360,
+      "theme": "dark",
+      "heading": "Consumo estimado · outubro de 2026"
+    },
+    "interactions": {},
+    "errors": [],
+    "screenshot": "artifacts/dashboard-qa-integrated-360-dark.png"
+  },
+  {
+    "scenario": "multi",
+    "width": 390,
+    "theme": "light",
+    "initial": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "theme": "light",
+      "heading": "Consumo estimado · outubro de 2026"
+    },
+    "interactions": {
+      "expanded": true,
+      "scopeUrl": "86f29374-b3a7-4559-8329-df21d4fa160c",
+      "scopeHero": "Consumo estimado · outubro de 2026"
+    },
+    "errors": [],
+    "screenshot": "artifacts/dashboard-qa-multi-390-light.png"
+  },
+  {
+    "scenario": "history",
+    "width": 768,
+    "theme": "dark",
+    "initial": {
+      "viewport": 768,
+      "scrollWidth": 768,
+      "theme": "dark",
+      "heading": "Consumo estimado · outubro de 2026"
+    },
+    "interactions": {
+      "periodUrl": "2026-09",
+      "resetPeriod": true
+    },
+    "errors": [],
+    "screenshot": "artifacts/dashboard-qa-history-768-dark.png"
+  }
+]
