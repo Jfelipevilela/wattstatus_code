@@ -1,7 +1,7 @@
 import { Building } from "lucide-react";
 import type { Appliance } from "@/hooks/useAppliances";
 import { appliancePropertyId } from "@/lib/property-energy";
-import { formatCurrency, getMonthlyEstimate } from "@/lib/energy";
+import { formatCurrency, getMonthlyEstimate, hasEstimatedTariff } from "@/lib/energy";
 import { cn } from "@/lib/utils";
 import type { Property } from "@/types/property";
 
@@ -18,15 +18,17 @@ interface Props {
 // Scope picker that doubles as a ranking: each property shows its estimated
 // cost for the selected month, so "Todos" always matches the sum.
 export function PropertyScopeBar({ properties, scopeId, onChange, appliances, primaryId, year, month }: Props) {
-  const costs = properties.map((property) => ({
-    property,
-    cost: getMonthlyEstimate(
-      appliances.filter((item) => appliancePropertyId(item, primaryId) === property.id),
-      year,
-      month,
-    ).cost,
-  }));
+  const costs = properties.map((property) => {
+    const scoped = appliances.filter((item) => appliancePropertyId(item, primaryId) === property.id);
+    const estimate = getMonthlyEstimate(scoped, year, month);
+    const missing = new Set(scoped.filter((item) => !hasEstimatedTariff(item)).map((item) => item.id));
+    return { property, cost: estimate.cost, incomplete: estimate.rows.some((row) => row.consumo > 0 && missing.has(row.id ?? "")) };
+  });
   const total = costs.reduce((sum, row) => sum + row.cost, 0);
+  const totalIncomplete = costs.some((row) => row.incomplete);
+  const costLabel = (cost: number, incomplete: boolean) => incomplete
+    ? cost === 0 ? "Tarifa ausente" : `${formatCurrency(cost)} parcial`
+    : formatCurrency(cost);
   const chip = (active: boolean) =>
     cn(
       "flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -36,11 +38,11 @@ export function PropertyScopeBar({ properties, scopeId, onChange, appliances, pr
     <nav aria-label="Escopo da análise" className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <Building className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <button type="button" aria-pressed={!scopeId} onClick={() => onChange(null)} className={chip(!scopeId)}>
-        Todos os imóveis <span className="tabular-nums opacity-70">{formatCurrency(total)}</span>
+        Todos os imóveis <span className="tabular-nums opacity-70">{costLabel(total, totalIncomplete)}</span>
       </button>
       {costs
         .sort((a, b) => b.cost - a.cost)
-        .map(({ property, cost }) => (
+        .map(({ property, cost, incomplete }) => (
           <button
             key={property.id}
             type="button"
@@ -50,7 +52,7 @@ export function PropertyScopeBar({ properties, scopeId, onChange, appliances, pr
           >
             <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: property.color ?? "#00C853" }} />
             {property.name}
-            <span className="tabular-nums opacity-70">{formatCurrency(cost)}</span>
+            <span className="tabular-nums opacity-70">{costLabel(cost, incomplete)}</span>
           </button>
         ))}
     </nav>

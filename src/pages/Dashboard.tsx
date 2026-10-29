@@ -43,6 +43,7 @@ import {
   getEstimateHistory,
   formatCurrency,
   formatNumber,
+  hasEstimatedTariff,
 } from "@/lib/energy";
 
 const ConsumptionTrendChart = lazy(() => import("@/components/dashboard/ConsumptionTrendChart").then((module) => ({ default: module.ConsumptionTrendChart })));
@@ -113,6 +114,8 @@ export default function Dashboard() {
   const timeZone = scopeProperty?.timezone ?? null;
   const scopedIntervals = scopeId ? energy.intervals.filter((item) => item.propertyId === scopeId) : energy.intervals;
   const estimate = getMonthlyEstimate(appliances, selectedYear, selectedMonth);
+  const missingTariffIds = new Set(appliances.filter((item) => !hasEstimatedTariff(item)).map((item) => item.id));
+  const costIncomplete = estimate.rows.some((row) => row.consumo > 0 && missingTariffIds.has(row.id ?? ""));
   const history = getEstimateHistory(appliances, selectedYear, selectedMonth);
   const measured = summarizeMonth(
     scopedIntervals,
@@ -173,6 +176,9 @@ export default function Dashboard() {
       : 0;
   const status: DataStatus = !measured
     ? "estimated"
+    : selectedYear === now.getFullYear() && selectedMonth === now.getMonth() + 1 &&
+        Date.now() - new Date(measured.lastReadingAt).getTime() > 24 * 60 * 60 * 1000
+      ? "stale"
     : measured.longGaps > 0 || !measured.costComplete || monthsWithoutReading > 0
       ? "incomplete"
       : "measured";
@@ -323,9 +329,11 @@ export default function Dashboard() {
                     days={estimate.days}
                     consumption={estimate.consumption}
                     cost={estimate.cost}
+                    costIncomplete={costIncomplete}
                     change={change}
                     previousLabel={previousLabel}
                     topConsumer={topConsumer}
+                    topConsumerCostKnown={!topConsumer || !missingTariffIds.has(topConsumer.id ?? "")}
                     applianceCount={estimate.rows.length}
                     measured={measured}
                     measuredLoading={energy.loading}

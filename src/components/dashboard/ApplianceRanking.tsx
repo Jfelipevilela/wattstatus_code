@@ -1,16 +1,11 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import type { Appliance } from "@/hooks/useAppliances";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatNumber } from "@/lib/energy";
+import { formatCurrency, formatNumber, hasEstimatedTariff } from "@/lib/energy";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "./SectionCard";
 import type { EstimateRow } from "./summary";
-
-const statusLabel: Record<Appliance["status"], { label: string; dot: string }> = {
-  normal: { label: "Normal", dot: "bg-energy-green-light" },
-  warning: { label: "Atenção", dot: "bg-energy-yellow" },
-  critical: { label: "Crítico", dot: "bg-energy-red" },
-};
 
 interface Props {
   rows: EstimateRow[];
@@ -20,8 +15,10 @@ interface Props {
 }
 
 export function ApplianceRanking({ rows, appliances, measuredById, total }: Props) {
+  const [expanded, setExpanded] = useState(false);
   const sorted = [...rows].sort((a, b) => b.consumo - a.consumo);
   const max = sorted[0]?.consumo ?? 0;
+  const visible = expanded ? sorted : sorted.slice(0, 5);
   return (
     <SectionCard
       title="Ranking de aparelhos"
@@ -36,9 +33,8 @@ export function ApplianceRanking({ rows, appliances, measuredById, total }: Prop
       }
     >
       <ol className="-mx-2 divide-y">
-        {sorted.map((row, index) => {
+        {visible.map((row, index) => {
           const appliance = appliances.find((item) => item.id === row.id);
-          const status = appliance ? statusLabel[appliance.status] : undefined;
           const measured = row.id ? measuredById.get(row.id) : undefined;
           return (
             <li key={row.id ?? row.name} className="rounded-xl px-2 py-3 transition-colors hover:bg-muted/40">
@@ -55,15 +51,10 @@ export function ApplianceRanking({ rows, appliances, measuredById, total }: Prop
                 </span>
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="truncate font-medium" title={row.name}>
+                    <Link to={appliance?.propertyId ? `/imoveis/${encodeURIComponent(appliance.propertyId)}?aba=aparelhos` : "/aparelhos"}
+                      className="truncate font-medium underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={`Ver ${row.name}`}>
                       {row.name}
-                    </span>
-                    {status && (
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <span aria-hidden="true" className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
-                        {status.label}
-                      </span>
-                    )}
+                    </Link>
                     <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium uppercase tracking-wide">
                       Estimado
                     </Badge>
@@ -85,7 +76,7 @@ export function ApplianceRanking({ rows, appliances, measuredById, total }: Prop
                     {formatNumber(row.consumo, 1)} <span className="text-xs font-normal text-muted-foreground">kWh</span>
                   </p>
                   <p className="text-xs text-muted-foreground tabular-nums">
-                    {formatCurrency(row.custo)}
+                    {appliance && !hasEstimatedTariff(appliance) && row.consumo > 0 ? "Tarifa ausente" : formatCurrency(row.custo)}
                     {total > 0 && ` · ${formatNumber((row.consumo / total) * 100, 0)}%`}
                   </p>
                 </div>
@@ -94,6 +85,12 @@ export function ApplianceRanking({ rows, appliances, measuredById, total }: Prop
           );
         })}
       </ol>
+      {sorted.length > 5 && (
+        <button type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}
+          className="mt-4 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {expanded ? "Mostrar os 5 principais" : `Ver todos os ${sorted.length} aparelhos`}
+        </button>
+      )}
     </SectionCard>
   );
 }

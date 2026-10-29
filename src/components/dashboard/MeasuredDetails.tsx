@@ -21,7 +21,7 @@ export function MeasuredDetails({ measured, imported }: Props) {
       {measured && (
         <SectionCard
           title="Consumo medido por dia"
-          description="Diferença entre leituras acumuladas do SmartThings. Dias sem barra não têm duas leituras."
+          description="Energia registrada em intervalos pelo SmartThings. Dias sem barra não têm registros disponíveis."
           className={imported.length === 0 ? "lg:col-span-2" : undefined}
         >
           <ChartContainer

@@ -17,9 +17,11 @@ interface Props {
   days: number;
   consumption: number;
   cost: number;
+  costIncomplete: boolean;
   change: number | null;
   previousLabel: string;
   topConsumer?: EstimateRow;
+  topConsumerCostKnown: boolean;
   applianceCount: number;
   measured: MeasuredSummary | null;
   measuredLoading: boolean;
@@ -33,11 +35,15 @@ const statusCopy: Record<DataStatus, { label: string; tone: string }> = {
     tone: "bg-muted text-foreground ring-border",
   },
   measured: {
-    label: "Estimado + medido",
+    label: "Estimado + leituras",
     tone: "bg-primary/10 text-primary ring-primary/20",
   },
   incomplete: {
     label: "Medição incompleta",
+    tone: "bg-amber-500/10 text-amber-700 ring-amber-500/30 dark:text-amber-300",
+  },
+  stale: {
+    label: "Leituras desatualizadas",
     tone: "bg-amber-500/10 text-amber-700 ring-amber-500/30 dark:text-amber-300",
   },
 };
@@ -76,9 +82,11 @@ export function EnergyHero({
   days,
   consumption,
   cost,
+  costIncomplete,
   change,
   previousLabel,
   topConsumer,
+  topConsumerCostKnown,
   applianceCount,
   measured,
   measuredLoading,
@@ -100,7 +108,7 @@ export function EnergyHero({
               className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-muted-foreground"
             >
               <Calculator className="h-4 w-4" aria-hidden="true" />
-              Consumo estimado · <span className="capitalize">{periodLabel}</span>
+              Consumo estimado · <span>{periodLabel}</span>
             </h2>
             <span
               className={cn(
@@ -125,11 +133,12 @@ export function EnergyHero({
           <dl className="grid grid-cols-2 gap-4 border-t pt-6 sm:grid-cols-3">
             <div>
               <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                Custo estimado
+                {costIncomplete ? cost === 0 ? "Custo indisponível" : "Custo parcial" : "Custo estimado"}
               </dt>
-              <dd className="mt-1 text-2xl font-semibold tabular-nums">
-                {formatCurrency(cost)}
+              <dd className={cn("mt-1 font-semibold tabular-nums", costIncomplete && cost === 0 ? "text-lg" : "text-2xl")}>
+                {costIncomplete && cost === 0 ? "Tarifa ausente" : formatCurrency(cost)}
               </dd>
+              {costIncomplete && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Falta tarifa para parte do consumo.</p>}
             </div>
             <div>
               <dt className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -217,7 +226,7 @@ export function EnergyHero({
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <Activity className="h-3.5 w-3.5" aria-hidden="true" />
-                    {formatCurrency(topConsumer.custo)}
+                    {topConsumerCostKnown ? formatCurrency(topConsumer.custo) : "Tarifa ausente"}
                   </span>
                 </p>
               </>

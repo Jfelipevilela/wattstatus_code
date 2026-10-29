@@ -17,6 +17,7 @@ const {
   normalizeSearch,
   formatDuration,
   STATE_TARIFFS,
+  hasEstimatedTariff,
 } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`
 );
@@ -32,6 +33,15 @@ const appliance = {
   createdAt: new Date(2025, 7, 15).toISOString(),
   status: "normal",
 };
+
+test("tarifa ausente não transforma consumo positivo em custo conhecido", () => {
+  const missing = { ...appliance, tariff: "??", monthlyConsumption: 0, monthlyCost: 0, tariffValue: undefined };
+  assert.equal(getMonthlyEstimate([missing], 2026, 10).consumption, 30);
+  assert.equal(hasEstimatedTariff(missing), false);
+  assert.equal(hasEstimatedTariff(appliance), true);
+  assert.equal(hasEstimatedTariff({ ...missing, tariffValue: 0.81 }), true);
+  assert.equal(hasEstimatedTariff({ ...appliance, monthlyCost: 0 }), false);
+});
 
 test("aparelhos continuam nas estimativas após o mês de cadastro e na virada do ano", () => {
   assert.equal(getMonthlyEstimate([appliance], 2025, 7).rows.length, 0);

@@ -5,7 +5,7 @@ import { zonedParts } from "@/lib/timezone";
 
 export const GAP_THRESHOLD_MS = 2 * 3600000;
 
-export type DataStatus = "estimated" | "measured" | "incomplete";
+export type DataStatus = "estimated" | "measured" | "incomplete" | "stale";
 
 export interface EstimateRow {
   id?: string;

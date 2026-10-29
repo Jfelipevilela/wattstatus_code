@@ -42,6 +42,8 @@ export function SummaryHeader({
     const date = new Date(year, month - 1 + delta, 1);
     onChange(date.getFullYear(), date.getMonth() + 1);
   };
+  const atFirstPeriod = year === Math.min(...years) && month === 1;
+  const atLastPeriod = year === Math.max(...years) && month === 12;
   return (
     <section
       aria-labelledby="summary-title"
@@ -50,7 +52,7 @@ export function SummaryHeader({
       <div className="min-w-0">
         <p className="text-sm font-medium text-muted-foreground">
           {greeting()} · analisando{" "}
-          <span className="capitalize text-foreground">{periodLabel}</span>
+          <span className="text-foreground">{periodLabel}</span>
           {scopeLabel && (
             <>
               {" "}
@@ -80,6 +82,7 @@ export function SummaryHeader({
             size="icon"
             className="h-10 w-10 shrink-0"
             aria-label="Mês anterior"
+            disabled={atFirstPeriod}
             onClick={() => shift(-1)}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -121,6 +124,7 @@ export function SummaryHeader({
             size="icon"
             className="h-10 w-10 shrink-0"
             aria-label="Próximo mês"
+            disabled={atLastPeriod}
             onClick={() => shift(1)}
           >
             <ChevronRight className="h-4 w-4" />

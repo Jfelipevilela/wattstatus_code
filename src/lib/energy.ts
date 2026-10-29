@@ -48,6 +48,12 @@ export const normalizeSearch = (value: string) =>
     .toLocaleLowerCase("pt-BR")
     .trim();
 
+export const hasEstimatedTariff = (appliance: Appliance) => {
+  if (appliance.tariffValue !== undefined) return appliance.tariffValue > 0;
+  if (appliance.monthlyConsumption > 0) return appliance.monthlyCost > 0;
+  return (STATE_TARIFFS[appliance.tariff] ?? 0) > 0;
+};
+
 export function estimateAppliance(appliance: Appliance, daysInMonth = 31) {
   const consumption =
     (appliance.power *
