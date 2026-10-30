@@ -57,13 +57,14 @@ const Login = () => {
   if (user && !isLoading) return <Navigate to="/dashboard" replace />;
   return (
     <AuthLayout
-      title="Bem-vindo de volta"
-      subtitle="Entre para acompanhar o consumo da sua casa."
+      view="login"
+      title="Bem-vindo de volta."
+      subtitle="Acompanhe sua energia de onde parou."
       footer={
         <>
           Não tem uma conta?{" "}
           <Link to="/signup">
-            Criar conta grátis
+            Criar conta
           </Link>
         </>
       }

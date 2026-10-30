@@ -67,7 +67,7 @@ export default function SignUp() {
 
   if (user && !loading && !justRegistered.current) return <Navigate to="/dashboard" replace />;
   return (
-    <AuthLayout title="Crie sua conta" subtitle="Comece com sua casa e descubra suas primeiras estimativas."
+    <AuthLayout view="signup" title="Comece a entender sua energia." subtitle="Crie sua conta e descubra o consumo da sua casa."
       footer={<>Já tem uma conta? <Link to="/login">Entrar</Link></>}>
       <form className="auth-form" onSubmit={submit} noValidate>
         <AuthField id="name" label="Nome completo" icon={User} type="text" autoComplete="name" maxLength={100}
@@ -77,7 +77,7 @@ export default function SignUp() {
         <AuthField id="password" label="Senha" icon={Lock} type="password" autoComplete="new-password" minLength={MIN_PASSWORD} maxLength={128}
           placeholder="Pelo menos 15 caracteres" value={form.password} onChange={(e) => change("password", e.target.value)} error={errors.password} required
           hint={<><div className="auth-strength-track" aria-hidden="true">{[1, 2, 3, 4].map((step) => <span key={step} data-active={score >= step} />)}</div>
-            <span>Orientação de força: {form.password ? ["", "inicial", "razoável", "boa", "forte"][score] : "digite uma senha"}. Mínimo de 15 caracteres; o servidor valida a segurança.</span></>} />
+            <span>{form.password ? `Força ${["", "inicial", "razoável", "boa", "forte"][score]}. ` : ""}Use pelo menos 15 caracteres.</span></>} />
         <AuthField id="confirmPassword" label="Confirmar senha" icon={ShieldCheck} type="password" autoComplete="new-password" maxLength={128}
           placeholder="Repita a senha" value={form.confirmPassword} onChange={(e) => change("confirmPassword", e.target.value)}
           error={errors.confirmPassword} required hint={form.confirmPassword && form.password === form.confirmPassword ? "As senhas coincidem." : undefined} />
@@ -88,7 +88,7 @@ export default function SignUp() {
             <label htmlFor="acceptTerms">Entendi que esta conta é para homologação local e que os documentos jurídicos ainda estão pendentes.</label>
           </div>
           {errors.acceptTerms && <p id="terms-error" className="auth-field-error" role="alert">{errors.acceptTerms}</p>}
-          <p id="legal-note" className="auth-legal-note">Termos de uso e política de privacidade ainda aguardam textos aprovados. A publicação do cadastro depende dessa entrega.</p>
+          <p id="legal-note" className="auth-legal-note"><Link to="/termos">Termos</Link> e <Link to="/privacidade">Privacidade</Link> pendentes de aprovação. Cadastro somente para homologação local.</p>
         </div>
         <SubmitButton loading={loading} label="Criar conta" loadingLabel="Criando conta..." />
       </form>
