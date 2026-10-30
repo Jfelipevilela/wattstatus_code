@@ -697,18 +697,28 @@ function SizeSync() {
   useEffect(() => {
     const wrapper = gl.domElement.parentElement?.parentElement;
     if (!wrapper) return;
-    const observer = new ResizeObserver(() => {
-      const { width, height, top, left } = wrapper.getBoundingClientRect();
+    const apply = () => {
+      // Layout size, not getBoundingClientRect: the host may be mid-FLIP
+      // transform, and a scaled rect would freeze the canvas at that size.
+      const width = wrapper.clientWidth;
+      const height = wrapper.clientHeight;
       if (!width || !height) return;
+      const { top, left } = wrapper.getBoundingClientRect();
       setSize(width, height, top, left);
       const state = get();
       // The store can already hold the final size while the renderer kept an
       // intermediate one, so always push it to the renderer as well.
       state.gl.setSize(width, height);
       state.gl.render(state.scene, state.camera);
-    });
+    };
+    const observer = new ResizeObserver(apply);
     observer.observe(wrapper);
-    return () => observer.disconnect();
+    // r3f's own measure reads transformed rects; settle again after each move.
+    window.addEventListener("house-moved", apply);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("house-moved", apply);
+    };
   }, [gl, setSize, get]);
   return null;
 }

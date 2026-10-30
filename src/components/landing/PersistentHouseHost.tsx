@@ -15,9 +15,10 @@ export function PersistentHouseHost() {
   const [bounds, setBounds] = useState<Bounds | null>(null);
   const [visible, setVisible] = useState(false);
   const [ready, setReady] = useState(false);
-  const [moving, setMoving] = useState(false);
   const [stageMounted, setStageMounted] = useState(() => experience === "landing");
   const target = useRef<HTMLElement | null>(null);
+  const host = useRef<HTMLDivElement | null>(null);
+  const flipFrom = useRef<Bounds | null>(null);
 
   useEffect(() => {
     const query = window.matchMedia("(min-width: 1101px)");
@@ -51,14 +52,30 @@ export function PersistentHouseHost() {
     return () => { cancelAnimationFrame(frame); cancelIdle(); };
   }, [eligible, stageMounted]);
 
-  useEffect(() => {
-    if (!eligible || !bounds) return;
-    setMoving(true);
-    const timeout = window.setTimeout(() => setMoving(false), 1400);
-    return () => window.clearTimeout(timeout);
-    // Only animate between route slots, never while the page scrolls.
+  // Only animate between route slots, never while the page scrolls.
+  useLayoutEffect(() => {
+    if (eligible && bounds) flipFrom.current = bounds;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experience]);
+
+  // FLIP: jump to the new slot at once (so the canvas resizes a single time)
+  // and animate only a compositor transform from the old slot. Animating
+  // left/top/width/height resized the WebGL canvas on every frame and stalled.
+  useLayoutEffect(() => {
+    const from = flipFrom.current;
+    const node = host.current;
+    if (!from || !bounds || !node) return;
+    if (from.left === bounds.left && from.top === bounds.top && from.width === bounds.width && from.height === bounds.height) return;
+    flipFrom.current = null;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const scale = Math.min(from.width / bounds.width, from.height / bounds.height);
+    const x = from.left + from.width / 2 - (bounds.left + bounds.width / 2);
+    const y = from.top + from.height / 2 - (bounds.top + bounds.height / 2);
+    node.animate(
+      [{ transform: `translate(${x}px, ${y}px) scale(${scale})` }, { transform: "none" }],
+      { duration: 720, easing: "cubic-bezier(.22,.8,.24,1)" },
+    ).finished.then(() => window.dispatchEvent(new Event("house-moved")), () => {});
+  }, [bounds]);
 
   useLayoutEffect(() => {
     if (!eligible || !experience) return;
@@ -124,6 +141,7 @@ export function PersistentHouseHost() {
   if (!eligible || !experience) return null;
   return (
     <div
+      ref={host}
       className="house-persistent-host landing"
       data-experience={experience}
       data-ready={ready}
@@ -133,7 +151,8 @@ export function PersistentHouseHost() {
         width: bounds.width,
         height: bounds.height,
         visibility: visible ? "visible" : "hidden",
-        transition: moving ? "left .72s cubic-bezier(.22,.8,.24,1), top .72s cubic-bezier(.22,.8,.24,1), width .72s cubic-bezier(.22,.8,.24,1), height .72s cubic-bezier(.22,.8,.24,1)" : "none",
+        transformOrigin: "50% 50%",
+        willChange: "transform",
       } : { visibility: "hidden" }}
     >
       {stageMounted && <Suspense fallback={null}><HouseStage experience={experience} visible={visible} onReadyChange={onReadyChange} /></Suspense>}
