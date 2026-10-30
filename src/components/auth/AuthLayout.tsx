@@ -37,12 +37,11 @@ export function AuthLayout({ view, title, subtitle, children, footer }: AuthLayo
               <div className="auth-footer">{footer}</div>
             </div>
           </main>
-          <aside className="auth-visual" aria-label="Residência do WattStatus">
-            <div className="auth-visual-top" aria-hidden="true"><span>W / S</span><span>ENERGIA EM CONTEXTO</span></div>
-            <div className="auth-visual-bottom" aria-hidden="true">
-              <span className="auth-visual-rule" />
+          <aside className="auth-visual" aria-hidden="true">
+            <div className="auth-visual-image" />
+            <div className="auth-visual-caption">
+              <span>A CASA WATTSTATUS</span>
               <p>{view === "login" ? "Sua casa, vista com mais clareza." : "Conheça a energia da sua casa."}</p>
-              <span>01 / 01</span>
             </div>
           </aside>
         </div>
