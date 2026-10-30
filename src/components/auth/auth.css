@@ -50,16 +50,24 @@
 .auth-terms button[role="checkbox"][data-state="checked"] { border-color: var(--l-accent); background: var(--l-accent); color: var(--l-bg); }
 .auth-legal-note { margin: 8px 0 0 26px; color: var(--l-muted); font-size: 12px; line-height: 1.55; }
 .auth-legal-note a { color: var(--l-muted); text-decoration: underline; text-underline-offset: 2px; }
-.auth-visual { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
-.auth-visual-image { position: absolute; inset: 18px 0 120px; background: #071411 url("/auth/house-poster.jpg") center center / contain no-repeat; }
-.auth-visual-caption { position: absolute; bottom: 34px; left: clamp(30px, 4vw, 68px); right: clamp(30px, 4vw, 68px); display: flex; align-items: end; justify-content: space-between; gap: 24px; color: var(--l-text); }
-.auth-visual-caption span { color: var(--l-muted); font-size: 10px; font-weight: 650; letter-spacing: .16em; white-space: nowrap; }
+.auth-visual { position: relative; min-width: 0; min-height: 0; overflow: hidden; isolation: isolate; background: radial-gradient(ellipse 76% 59% at 53% 48%, #0a261d 0%, #071912 47%, transparent 100%); }
+.auth-visual::after { content: ""; position: absolute; z-index: 3; inset: 0; pointer-events: none; background: radial-gradient(ellipse 91% 87% at 50% 48%, transparent 58%, rgb(4 15 11 / .42) 100%); }
+.auth-visual-glow { position: absolute; z-index: 0; width: 78%; height: 59%; left: 11%; top: 15%; border-radius: 50%; background: radial-gradient(ellipse, rgb(38 130 94 / .18), rgb(21 80 61 / .08) 48%, transparent 73%); filter: blur(24px); animation: auth-breathe 14s ease-in-out infinite; }
+.auth-visual-floor { position: absolute; z-index: 0; left: 12%; right: 12%; bottom: 19%; height: 17%; border-radius: 50%; background: radial-gradient(ellipse, rgb(14 55 40 / .24), transparent 70%); transform: scaleY(.42); }
+.auth-visual-image { position: absolute; z-index: 1; inset: 8px 0 104px; transform: translate3d(var(--auth-shift-x, 0px), var(--auth-shift-y, 0px), 0); transition: transform .55s ease-out; animation: auth-reveal .8s ease-out both; }
+.auth-visual-house { width: 100%; height: 100%; background: url("/auth/house-poster.jpg") center center / contain no-repeat; -webkit-mask-image: radial-gradient(ellipse 78% 76% at 50% 48%, #000 53%, rgb(0 0 0 / .94) 68%, transparent 100%); mask-image: radial-gradient(ellipse 78% 76% at 50% 48%, #000 53%, rgb(0 0 0 / .94) 68%, transparent 100%); animation: auth-float 13s ease-in-out infinite; }
+.auth-visual-caption { position: absolute; z-index: 4; bottom: 34px; left: clamp(30px, 4vw, 68px); right: clamp(30px, 4vw, 68px); display: flex; align-items: end; justify-content: space-between; gap: 24px; color: var(--l-text); animation: auth-caption-reveal .9s .2s ease-out both; }
+.auth-visual-caption span { color: #9abcae; font-size: 10px; font-weight: 700; letter-spacing: .17em; white-space: nowrap; }
 .auth-visual-caption p { max-width: 315px; margin: 0; font-size: clamp(20px, 1.8vw, 27px); line-height: 1.24; letter-spacing: -.04em; font-weight: 550; }
 .auth-experience[data-view="signup"] .auth-visual { align-self: start; position: sticky; top: 0; height: min(730px, 100vh); }
 .auth-experience[data-view="signup"] .auth-visual-caption p { font-size: 22px; }
 .auth-bottom { min-height: 42px; padding-inline: clamp(24px, 5.4vw, 94px); display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--l-line); color: var(--l-faint); font-size: 11px; }
 .auth-experience :is(a, button):focus-visible { outline: 2px solid var(--l-focus); outline-offset: 3px; }
 @keyframes auth-spin { to { transform: rotate(360deg); } }
+@keyframes auth-breathe { 0%, 100% { opacity: .55; transform: scale(.95); } 50% { opacity: 1; transform: scale(1.06); } }
+@keyframes auth-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes auth-reveal { from { opacity: 0; translate: 0 12px; } to { opacity: 1; translate: 0 0; } }
+@keyframes auth-caption-reveal { from { opacity: 0; translate: 0 6px; } to { opacity: 1; translate: 0 0; } }
 @media (max-width: 1100px) {
   .auth-stage, .auth-experience[data-view="signup"] .auth-stage { display: block; min-height: 0; }
   .auth-main { justify-content: center; padding: 75px 32px 100px; }
@@ -84,4 +92,5 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .auth-experience *, .auth-experience *::before, .auth-experience *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  .auth-visual-image, .auth-visual-house, .auth-visual-glow { transform: none !important; translate: none !important; }
 }
