@@ -54,7 +54,7 @@ export function PersistentHouseHost() {
   useEffect(() => {
     if (!eligible || !bounds) return;
     setMoving(true);
-    const timeout = window.setTimeout(() => setMoving(false), 760);
+    const timeout = window.setTimeout(() => setMoving(false), 1400);
     return () => window.clearTimeout(timeout);
     // Only animate between route slots, never while the page scrolls.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,6 +74,18 @@ export function PersistentHouseHost() {
       setVisible(rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight);
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(sync); };
+    // Lazy route chunks, fonts and entrance animations move the slot without resizing it,
+    // which ResizeObserver never reports. Track the slot every frame until layout settles.
+    let settleFrame = 0;
+    const settle = () => {
+      cancelAnimationFrame(settleFrame);
+      const until = performance.now() + 1200;
+      const tick = () => {
+        sync();
+        if (performance.now() < until) settleFrame = requestAnimationFrame(tick);
+      };
+      settleFrame = requestAnimationFrame(tick);
+    };
     const bind = () => {
       const node = document.querySelector<HTMLElement>(`[data-house-slot="${experience}"]`);
       if (!node || node === target.current) return false;
@@ -82,15 +94,17 @@ export function PersistentHouseHost() {
       node.dataset.houseContinuous = ready ? "true" : "false";
       resize = new ResizeObserver(schedule);
       resize.observe(node);
-      schedule();
+      settle();
       return true;
     };
     const mutation = new MutationObserver(() => { if (bind()) mutation.disconnect(); });
     if (!bind()) mutation.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", schedule);
+    document.fonts?.ready.then(schedule);
     return () => {
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(settleFrame);
       mutation.disconnect();
       resize?.disconnect();
       window.removeEventListener("scroll", schedule);
@@ -119,7 +133,7 @@ export function PersistentHouseHost() {
         width: bounds.width,
         height: bounds.height,
         visibility: visible ? "visible" : "hidden",
-        transition: moving ? "left .72s ease, top .72s ease, width .72s ease, height .72s ease" : "none",
+        transition: moving ? "left .72s cubic-bezier(.22,.8,.24,1), top .72s cubic-bezier(.22,.8,.24,1), width .72s cubic-bezier(.22,.8,.24,1), height .72s cubic-bezier(.22,.8,.24,1)" : "none",
       } : { visibility: "hidden" }}
     >
       {stageMounted && <Suspense fallback={null}><HouseStage experience={experience} visible={visible} onReadyChange={onReadyChange} /></Suspense>}

@@ -50,10 +50,23 @@
 .auth-terms button[role="checkbox"][data-state="checked"] { border-color: var(--l-accent); background: var(--l-accent); color: var(--l-bg); }
 .auth-legal-note { margin: 8px 0 0 26px; color: var(--l-muted); font-size: 12px; line-height: 1.55; }
 .auth-legal-note a { color: var(--l-muted); text-decoration: underline; text-underline-offset: 2px; }
-.auth-visual { position: relative; min-width: 0; min-height: 0; overflow: hidden; isolation: isolate; background: radial-gradient(ellipse 76% 59% at 53% 48%, #0a261d 0%, #071912 47%, transparent 100%); }
-.auth-visual::after { content: ""; position: absolute; z-index: 3; inset: 0; pointer-events: none; background: radial-gradient(ellipse 91% 87% at 50% 48%, transparent 58%, rgb(4 15 11 / .42) 100%); }
-.auth-visual-glow { position: absolute; z-index: 0; width: 78%; height: 59%; left: 11%; top: 15%; border-radius: 50%; background: radial-gradient(ellipse, rgb(38 130 94 / .18), rgb(21 80 61 / .08) 48%, transparent 73%); filter: blur(24px); animation: auth-breathe 14s ease-in-out infinite; }
-.auth-visual-floor { position: absolute; z-index: 0; left: 12%; right: 12%; bottom: 19%; height: 17%; border-radius: 50%; background: radial-gradient(ellipse, rgb(14 55 40 / .24), transparent 70%); transform: scaleY(.42); }
+.auth-visual { position: relative; min-width: 0; min-height: 0; overflow: hidden; isolation: isolate; background:
+    radial-gradient(ellipse 60% 38% at 52% 62%, rgb(46 150 108 / .16), transparent 70%),
+    linear-gradient(180deg, #03100b 0%, #061a13 46%, #0a2419 63%, #04120d 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14%, #000 100%), linear-gradient(180deg, transparent 0, #000 7%, #000 93%, transparent 100%);
+  -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, transparent 0, #000 14%, #000 100%), linear-gradient(180deg, transparent 0, #000 7%, #000 93%, transparent 100%); mask-composite: intersect; }
+/* Night sky: faint stars above the horizon. */
+.auth-visual::before { content: ""; position: absolute; z-index: 0; inset: 0 0 42% 0; pointer-events: none; opacity: .5;
+  background-image: radial-gradient(1px 1px at 12% 18%, #cfe9dc, transparent), radial-gradient(1px 1px at 27% 8%, #9fc7b4, transparent), radial-gradient(1.4px 1.4px at 41% 26%, #e3f4ea, transparent), radial-gradient(1px 1px at 58% 12%, #a9d3bf, transparent), radial-gradient(1px 1px at 71% 31%, #cfe9dc, transparent), radial-gradient(1.3px 1.3px at 84% 15%, #e3f4ea, transparent), radial-gradient(1px 1px at 93% 38%, #9fc7b4, transparent), radial-gradient(1px 1px at 6% 41%, #a9d3bf, transparent), radial-gradient(1px 1px at 49% 4%, #cfe9dc, transparent);
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent); mask-image: linear-gradient(180deg, #000 30%, transparent); animation: auth-twinkle 9s ease-in-out infinite alternate; }
+.auth-visual::after { content: ""; position: absolute; z-index: 3; inset: 0; pointer-events: none; background: radial-gradient(ellipse 95% 90% at 52% 52%, transparent 55%, rgb(3 13 9 / .55) 100%); }
+/* Warm horizon haze plus soft light shafts behind the house. */
+.auth-visual-glow { position: absolute; z-index: 0; width: 90%; height: 70%; left: 6%; top: 8%; border-radius: 50%; background: radial-gradient(ellipse 50% 40% at 50% 62%, rgb(255 196 120 / .10), transparent 70%), radial-gradient(ellipse, rgb(38 130 94 / .22), rgb(21 80 61 / .08) 48%, transparent 73%), conic-gradient(from 200deg at 50% 70%, transparent 0deg, rgb(120 220 170 / .05) 12deg, transparent 24deg, transparent 40deg, rgb(120 220 170 / .04) 52deg, transparent 66deg, transparent 360deg); filter: blur(22px); animation: auth-breathe 14s ease-in-out infinite; }
+/* Ground plane: perspective grid fading into the horizon and a contact pool of light. */
+.auth-visual-floor { position: absolute; z-index: 0; left: -20%; right: -20%; bottom: 0; height: 46%; pointer-events: none;
+  background: radial-gradient(ellipse 34% 22% at 50% 30%, rgb(70 190 140 / .22), transparent 70%), repeating-linear-gradient(90deg, rgb(120 210 170 / .07) 0 1px, transparent 1px 64px), repeating-linear-gradient(0deg, rgb(120 210 170 / .06) 0 1px, transparent 1px 48px);
+  transform: perspective(520px) rotateX(62deg); transform-origin: 50% 0;
+  -webkit-mask-image: radial-gradient(ellipse 55% 90% at 50% 10%, #000 20%, transparent 75%); mask-image: radial-gradient(ellipse 55% 90% at 50% 10%, #000 20%, transparent 75%); }
 .auth-visual-image { position: absolute; z-index: 1; inset: 8px 0 104px; animation: auth-reveal .8s ease-out both; }
 .auth-visual-house { width: 100%; height: 100%; background: url("/auth/house-poster.jpg") center center / contain no-repeat; -webkit-mask-image: radial-gradient(ellipse 78% 76% at 50% 48%, #000 53%, rgb(0 0 0 / .94) 68%, transparent 100%); mask-image: radial-gradient(ellipse 78% 76% at 50% 48%, #000 53%, rgb(0 0 0 / .94) 68%, transparent 100%); transition: opacity .8s ease; }
 .auth-visual-image[data-house-ready="true"] .auth-visual-house { opacity: 0; }
@@ -67,7 +80,8 @@
 .auth-experience :is(a, button):focus-visible { outline: 2px solid var(--l-focus); outline-offset: 3px; }
 @keyframes auth-spin { to { transform: rotate(360deg); } }
 @keyframes auth-breathe { 0%, 100% { opacity: .55; transform: scale(.95); } 50% { opacity: 1; transform: scale(1.06); } }
-@keyframes auth-reveal { from { opacity: 0; translate: 0 12px; } to { opacity: 1; translate: 0 0; } }
+@keyframes auth-reveal { from { opacity: 0; } to { opacity: 1; } }
+@keyframes auth-twinkle { from { opacity: .35; } to { opacity: .6; } }
 @keyframes auth-caption-reveal { from { opacity: 0; translate: 0 6px; } to { opacity: 1; translate: 0 0; } }
 @media (max-width: 1100px) {
   .auth-stage, .auth-experience[data-view="signup"] .auth-stage { display: block; min-height: 0; }

@@ -687,6 +687,32 @@ function FirstFrame() {
   return null;
 }
 
+// The persistent host animates between route slots, sometimes while the
+// frameloop is paused. Follow the wrapper directly and repaint once so the
+// canvas never stays at the previous slot's size.
+function SizeSync() {
+  const gl = useThree((s) => s.gl);
+  const setSize = useThree((s) => s.setSize);
+  const get = useThree((s) => s.get);
+  useEffect(() => {
+    const wrapper = gl.domElement.parentElement?.parentElement;
+    if (!wrapper) return;
+    const observer = new ResizeObserver(() => {
+      const { width, height, top, left } = wrapper.getBoundingClientRect();
+      if (!width || !height) return;
+      setSize(width, height, top, left);
+      const state = get();
+      // The store can already hold the final size while the renderer kept an
+      // intermediate one, so always push it to the renderer as well.
+      state.gl.setSize(width, height);
+      state.gl.render(state.scene, state.camera);
+    });
+    observer.observe(wrapper);
+    return () => observer.disconnect();
+  }, [gl, setSize, get]);
+  return null;
+}
+
 export default function HeroHouse3D({ active, onReady, onLost, ...props }: HeroHouse3DProps) {
   const [dpr, setDpr] = useState(() => Math.min(window.devicePixelRatio || 1, props.compact ? 1.5 : 1.75));
   const [warm, setWarm] = useState(false);
@@ -735,6 +761,7 @@ export default function HeroHouse3D({ active, onReady, onLost, ...props }: HeroH
       <Scene {...props} shadowsReady={contactReady} />
       <ShadowsLater ready={shadowsReady} />
       <FirstFrame />
+      <SizeSync />
       <Warmup
         onWarm={() => {
           setWarm(true);

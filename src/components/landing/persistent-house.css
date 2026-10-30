@@ -19,3 +19,11 @@
 @media (prefers-reduced-motion: reduce) {
   .house-persistent-host { transition: none !important; }
 }
+
+/* On auth pages the canvas sits inside the ambient panel: fade its edges so it
+   never reads as a rectangle on top of the scene. */
+.house-persistent-host[data-experience="login"],
+.house-persistent-host[data-experience="signup"] {
+  -webkit-mask-image: radial-gradient(ellipse 62% 64% at 50% 50%, #000 60%, transparent 100%);
+  mask-image: radial-gradient(ellipse 62% 64% at 50% 50%, #000 60%, transparent 100%);
+}
