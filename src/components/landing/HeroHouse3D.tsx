@@ -26,6 +26,7 @@ import {
   Vector3,
 } from "three";
 import { furnitureFor, type FurnitureFinish, type FurniturePiece } from "@/components/floorplan/three/furniture";
+import { houseTransition } from "./houseTransition";
 import { DEMO_ROOMS, HOUSE_SIZE, type DemoRoom, type DemoRoomId } from "./content";
 import {
   ACCENT_STRIPS,
@@ -446,7 +447,8 @@ function CameraRig({ selected, zoom, reducedMotion, controls, base, compact, exp
     // keep the normal slow interpolation between login and signup presets.
     const enteringAuth = previousExperience.current !== experience && experience !== "landing";
     previousExperience.current = experience;
-    const k = reducedMotion || enteringAuth ? 1 : Math.min(1, delta * 2.8);
+    // Hidden mid route transition: jump to the final framing so it fades in still.
+    const k = reducedMotion || enteringAuth || houseTransition.snapping ? 1 : Math.min(1, delta * 2.8);
     ctl.target.lerp(goal, k);
     if (experience !== "landing") {
       dir.copy(authPosition).multiplyScalar(distance).add(ctl.target);
@@ -479,7 +481,7 @@ function FrameOffset({ shift, reducedMotion }: { shift: number; reducedMotion: b
   }, [camera, size.width, size.height]);
   useFrame((_, delta) => {
     if (Math.abs(current.current - shift) < 0.0005) return;
-    current.current = reducedMotion || shift === 0 ? shift : current.current + (shift - current.current) * Math.min(1, delta * 3);
+    current.current = reducedMotion || shift === 0 || houseTransition.snapping ? shift : current.current + (shift - current.current) * Math.min(1, delta * 3);
     if (current.current) camera.setViewOffset(size.width, size.height, -size.width * current.current, 0, size.width, size.height);
     else camera.clearViewOffset();
     invalidate();
@@ -752,6 +754,8 @@ export default function HeroHouse3D({ active, onReady, onLost, ...props }: HeroH
     <Canvas
       className="!touch-pan-y"
       frameloop={frameloop}
+      // Layout size, not transformed rects: route transitions scale the host.
+      resize={{ offsetSize: true, scroll: false }}
       dpr={dpr}
       shadows={!props.compact ? "soft" : false}
       gl={{ antialias: !props.compact, alpha: true, powerPreference: "high-performance" }}

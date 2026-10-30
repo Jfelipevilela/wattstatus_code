@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { houseTransition } from "./houseTransition";
 import "./persistent-house.css";
 
 const HouseStage = lazy(() => import("./HeroSection").then((module) => ({ default: module.HouseStage })));
@@ -18,7 +19,10 @@ export function PersistentHouseHost() {
   const [stageMounted, setStageMounted] = useState(() => experience === "landing");
   const target = useRef<HTMLElement | null>(null);
   const host = useRef<HTMLDivElement | null>(null);
-  const flipFrom = useRef<Bounds | null>(null);
+  const boundsRef = useRef<Bounds | null>(null);
+  const transition = useRef(0);
+  const [frozen, setFrozen] = useState<Bounds | null>(null);
+  boundsRef.current = bounds;
 
   useEffect(() => {
     const query = window.matchMedia("(min-width: 1101px)");
@@ -52,30 +56,66 @@ export function PersistentHouseHost() {
     return () => { cancelAnimationFrame(frame); cancelIdle(); };
   }, [eligible, stageMounted]);
 
-  // Only animate between route slots, never while the page scrolls.
+  // Route change: fade the house out where it is, let the new page lay out
+  // while it is hidden, snap the scene to the new framing, then fade it in
+  // with a short drift from the old slot. Only opacity/transform animate, so
+  // the WebGL canvas resizes once and the compositor runs the motion.
   useLayoutEffect(() => {
-    if (eligible && bounds) flipFrom.current = bounds;
+    const node = host.current;
+    const from = boundsRef.current;
+    if (!eligible || !node || !from) return;
+    const token = ++transition.current;
+    const alive = () => token === transition.current;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    node.getAnimations().forEach((animation) => animation.cancel());
+    houseTransition.snapping = true;
+    setFrozen(from);
+    const out = node.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.985)" }], { duration: 180, easing: "ease-in", fill: "forwards" });
+    const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const settled = async () => {
+      // Wait for the new slot and for its rect to hold still for a few frames.
+      const deadline = performance.now() + 1500;
+      let previous = "";
+      let stable = 0;
+      while (alive() && performance.now() < deadline && stable < 3) {
+        await frame();
+        const rect = target.current?.getBoundingClientRect();
+        const key = rect ? `${rect.left}|${rect.top}|${rect.width}|${rect.height}` : "";
+        stable = key && key === previous ? stable + 1 : 0;
+        previous = key;
+      }
+    };
+    void Promise.all([out.finished.catch(() => {}), settled()]).then(async () => {
+      if (!alive()) return;
+      setFrozen(null);
+      // Keep snapping until the canvas has its new size, then two more frames
+      // so the scene is rendered at the final framing before it shows.
+      const sizeDeadline = performance.now() + 600;
+      while (alive() && performance.now() < sizeDeadline) {
+        await frame();
+        const canvas = node.querySelector("canvas");
+        if (!canvas || (Math.abs(canvas.clientWidth - node.clientWidth) < 1 && Math.abs(canvas.clientHeight - node.clientHeight) < 1)) break;
+      }
+      await frame();
+      await frame();
+      await frame();
+      if (!alive()) return;
+      houseTransition.snapping = false;
+      const to = boundsRef.current ?? from;
+      const dx = Math.max(-48, Math.min(48, (from.left + from.width / 2 - (to.left + to.width / 2)) * 0.06));
+      const dy = Math.max(-24, Math.min(24, (from.top + from.height / 2 - (to.top + to.height / 2)) * 0.06));
+      out.cancel();
+      node.animate(
+        [{ opacity: 0, transform: `translate(${dx}px, ${dy}px) scale(.97)` }, { opacity: 1, transform: "none" }],
+        { duration: 560, easing: "cubic-bezier(.16,1,.3,1)" },
+      ).finished.then(() => { if (alive()) window.dispatchEvent(new Event("house-moved")); }, () => {});
+    });
+    return () => {
+      houseTransition.snapping = false;
+    };
+    // Only route changes trigger the transition, never scroll or resize.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experience]);
-
-  // FLIP: jump to the new slot at once (so the canvas resizes a single time)
-  // and animate only a compositor transform from the old slot. Animating
-  // left/top/width/height resized the WebGL canvas on every frame and stalled.
-  useLayoutEffect(() => {
-    const from = flipFrom.current;
-    const node = host.current;
-    if (!from || !bounds || !node) return;
-    if (from.left === bounds.left && from.top === bounds.top && from.width === bounds.width && from.height === bounds.height) return;
-    flipFrom.current = null;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const scale = Math.min(from.width / bounds.width, from.height / bounds.height);
-    const x = from.left + from.width / 2 - (bounds.left + bounds.width / 2);
-    const y = from.top + from.height / 2 - (bounds.top + bounds.height / 2);
-    node.animate(
-      [{ transform: `translate(${x}px, ${y}px) scale(${scale})` }, { transform: "none" }],
-      { duration: 720, easing: "cubic-bezier(.22,.8,.24,1)" },
-    ).finished.then(() => window.dispatchEvent(new Event("house-moved")), () => {});
-  }, [bounds]);
 
   useLayoutEffect(() => {
     if (!eligible || !experience) return;
@@ -139,20 +179,22 @@ export function PersistentHouseHost() {
   const onReadyChange = useCallback((value: boolean) => setReady(value), []);
 
   if (!eligible || !experience) return null;
+  // While fading out, stay in the old slot even if the new page already laid out.
+  const shown = frozen ?? bounds;
   return (
     <div
       ref={host}
       className="house-persistent-host landing"
       data-experience={experience}
       data-ready={ready}
-      style={bounds ? {
-        left: bounds.left,
-        top: bounds.top,
-        width: bounds.width,
-        height: bounds.height,
+      style={shown ? {
+        left: shown.left,
+        top: shown.top,
+        width: shown.width,
+        height: shown.height,
         visibility: visible ? "visible" : "hidden",
         transformOrigin: "50% 50%",
-        willChange: "transform",
+        willChange: "transform, opacity",
       } : { visibility: "hidden" }}
     >
       {stageMounted && <Suspense fallback={null}><HouseStage experience={experience} visible={visible} onReadyChange={onReadyChange} /></Suspense>}
