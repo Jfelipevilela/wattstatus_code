@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Box, Image as ImageIcon, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { DEMO_ROOMS, HERO_HIGHLIGHTS, type DemoRoomId } from "./content";
@@ -47,11 +47,11 @@ class SceneBoundary extends Component<{ onError: () => void; children: ReactNode
   }
 }
 
-function HouseStage() {
+export function HouseStage({ experience, visible, onReadyChange }: { experience: "landing" | "login" | "signup"; visible: boolean; onReadyChange: (ready: boolean) => void }) {
+  const auth = experience !== "landing";
   const reducedMotion = useReducedMotion();
   const compact = useCompact();
   const wide = useWide();
-  const stage = useRef<HTMLDivElement>(null);
   const [webgl] = useState(supportsWebGL);
   const lite = useLiteMode();
   const [failed, setFailed] = useState(false);
@@ -64,6 +64,16 @@ function HouseStage() {
   const [hovered, setHovered] = useState<DemoRoomId | null>(null);
   const [zoomIndex, setZoomIndex] = useState(1);
   const room = DEMO_ROOMS.find((item) => item.id === selected) ?? null;
+
+  useEffect(() => {
+    onReadyChange(live && ready);
+  }, [live, ready, onReadyChange]);
+  useEffect(() => {
+    if (auth) {
+      setSelected(null);
+      setHovered(null);
+    }
+  }, [auth]);
 
   // Start downloading the 3D chunk right after the first paint. Mounting
   // still waits for idle time; this only overlaps the download with it.
@@ -101,28 +111,18 @@ function HouseStage() {
     }
   };
 
-  // Stop rendering when the hero is off screen or the tab is hidden.
+  // The persistent host follows the visible route slot and pauses off screen.
   useEffect(() => {
-    const node = stage.current;
-    if (!node) return;
-    let visible = true;
     const sync = () => setActive(visible && document.visibilityState === "visible");
-    const observer = new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting;
-      sync();
-    });
-    observer.observe(node);
+    sync();
     document.addEventListener("visibilitychange", sync);
-    return () => {
-      observer.disconnect();
-      document.removeEventListener("visibilitychange", sync);
-    };
-  }, []);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, [visible]);
 
   return (
     <div className="relative flex h-full flex-col">
-      <div ref={stage} className="relative min-h-0 flex-1" aria-label="Casa demonstrativa em 3D" role="group">
-        {live ? (
+      <div className="relative min-h-0 flex-1" aria-label="Casa demonstrativa em 3D" role="group">
+        {!auth && live ? (
           // Static render of the same scene: the hero looks complete while
           // the 3D chunk loads, then the live canvas fades in on top.
           <picture>
@@ -135,28 +135,29 @@ function HouseStage() {
               className={`absolute inset-0 h-full w-full object-cover object-right transition-opacity duration-1000 ${ready ? "opacity-0" : "opacity-100"}`}
             />
           </picture>
-        ) : (
+        ) : !auth ? (
           <HouseIllustration
             highlight={DEMO_ROOMS.findIndex((item) => item.id === selected)}
             onPick={(index) => setSelected(DEMO_ROOMS[index].id === selected ? null : DEMO_ROOMS[index].id)}
             className="absolute inset-y-0 right-0 m-auto h-full w-full max-w-[760px] object-contain p-6 lg:left-auto lg:w-[56%]"
           />
-        )}
+        ) : null}
         {live && mount && (
           <SceneBoundary key={attempt} onError={() => setFailed(true)}>
           <Suspense fallback={null}>
             <div className={`absolute inset-0 transition-opacity duration-1000 ${ready ? "opacity-100" : "opacity-0"}`}>
               <HeroHouse3D
                 active={active}
+                experience={experience}
                 compact={compact}
                 reducedMotion={reducedMotion}
-                selected={selected}
-                hovered={hovered}
-                onHover={setHovered}
-                onSelect={setSelected}
-                zoom={ZOOM_STEPS[zoomIndex]}
-                showMarkers={!compact}
-                shift={wide ? 0.25 : 0}
+                selected={auth ? null : selected}
+                hovered={auth ? null : hovered}
+                onHover={auth ? () => {} : setHovered}
+                onSelect={auth ? () => {} : setSelected}
+                zoom={auth ? experience === "login" ? 1.38 : 1.48 : ZOOM_STEPS[zoomIndex]}
+                showMarkers={!auth && !compact}
+                shift={auth ? 0 : wide ? 0.25 : 0}
                 onReady={() => {
                   performance.mark?.("hero-3d-ready");
                   setReady(true);
@@ -169,13 +170,13 @@ function HouseStage() {
         )}
 
         {/* Keeps the headline legible when the house moves under it. */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-[50%] bg-gradient-to-r from-[var(--l-bg)] via-[rgb(var(--l-bg-rgb)/0.82)] to-transparent lg:block" aria-hidden="true" />
+        {!auth && <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-[50%] bg-gradient-to-r from-[var(--l-bg)] via-[rgb(var(--l-bg-rgb)/0.82)] to-transparent lg:block" aria-hidden="true" />}
 
-        <p className="l-in-fade pointer-events-none absolute right-3 top-2 text-xs text-[var(--l-faint)] md:right-6 md:top-4 lg:top-[88px]" style={{ animationDelay: "1.2s" }}>
+        {!auth && <p className="l-in-fade pointer-events-none absolute right-3 top-2 text-xs text-[var(--l-faint)] md:right-6 md:top-4 lg:top-[88px]" style={{ animationDelay: "1.2s" }}>
           Casa demonstrativa · ilustração do produto
-        </p>
+        </p>}
 
-        {ready && (
+        {!auth && ready && (
           <div className="absolute bottom-3 right-3 flex gap-1.5 md:bottom-6 md:right-6" role="toolbar" aria-label="Controles da visualização">
             <button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--l-line-strong)] bg-[rgb(var(--l-bg-rgb)/0.7)] text-[var(--l-muted)] backdrop-blur hover:text-[var(--l-text)] disabled:opacity-40" aria-label="Aproximar" disabled={zoomIndex === ZOOM_STEPS.length - 1} onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}>
               <Plus className="h-4 w-4" aria-hidden="true" />
@@ -193,7 +194,7 @@ function HouseStage() {
         )}
 
         {/* Light mode or failure: say why there is no live scene, offer 3D. */}
-        {!live && webgl && (
+        {!auth && !live && webgl && (
           <div className="absolute right-3 top-8 flex items-center gap-2 md:right-6 md:top-10 lg:top-[112px]" role="status">
             <span className="hidden text-xs text-[var(--l-faint)] sm:inline">
               {failed ? "Não foi possível carregar o 3D." : "Modo leve"}
@@ -208,7 +209,7 @@ function HouseStage() {
       </div>
 
       {/* Touch and keyboard friendly room picker; on desktop the markers live in the scene. */}
-      {(compact || !live) && (
+      {!auth && (compact || !live) && (
         <div className={`l-container mt-3 ${live ? "md:hidden" : "lg:absolute lg:bottom-8 lg:right-0 lg:mt-0 lg:w-[56%] lg:max-w-none"}`}>
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] lg:flex-wrap lg:justify-center" role="group" aria-label="Escolha um ambiente">
             {DEMO_ROOMS.map((item) => (
@@ -226,7 +227,7 @@ function HouseStage() {
         </div>
       )}
 
-        <div aria-live="polite" className={`pointer-events-none mt-3 px-5 md:absolute md:left-6 md:mt-0 md:w-auto md:px-0 lg:left-auto ${live ? "md:bottom-6 lg:right-[170px]" : "md:bottom-24 lg:bottom-28 lg:right-10"}`}>
+        {!auth && <div aria-live="polite" className={`pointer-events-none mt-3 px-5 md:absolute md:left-6 md:mt-0 md:w-auto md:px-0 lg:left-auto ${live ? "md:bottom-6 lg:right-[170px]" : "md:bottom-24 lg:bottom-28 lg:right-10"}`}>
         {room && (
           <div key={room.id} className="l-in pointer-events-auto rounded-2xl md:max-w-[320px] border border-[rgb(var(--l-accent-rgb)/0.35)] bg-[rgb(var(--l-bg-rgb)/0.86)] p-4 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)] backdrop-blur-md" style={{ animationDuration: "0.45s" }}>
             <div className="flex items-start justify-between gap-3">
@@ -242,14 +243,14 @@ function HouseStage() {
             <p className="mt-3 border-t border-[var(--l-line)] pt-2.5 text-[13px] text-[var(--l-faint)]">Demonstração sem dados de consumo. Na sua conta, os valores vêm dos seus cadastros e medições.</p>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
 
 export function HeroSection() {
   return (
-    <section aria-labelledby="hero-title" className="l-hero-bg relative isolate overflow-hidden pt-16 md:pt-[72px]">
+    <section aria-labelledby="hero-title" className="l-hero-bg relative overflow-hidden pt-16 md:pt-[72px]">
       <div>
         <div className="l-container relative z-10 grid lg:pointer-events-none lg:min-h-[calc(min(100svh,960px)-72px)] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:items-center">
           <div className="pb-6 pt-10 md:pt-16 lg:pointer-events-auto lg:py-20 lg:pr-4">
@@ -285,9 +286,7 @@ export function HeroSection() {
       </div>
 
       {/* The house bleeds past the container on desktop. */}
-      <div className="relative h-[min(64vh,500px)] sm:h-[540px] lg:absolute lg:bottom-0 lg:right-0 lg:top-0 lg:h-auto lg:w-full">
-        <HouseStage />
-      </div>
+      <div data-house-slot="landing" className="relative h-[min(64vh,500px)] sm:h-[540px] lg:absolute lg:bottom-0 lg:right-0 lg:top-0 lg:h-auto lg:w-full" />
       <div className="h-8 lg:hidden" aria-hidden="true" />
     </section>
   );

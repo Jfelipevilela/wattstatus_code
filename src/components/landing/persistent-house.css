@@ -1,0 +1,21 @@
+.landing.house-persistent-host {
+  position: fixed;
+  z-index: 1;
+  overflow: hidden;
+  color: var(--l-text);
+  pointer-events: auto;
+  background: transparent;
+}
+
+.house-persistent-host[data-experience="landing"] {
+  z-index: 1;
+}
+
+.house-persistent-host[data-experience="login"],
+.house-persistent-host[data-experience="signup"] {
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .house-persistent-host { transition: none !important; }
+}

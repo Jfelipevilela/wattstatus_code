@@ -10,6 +10,7 @@ import { AppsProvider } from "./hooks/useApps";
 import { UserPreferencesProvider } from "./hooks/useUserPreferences";
 import { createQueryClient } from "./lib/query-client";
 import { WattAIProvider } from "./components/wattai/WattAI";
+import { PersistentHouseHost } from "./components/landing/PersistentHouseHost";
 
 const queryClient = createQueryClient();
 const Index = lazy(() => import("./pages/Index"));
@@ -158,6 +159,7 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
                 </Suspense>
+                <PersistentHouseHost />
                 </WattAIProvider>
               </BrowserRouter>
             </TooltipProvider>

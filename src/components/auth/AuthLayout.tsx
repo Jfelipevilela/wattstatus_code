@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import Logo from "@/components/logo_wattstatus_icon.png";
@@ -14,43 +14,6 @@ interface AuthLayoutProps {
 }
 
 export function AuthLayout({ view, title, subtitle, children, footer }: AuthLayoutProps) {
-  const visualRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const visual = visualRef.current;
-    if (!visual) return;
-
-    const motion = window.matchMedia("(min-width: 1101px) and (pointer: fine) and (prefers-reduced-motion: no-preference)");
-    let frame = 0;
-
-    const reset = () => {
-      cancelAnimationFrame(frame);
-      visual.style.setProperty("--auth-shift-x", "0px");
-      visual.style.setProperty("--auth-shift-y", "0px");
-    };
-    const move = (event: PointerEvent) => {
-      if (!motion.matches) return;
-      const bounds = visual.getBoundingClientRect();
-      const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 14;
-      const y = ((event.clientY - bounds.top) / bounds.height - 0.5) * 10;
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        visual.style.setProperty("--auth-shift-x", `${x.toFixed(2)}px`);
-        visual.style.setProperty("--auth-shift-y", `${y.toFixed(2)}px`);
-      });
-    };
-
-    visual.addEventListener("pointermove", move);
-    visual.addEventListener("pointerleave", reset);
-    motion.addEventListener("change", reset);
-    return () => {
-      reset();
-      visual.removeEventListener("pointermove", move);
-      visual.removeEventListener("pointerleave", reset);
-      motion.removeEventListener("change", reset);
-    };
-  }, []);
-
   return (
     <div className="auth-experience" data-view={view}>
       <div className="auth-shell">
@@ -74,10 +37,10 @@ export function AuthLayout({ view, title, subtitle, children, footer }: AuthLayo
               <div className="auth-footer">{footer}</div>
             </div>
           </main>
-          <aside className="auth-visual" aria-hidden="true" ref={visualRef}>
+          <aside className="auth-visual" aria-hidden="true">
             <div className="auth-visual-glow" />
             <div className="auth-visual-floor" />
-            <div className="auth-visual-image"><div className="auth-visual-house" /></div>
+            <div className="auth-visual-image" data-house-slot={view}><div className="auth-visual-house" /></div>
             <div className="auth-visual-caption">
               <span>A CASA WATTSTATUS</span>
               <p>{view === "login" ? "Sua casa, vista com mais clareza." : "Conheça a energia da sua casa."}</p>

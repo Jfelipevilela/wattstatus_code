@@ -217,6 +217,7 @@ const ease = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - (1 - t) ** 3);
 type RoomState = "idle" | "hover" | "selected" | "dimmed";
 
 interface SceneProps {
+  experience: "landing" | "login" | "signup";
   selected: DemoRoomId | null;
   hovered: DemoRoomId | null;
   onHover: (id: DemoRoomId | null) => void;
@@ -233,7 +234,7 @@ interface SceneProps {
 
 // One room: textured floor, an emerald outline that fades in on hover and
 // selection, and the pointer handlers that drive the whole interaction.
-function Room({ room, state, resources, onHover, onSelect }: { room: DemoRoom; state: RoomState; resources: Resources; onHover: SceneProps["onHover"]; onSelect: SceneProps["onSelect"] }) {
+function Room({ room, state, resources, onHover, onSelect, interactive }: { room: DemoRoom; state: RoomState; resources: Resources; onHover: SceneProps["onHover"]; onSelect: SceneProps["onSelect"]; interactive: boolean }) {
   const { floor, edge } = useMemo(() => {
     const source: Texture = room.floor === "wood" ? resources.textures.wood : resources.textures.tile;
     const metres = room.floor === "wood" ? WOOD_TILE_METRES : TILE_METRES;
@@ -272,19 +273,19 @@ function Room({ room, state, resources, onHover, onSelect }: { room: DemoRoom; s
         geometry={resources.geometries.box}
         material={floor}
         receiveShadow
-        onPointerOver={(event: ThreeEvent<PointerEvent>) => {
+        onPointerOver={interactive ? (event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
           onHover(room.id);
           document.body.style.cursor = "pointer";
-        }}
-        onPointerOut={() => {
+        } : undefined}
+        onPointerOut={interactive ? () => {
           onHover(null);
           document.body.style.cursor = "";
-        }}
-        onClick={(event: ThreeEvent<MouseEvent>) => {
+        } : undefined}
+        onClick={interactive ? (event: ThreeEvent<MouseEvent>) => {
           event.stopPropagation();
           onSelect(room.id);
-        }}
+        } : undefined}
       />
       <Boxes boxes={lines} material={edge} geometry={resources.geometries.box} />
     </>
@@ -378,7 +379,7 @@ function RoomLights({ selected, compact, reducedMotion, start }: { selected: Dem
       const light = refs.current[index];
       if (!light) return;
       const level = !selected ? 6.5 : room.id === selected ? 13 : 4;
-      light.intensity += (level * intro - light.intensity) * Math.min(1, delta * 5);
+      light.intensity += (level * intro - light.intensity) * (reducedMotion ? 1 : Math.min(1, delta * 5));
     });
   });
   return (
@@ -422,11 +423,13 @@ function Trees({ resources, shadows }: { resources: Resources; shadows: boolean 
 }
 
 // Moves the orbit target and distance toward the selected room.
-function CameraRig({ selected, zoom, reducedMotion, controls, base, compact }: { selected: DemoRoomId | null; zoom: number; reducedMotion: boolean; controls: React.RefObject<OrbitControlsImpl>; base: number; compact: boolean }) {
+function CameraRig({ selected, zoom, reducedMotion, controls, base, compact, experience }: { selected: DemoRoomId | null; zoom: number; reducedMotion: boolean; controls: React.RefObject<OrbitControlsImpl>; base: number; compact: boolean; experience: SceneProps["experience"] }) {
   const camera = useThree((s) => s.camera);
   const invalidate = useThree((s) => s.invalidate);
   const goal = useMemo(() => new Vector3(), []);
   const dir = useMemo(() => new Vector3(), []);
+  const authPosition = useMemo(() => new Vector3(13, 12.5, 15).normalize(), []);
+  const previousExperience = useRef(experience);
   useEffect(() => invalidate(), [selected, zoom, invalidate]);
   useFrame((_, delta) => {
     const ctl = controls.current;
@@ -439,8 +442,19 @@ function CameraRig({ selected, zoom, reducedMotion, controls, base, compact }: {
     } else goal.set(0.2, 0.6, 0.5);
     // Phones keep the whole house in frame; only the target shifts.
     const distance = base * zoom * (room && !compact ? 0.76 : 1);
-    const k = reducedMotion ? 1 : Math.min(1, delta * 2.8);
+    // Fit the house immediately when entering the narrower auth slot; then
+    // keep the normal slow interpolation between login and signup presets.
+    const enteringAuth = previousExperience.current !== experience && experience !== "landing";
+    previousExperience.current = experience;
+    const k = reducedMotion || enteringAuth ? 1 : Math.min(1, delta * 2.8);
     ctl.target.lerp(goal, k);
+    if (experience !== "landing") {
+      dir.copy(authPosition).multiplyScalar(distance).add(ctl.target);
+      camera.position.lerp(dir, k);
+      ctl.update();
+      if (camera.position.distanceTo(dir) > 0.01 || ctl.target.distanceTo(goal) > 0.005) invalidate();
+      return;
+    }
     dir.subVectors(camera.position, ctl.target);
     const current = dir.length();
     const next = current + (distance - current) * k;
@@ -453,14 +467,23 @@ function CameraRig({ selected, zoom, reducedMotion, controls, base, compact }: {
 
 // On wide screens the canvas spans the whole hero; shift the projection so
 // the house sits in the right-hand 60% without clipping at a hard edge.
-function FrameOffset({ shift }: { shift: number }) {
+function FrameOffset({ shift, reducedMotion }: { shift: number; reducedMotion: boolean }) {
   const camera = useThree((s) => s.camera) as PerspectiveCamera;
   const size = useThree((s) => s.size);
+  const invalidate = useThree((s) => s.invalidate);
+  const current = useRef(shift);
   useLayoutEffect(() => {
-    if (shift) camera.setViewOffset(size.width, size.height, -size.width * shift, 0, size.width, size.height);
+    if (current.current) camera.setViewOffset(size.width, size.height, -size.width * current.current, 0, size.width, size.height);
     else camera.clearViewOffset();
     return () => camera.clearViewOffset();
-  }, [camera, size.width, size.height, shift]);
+  }, [camera, size.width, size.height]);
+  useFrame((_, delta) => {
+    if (Math.abs(current.current - shift) < 0.0005) return;
+    current.current = reducedMotion || shift === 0 ? shift : current.current + (shift - current.current) * Math.min(1, delta * 3);
+    if (current.current) camera.setViewOffset(size.width, size.height, -size.width * current.current, 0, size.width, size.height);
+    else camera.clearViewOffset();
+    invalidate();
+  });
   return null;
 }
 
@@ -476,7 +499,7 @@ function Parallax({ children, reducedMotion }: { children: React.ReactNode; redu
   return <group ref={ref}>{children}</group>;
 }
 
-function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, zoom, showMarkers, shift, shadowsReady }: SceneProps) {
+function Scene({ experience, selected, hovered, onHover, onSelect, compact, reducedMotion, zoom, showMarkers, shift, shadowsReady }: SceneProps) {
   const resources = useSceneResources();
   const { geometries: g, materials: m } = resources;
   const controls = useRef<OrbitControlsImpl>(null);
@@ -499,7 +522,7 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
         makeDefault
         enablePan={false}
         enableZoom={false}
-        enableRotate={!compact}
+        enableRotate={experience === "landing" && !compact}
         enableDamping
         dampingFactor={0.08}
         rotateSpeed={0.45}
@@ -508,8 +531,8 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
         minAzimuthAngle={0.2}
         maxAzimuthAngle={1.05}
       />
-      <FrameOffset shift={shift} />
-      <CameraRig selected={selected} zoom={zoom} reducedMotion={reducedMotion} controls={controls} base={base} compact={compact} />
+      <FrameOffset shift={shift} reducedMotion={reducedMotion} />
+      <CameraRig selected={selected} zoom={zoom} reducedMotion={reducedMotion} controls={controls} base={base} compact={compact} experience={experience} />
       <Parallax reducedMotion={reducedMotion}>
         <group position={[-CX, 0, -CZ]}>
           <directionalLight
@@ -545,7 +568,7 @@ function Scene({ selected, hovered, onHover, onSelect, compact, reducedMotion, z
           {shadowsReady && <ContactShadows position={[CX, 0.004, CZ + 0.6]} scale={[HOUSE_SIZE.w + 3, HOUSE_SIZE.d + 4]} far={2.5} blur={2.6} opacity={0.55} resolution={512} frames={1} color="#020806" />}
 
           {DEMO_ROOMS.map((room) => (
-            <Room key={room.id} room={room} resources={resources} onHover={onHover} onSelect={onSelect} state={roomState(room.id)} />
+            <Room key={room.id} room={room} resources={resources} onHover={onHover} onSelect={onSelect} state={roomState(room.id)} interactive={experience === "landing"} />
           ))}
 
           <Boxes boxes={EXTERIOR} material={m.wall} geometry={g.box} castShadow={shadows} receiveShadow />
