@@ -22,7 +22,6 @@ audit-before.json
 /TODO.md
 
 # Relatórios e documentação de implementação ficam somente nesta máquina.
-/docs/**/*.md
 *.md
 !README.md
 !AGENTS.md
@@ -31,7 +30,10 @@ ENERGY_CALCULATION_LOGIC.md
 DEVICE_CATALOG_SOURCES.md
 DEVICE_CATALOG_MULTISOURCE_REVIEW.md
 DEVICE_CATALOG_EXPANSION.md
+ADICIONAR_APARELHO_REDESIGN.md
 
+# Ignorar todos os Markdown de docs, inclusive README, AGENTS e SKILL.
+/docs/**/*.md
 
 # Editor directories and files
 .vscode/*
