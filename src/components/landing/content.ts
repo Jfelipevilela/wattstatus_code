@@ -3,8 +3,8 @@
 
 export const NAV_LINKS = [
   { href: "#recursos", label: "Recursos" },
+  { href: "#visualizacao-3d", label: "Plataforma" },
   { href: "#wattstatus-ai", label: "WattStatus AI" },
-  { href: "#visualizacao-3d", label: "Visualização 3D" },
   { href: "#como-funciona", label: "Como funciona" },
 ] as const;
 

@@ -109,7 +109,7 @@ export function AIExperience() {
   );
 
   return (
-    <section ref={section} id="wattstatus-ai" aria-labelledby="ai-title" className="l-ai relative scroll-mt-20 overflow-hidden py-20 md:py-24">
+    <section ref={section} id="wattstatus-ai" aria-labelledby="ai-title" className="l-ai relative scroll-mt-20 overflow-hidden pb-20 pt-14 md:pb-24 md:pt-16">
       <div className="l-container-wide relative grid grid-cols-[minmax(0,1fr)] gap-12 xl:grid-cols-[minmax(0,0.34fr)_minmax(0,0.66fr)] xl:gap-14">
         {/* Editorial layer */}
         <div className="xl:pt-8">
@@ -119,7 +119,7 @@ export function AIExperience() {
             WattStatus AI · Energy Intelligence Lab
           </p>
           <h2 id="ai-title" className="l-h2 mt-6 max-w-[22ch] xl:max-w-none xl:!text-[clamp(2.2rem,1.1rem+1.9vw,3.3rem)]">
-            Não é apenas uma resposta. É uma nova forma de <span className="l-gradient-text">entender sua energia.</span>
+            Não é apenas uma resposta. É uma nova forma de <span className="l-accent-text">entender sua energia.</span>
           </h2>
           <p className="l-lead mt-5">
             O WattStatus AI relaciona informações do seu imóvel, considera a qualidade dos dados e ajuda a investigar mudanças no consumo — transformando análises em explicações e possibilidades de economia.

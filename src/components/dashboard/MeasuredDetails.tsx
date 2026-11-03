@@ -21,7 +21,7 @@ export function MeasuredDetails({ measured, imported }: Props) {
       {measured && (
         <SectionCard
           title="Consumo medido por dia"
-          description="Diferença entre leituras acumuladas do SmartThings. Dias sem barra não têm duas leituras."
+          description="Energia registrada em intervalos pelo SmartThings. Dias sem barra não têm registros disponíveis."
           className={imported.length === 0 ? "lg:col-span-2" : undefined}
         >
           <ChartContainer
@@ -54,6 +54,7 @@ export function MeasuredDetails({ measured, imported }: Props) {
               ` · ${measured.longGaps} com mais de 2 h sem leitura (o total é real, a distribuição dentro da lacuna é desconhecida)`}
             .
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">Última leitura: {new Date(measured.lastReadingAt).toLocaleString("pt-BR")}.</p>
         </SectionCard>
       )}
       {imported.length > 0 && (

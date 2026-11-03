@@ -132,3 +132,5 @@ Execute verificações proporcionais à mudança, conforme os scripts atuais:
 
 Ao concluir, resuma o resultado, as verificações executadas e limitações materiais.
 Não faça commit, push ou deploy apenas por instalar ou ativar uma skill.
+
+Evidências de testes (capturas, vídeos, traces e relatórios temporários) ficam em artifacts/ ou tmp/, sem versionamento. Assets utilizados pelo site continuam em public/ ou src/assets/. Os arquivos Markdown de docs ficam somente locais, conforme orientação do responsável.

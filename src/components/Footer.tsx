@@ -124,12 +124,6 @@ const Footer = () => {
               >
                 Termos
               </Link>
-              <Link
-                to="/suporte"
-                className="text-energy-300 dark:text-energy-400 hover:text-energy-50 dark:hover:text-energy-100 transition-colors"
-              >
-                Suporte
-              </Link>
             </div>
           </div>
         </div>

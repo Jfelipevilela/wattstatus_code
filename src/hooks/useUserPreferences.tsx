@@ -9,6 +9,7 @@ export type UserPreferences = {
   historicalData: Array<{ month: string; consumption: number; cost: number }>;
   tariffState?: string;
   tariffValue?: number;
+  onboarding?: { status: "in_progress" | "later" | "complete"; step: number };
 };
 
 const DEFAULT_PREFERENCES: UserPreferences = {

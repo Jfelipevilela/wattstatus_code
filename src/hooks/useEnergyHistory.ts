@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { apiRequest } from "@/lib/api";
 import { expandIntervals } from "@/lib/energy-compact";
@@ -32,7 +32,6 @@ export const useEnergyHistory = (start: Date, end: Date, applianceId?: string) =
     enabled: Boolean(user),
     // Readings arrive at most every few minutes.
     staleTime: 60_000,
-    placeholderData: keepPreviousData,
     queryFn: ({ signal }) => {
       // Columns: about 6x smaller than plain JSON for a month of readings.
       const params = new URLSearchParams({ start: startIso, end: endIso, format: "columns" });
@@ -43,7 +42,7 @@ export const useEnergyHistory = (start: Date, end: Date, applianceId?: string) =
   });
   const failed = query.isError && !query.isFetching;
   return {
-    // The previous period stays visible while a new one loads; a failed period shows no readings.
+    // Never show another period's readings under the current period label.
     intervals: !user || failed ? EMPTY : query.data ?? EMPTY,
     loading: Boolean(user) && query.isFetching,
     error: failed ? (query.error instanceof Error ? query.error.message : "Falha ao consultar medições") : null,

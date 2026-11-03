@@ -14,7 +14,8 @@ interface AuthContextValue {
     name: string,
     email: string,
     password: string,
-    confirmPassword: string
+    confirmPassword: string,
+    acceptTerms: boolean
   ) => Promise<void>;
   logout: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
@@ -139,8 +140,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
   const login = (email: string, password: string) => signIn("/api/auth/login", { email, password });
-  const register = (name: string, email: string, password: string, confirmPassword: string) =>
-    signIn("/api/auth/register", { name, email, password, confirmPassword, acceptTerms: true });
+  const register = (name: string, email: string, password: string, confirmPassword: string, acceptTerms: boolean) =>
+    signIn("/api/auth/register", { name, email, password, confirmPassword, acceptTerms });
   const logout = async () => {
     activeActions.current++;
     const { controller, version } = beginRequest();

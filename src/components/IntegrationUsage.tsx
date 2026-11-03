@@ -52,7 +52,7 @@ export default function IntegrationUsage({
   const { token, user } = useAuth();
   const analytics = useQuery({
     queryKey: ["integration-analytics", user?.id],
-    enabled: Boolean(user),
+    enabled: Boolean(user && appliances.some((item) => item.integrationDeviceId)),
     retry: false,
     // Polls only while there is something to update (and, by default, only
     // while the tab is visible); an account without integrations asks once.
@@ -66,7 +66,7 @@ export default function IntegrationUsage({
   });
   const usage = useQuery({
     queryKey: ["integration-usage", user?.id],
-    enabled: Boolean(user),
+    enabled: Boolean(user && appliances.some((item) => item.integrationDeviceId)),
     retry: false,
     refetchInterval: (query) => (query.state.data?.usage.length ? 30000 : false),
     queryFn: () =>

@@ -132,8 +132,7 @@ function PlanSimulator() {
 export function FeatureShowcase() {
   const head = useReveal<HTMLDivElement>();
   return (
-    <section id="recursos" aria-labelledby="recursos-title" className="relative scroll-mt-20 py-20 md:py-28">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[600px] bg-[radial-gradient(50%_60%_at_15%_0%,rgb(var(--l-forest-rgb)/0.35),transparent)]" aria-hidden="true" />
+    <section id="recursos" aria-labelledby="recursos-title" className="relative scroll-mt-20 pb-12 pt-12 md:pb-12 md:pt-16">
       <div className="l-container relative">
         <div ref={head.ref} data-shown={head.shown} className="l-reveal grid gap-6 md:grid-cols-[1fr_0.8fr] md:items-end">
           <div>
@@ -143,7 +142,7 @@ export function FeatureShowcase() {
           <p className="l-lead">Descubra como seus aparelhos influenciam o consumo, organize sua casa e transforme informações em decisões melhores.</p>
         </div>
 
-        <ul className="mt-10 grid gap-4 md:grid-cols-12 md:gap-5">
+        <ul className="mt-10 grid gap-3 md:grid-cols-12 md:gap-4">
           <Card id="3d" index={0} className="md:col-span-12 lg:col-span-7">
             <Hierarchy />
           </Card>

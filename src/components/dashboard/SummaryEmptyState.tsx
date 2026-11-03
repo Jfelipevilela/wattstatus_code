@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { BarChart3, PlugZap, Plus, Zap } from "lucide-react";
+import { BarChart3, Plus, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const steps = [
@@ -7,11 +7,6 @@ const steps = [
     icon: Plus,
     title: "Cadastre um aparelho",
     body: "Potência e horas de uso bastam para a primeira estimativa.",
-  },
-  {
-    icon: PlugZap,
-    title: "Conecte um medidor",
-    body: "Com SmartThings, leituras reais aparecem ao lado da estimativa.",
   },
   {
     icon: BarChart3,
@@ -38,19 +33,20 @@ export function SummaryEmptyState() {
           Seu resumo começa no primeiro aparelho
         </h2>
         <p className="mt-2 text-muted-foreground">
-          Ainda não há dados para resumir. Em dois minutos você vê quanto sua
-          casa consome e quanto isso custa.
+          Ainda não há dados para resumir. Cadastre um aparelho para ver uma
+          estimativa do consumo e do custo mensal.
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Button asChild className="h-11">
             <Link to="/aparelhos?adicionar=1">Cadastrar primeiro aparelho</Link>
           </Button>
           <Button asChild variant="outline" className="h-11">
-            <Link to="/apps">Conectar integração</Link>
+            <Link to="/imoveis">Revisar meu imóvel</Link>
           </Button>
         </div>
       </div>
-      <ol className="relative mt-8 grid gap-4 sm:grid-cols-3">
+      <p className="relative mt-5 text-sm text-muted-foreground">Integrações são opcionais. Você pode começar com uma estimativa e conectar um medidor depois.</p>
+      <ol className="relative mt-8 grid gap-4 sm:grid-cols-2">
         {steps.map(({ icon: Icon, title, body }, index) => (
           <li key={title} className="rounded-2xl border bg-background/60 p-4">
             <div className="flex items-center gap-2 text-sm font-medium">

@@ -177,10 +177,12 @@ function living(w: number, d: number): Assembly[] {
   const sx = (w - sofaW) / 2;
   const sz = m + 0.05;
   const sofaParts: Primitive[] = [
-    rect("base", sx, sz, sofaW, 0.88, 0.26, "dark", 0.10),
+    // Keep the upholstered shells nested, without coplanar side faces that
+    // flicker when the isometric camera moves.
+    rect("base", sx + 0.03, sz + 0.03, sofaW - 0.06, 0.85, 0.26, "dark", 0.10),
     rect("cushion-left", sx + 0.15, sz + 0.25, (sofaW - 0.32) / 2, 0.56, 0.16, "fabric", 0.37),
     rect("cushion-right", sx + 0.17 + (sofaW - 0.32) / 2, sz + 0.25, (sofaW - 0.32) / 2, 0.56, 0.16, "fabric", 0.37),
-    rect("back", sx, sz, sofaW, 0.18, 0.78, "fabric", 0.12),
+    rect("back", sx + 0.01, sz, sofaW - 0.02, 0.18, 0.78, "fabric", 0.12),
     rect("arm-left", sx, sz + 0.12, 0.16, 0.75, 0.57, "fabric", 0.20),
     rect("arm-right", sx + sofaW - 0.16, sz + 0.12, 0.16, 0.75, 0.57, "fabric", 0.20),
     rect("feet-left", sx + 0.10, sz + 0.12, 0.08, 0.08, 0.10, "wood"),
@@ -337,7 +339,7 @@ function office(w: number, d: number): Assembly[] {
     floor("office-chair", [
       round("seat", w / 2 - 0.26, m + 1.00, 0.52, 0.52, 0.12, "fabric", 0.44),
       rect("back", w / 2 - 0.24, m + 1.43, 0.48, 0.10, 0.56, "dark", 0.47),
-      round("pedestal", w / 2 - 0.045, m + 1.22, 0.09, 0.09, 0.45, "metal"),
+      round("pedestal", w / 2 - 0.045, m + 1.22, 0.09, 0.09, 0.45, "metal", 0.03),
       round("base", w / 2 - 0.32, m + 1.08, 0.64, 0.34, 0.055, "dark"),
     ], SNUG),
     floor("office-bookshelf", [

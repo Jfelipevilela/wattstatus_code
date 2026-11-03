@@ -71,15 +71,17 @@ export function PlatformPreview() {
 
   const active = VIEWS.find((item) => item.id === view)!;
   return (
-    <section id="visualizacao-3d" aria-labelledby="experiencia-title" className="l-band relative scroll-mt-20 overflow-hidden py-20 md:py-28">
+    <section id="visualizacao-3d" aria-labelledby="experiencia-title" className="relative scroll-mt-20 overflow-hidden pb-16 pt-12 md:pb-20 md:pt-12">
       <div className="l-container-wide relative">
-        <div ref={head.ref} data-shown={head.shown} className="l-reveal mx-auto max-w-3xl text-center">
-          <div className="flex justify-center"><Chapter index={3} label="Compreensão" /></div>
-          <h2 id="experiencia-title" className="l-h2 mt-6">Tecnologia que transforma dados em decisões.</h2>
-          <p className="l-lead mx-auto mt-5 max-w-2xl">Telas reais do WattStatus. Explore as áreas principais da plataforma.</p>
+        <div ref={head.ref} data-shown={head.shown} className="l-reveal grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,0.45fr)] md:items-end">
+          <div>
+            <Chapter index={3} label="Compreensão" />
+            <h2 id="experiencia-title" className="l-h2 mt-6 max-w-[18ch]">Tecnologia que transforma dados em decisões.</h2>
+          </div>
+          <p className="l-lead max-w-md">Telas reais do WattStatus. Explore as áreas principais da plataforma.</p>
         </div>
 
-        <div role="tablist" aria-label="Telas da plataforma" className="mx-auto mt-8 flex max-w-full gap-1.5 overflow-x-auto rounded-2xl border border-[var(--l-line)] bg-[rgb(var(--l-bg-rgb)/0.55)] p-1.5 [scrollbar-width:none] md:w-fit">
+        <div role="tablist" aria-label="Telas da plataforma" className="mt-9 flex max-w-full gap-1.5 overflow-x-auto rounded-2xl border border-[var(--l-line)] bg-[rgb(var(--l-surface-rgb)/0.55)] p-1.5 [scrollbar-width:none] md:w-fit">
           {VIEWS.map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -107,7 +109,7 @@ export function PlatformPreview() {
           onMouseLeave={() => (hovering.current = false)}
         >
           <figure className="min-w-0">
-            <div className="rounded-[22px] border border-[var(--l-line-strong)] bg-[var(--l-surface)] p-2 shadow-[0_60px_140px_-50px_rgb(0_0_0/0.95),0_0_100px_-40px_rgb(var(--l-accent-rgb)/0.3)] md:p-2.5">
+            <div className="rounded-[18px] border border-[var(--l-line-strong)] bg-[var(--l-surface)] p-2 shadow-[0_32px_80px_-40px_rgb(0_0_0/0.85)] md:p-2.5">
               <div className="mb-2 flex items-center gap-1.5 px-2 pt-1" aria-hidden="true">
                 <span className="h-2.5 w-2.5 rounded-full bg-[rgb(var(--l-line-rgb)/0.25)]" />
                 <span className="h-2.5 w-2.5 rounded-full bg-[rgb(var(--l-line-rgb)/0.25)]" />

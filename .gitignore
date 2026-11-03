@@ -15,6 +15,18 @@ dist-ssr
 **/.env
 tmp/
 audit-before.json
+
+# Local evidence from UI tests and audits. Application assets live in public/ and src/.
+/artifacts/
+/test-results/
+/playwright-report/
+/blob-report/
+/screenshots/
+/videos/
+/traces/
+/coverage/
+/backend/coverage/
+/.ux-check.local/
 .env.*
 !.env.example
 /PROXIMA_ETAPA.md

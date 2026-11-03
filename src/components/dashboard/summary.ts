@@ -5,7 +5,7 @@ import { zonedParts } from "@/lib/timezone";
 
 export const GAP_THRESHOLD_MS = 2 * 3600000;
 
-export type DataStatus = "estimated" | "measured" | "incomplete";
+export type DataStatus = "estimated" | "measured" | "incomplete" | "stale";
 
 export interface EstimateRow {
   id?: string;
@@ -16,6 +16,7 @@ export interface EstimateRow {
 
 export interface MeasuredSummary {
   consumptionKWh: number;
+  lastReadingAt: string;
   knownCost: number;
   costComplete: boolean;
   intervals: number;
@@ -39,17 +40,18 @@ export function summarizeMonth(
   if (current.length === 0) return null;
   const totals = summarizeMeasured(current);
   const byAppliance = new Map<string, number>();
+  const knownApplianceIds = new Set(appliances.map((item) => item.id));
   const daily = new Map<number, number>();
   for (const row of current) {
-    const name =
-      appliances.find((item) => item.id === row.applianceId)?.name ||
-      `Dispositivo ${row.deviceId}`;
-    byAppliance.set(name, (byAppliance.get(name) ?? 0) + row.consumptionKWh);
+    if (row.applianceId && knownApplianceIds.has(row.applianceId)) {
+      byAppliance.set(row.applianceId, (byAppliance.get(row.applianceId) ?? 0) + row.consumptionKWh);
+    }
     const day = zonedParts(new Date(row.endAt), timeZone).day;
     daily.set(day, (daily.get(day) ?? 0) + row.consumptionKWh);
   }
   return {
     ...totals,
+    lastReadingAt: current.reduce((latest, row) => row.endAt > latest ? row.endAt : latest, current[0].endAt),
     intervals: current.length,
     longGaps: current.filter(
       (row) =>

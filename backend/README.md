@@ -10,7 +10,7 @@ Node.js/Express API com JWT, calculos de consumo e integracoes plugaveis. Agora 
 
 ## Endpoints principais
 - `GET /health` e `/api/...` (via Function `api`) — mesmas rotas do Express original.
-- `POST /api/auth/register` - cria usuário, exige termos aceitos e grava sessão; responde com cookie HTTP-only.
+- `POST /api/auth/register` - cria usuário para homologação local, exige confirmação explícita do aviso provisório e grava sessão; responde com cookie HTTP-only. Textos jurídicos e registro versionado do aceite ainda bloqueiam publicação.
 - `POST /api/auth/login` - autentica e grava cookie HTTP-only; não retorna JWT no corpo.
 - `GET /api/auth/me` - dados do usuário autenticado por cookie ou Bearer.
 - `POST /api/calculations/appliance` - calcula consumo/custo usando a mesma formula do front; retorna status normal/warning/critical.

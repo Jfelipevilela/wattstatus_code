@@ -21,7 +21,7 @@ function Step({ step, index }: { step: (typeof STEPS)[number]; index: number }) 
 export function HowItWorks() {
   const head = useReveal<HTMLDivElement>();
   return (
-    <section id="como-funciona" aria-labelledby="como-title" className="relative scroll-mt-20 py-20 md:py-24">
+    <section id="como-funciona" aria-labelledby="como-title" className="relative scroll-mt-20 pb-24 pt-20 md:pb-28 md:pt-28">
       <div className="l-container">
         <div ref={head.ref} data-shown={head.shown} className="l-reveal flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>

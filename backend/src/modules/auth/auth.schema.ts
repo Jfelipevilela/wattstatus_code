@@ -15,7 +15,9 @@ export const registerSchema = z
     password: z.string().min(15, "Use uma senha com pelo menos 15 caracteres.").max(128)
       .refine((value) => !commonPasswords.has(value.toLowerCase()), "Escolha uma senha menos comum."),
     confirmPassword: z.string().max(128),
-    acceptTerms: z.literal(true, { errorMap: () => ({ message: "Aceite os termos de uso." }) }),
+    // Transitional local-homologation acknowledgement. Publication requires
+    // approved terms, a versioned record and revised signup copy.
+    acceptTerms: z.literal(true, { errorMap: () => ({ message: "Confirme o aviso de homologação." }) }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Senhas n\u00e3o coincidem",
