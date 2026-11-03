@@ -706,7 +706,7 @@ function SizeSync() {
       const height = wrapper.clientHeight;
       if (!width || !height) return;
       const { top, left } = wrapper.getBoundingClientRect();
-      setSize(width, height, top, left);
+      setSize(width, height, false, top, left);
       const state = get();
       // The store can already hold the final size while the renderer kept an
       // intermediate one, so always push it to the renderer as well.
@@ -765,7 +765,9 @@ export default function HeroHouse3D({ active, onReady, onLost, ...props }: HeroH
         gl.toneMappingExposure = 1.05;
         gl.domElement.addEventListener("webglcontextlost", (event) => {
           event.preventDefault();
-          onLost?.();
+          // Three also loses the context when an unmounted canvas is disposed.
+          // Only a loss in the live scene should trigger the failure fallback.
+          if (gl.domElement.isConnected) onLost?.();
         }, { once: true });
       }}
       onPointerMissed={() => props.onSelect(null)}

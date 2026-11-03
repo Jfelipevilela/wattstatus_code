@@ -1,0 +1,283 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "lighting",
+      "name": "Iluminação",
+      "icon": "lightbulb"
+    },
+    {
+      "id": "climate",
+      "name": "Climatização",
+      "icon": "snowflake"
+    },
+    {
+      "id": "kitchen",
+      "name": "Cozinha",
+      "icon": "cooking"
+    },
+    {
+      "id": "laundry",
+      "name": "Lavanderia",
+      "icon": "washing"
+    },
+    {
+      "id": "entertainment",
+      "name": "Entretenimento",
+      "icon": "tv"
+    },
+    {
+      "id": "computing",
+      "name": "Informática",
+      "icon": "laptop"
+    }
+  ],
+  "devices": [
+    {
+      "id": "generic-led-9w",
+      "category": "lighting",
+      "subcategory": "Lâmpada",
+      "displayName": "Lâmpada LED 9 W",
+      "brand": "Genérico",
+      "aliases": ["luz", "iluminacao"],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 9
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Perfil ilustrativo WattStatus; conferir etiqueta e ajustar.",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-fan-80w",
+      "category": "climate",
+      "subcategory": "Ventilador",
+      "displayName": "Ventilador 80 W",
+      "brand": "Genérico",
+      "aliases": [],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 80
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Perfil ilustrativo WattStatus; conferir etiqueta e ajustar.",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-ac-1400w",
+      "category": "climate",
+      "subcategory": "Ar-condicionado",
+      "displayName": "Ar-condicionado — perfil genérico",
+      "brand": "Genérico",
+      "aliases": ["ar condicionado"],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 1400
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Perfil ilustrativo WattStatus; conferir etiqueta e ajustar.",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-microwave-1200w",
+      "category": "kitchen",
+      "subcategory": "Micro-ondas",
+      "displayName": "Micro-ondas — perfil genérico",
+      "brand": "Genérico",
+      "aliases": ["microondas"],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 1200
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Perfil ilustrativo WattStatus; conferir etiqueta e ajustar.",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-washer-1000w",
+      "category": "laundry",
+      "subcategory": "Lavadora",
+      "displayName": "Máquina de lavar — perfil genérico por tempo",
+      "brand": "Genérico",
+      "aliases": ["lavanderia", "lavar roupas"],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 1000
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Perfil ilustrativo WattStatus; conferir etiqueta e ajustar.",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-tv-40",
+      "category": "entertainment",
+      "subcategory": "TV",
+      "displayName": "TV LED 40\" — perfil genérico",
+      "brand": "Genérico",
+      "aliases": ["televisao", "televisor"],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 80
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Perfil ilustrativo WattStatus; conferir etiqueta e ajustar.",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-tv-50",
+      "category": "entertainment",
+      "subcategory": "TV",
+      "displayName": "TV LED 50\" — perfil genérico",
+      "brand": "Genérico",
+      "aliases": ["televisao", "televisor"],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 120
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Perfil ilustrativo WattStatus; conferir etiqueta e ajustar.",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-laptop-65w",
+      "category": "computing",
+      "subcategory": "Notebook",
+      "displayName": "Notebook 65 W",
+      "brand": "Genérico",
+      "aliases": ["laptop", "computador portatil"],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 65
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Perfil ilustrativo WattStatus; conferir etiqueta e ajustar.",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-computer-300w",
+      "category": "computing",
+      "subcategory": "Computador",
+      "displayName": "Computador 300 W",
+      "brand": "Genérico",
+      "aliases": ["pc", "desktop"],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 300
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Perfil ilustrativo WattStatus; conferir etiqueta e ajustar.",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "pbe-samsung-rf29db9950qdaz",
+      "category": "kitchen",
+      "subcategory": "Geladeira",
+      "brand": "Samsung",
+      "model": "RF29DB9950QDAZ",
+      "displayName": "Geladeira Samsung RF29DB9950QDAZ",
+      "aliases": [],
+      "energyProfile": {
+        "method": "REFERENCE_PERIOD",
+        "value": 40.5,
+        "unit": "kWh",
+        "period": "MONTH",
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "PBE",
+        "reference": "https://registro.inmetro.gov.br/consulta/detalhe.aspx?NumeroRegistro=011133%2F2025&pag=1",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": true,
+      "isGeneric": false
+    },
+    {
+      "id": "pbe-newmaq-10kg-127v",
+      "category": "laundry",
+      "subcategory": "Lavadora",
+      "brand": "Newmaq",
+      "model": "LAVADORA 10,0KG 127V 60HZ",
+      "displayName": "Lavadora Newmaq 10 kg — 127 V",
+      "aliases": [],
+      "energyProfile": {
+        "method": "PER_CYCLE",
+        "energyPerCycleKwh": 0.143
+      },
+      "source": {
+        "type": "PBE",
+        "reference": "https://registro.inmetro.gov.br/consulta/detalhe.aspx?NumeroRegistro=007648%2F2023&pag=1",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": true,
+      "isGeneric": false
+    },
+    {
+      "id": "pbe-newmaq-10kg-220v",
+      "category": "laundry",
+      "subcategory": "Lavadora",
+      "brand": "Newmaq",
+      "model": "LAVADORA 10,0KG 220V 60HZ",
+      "displayName": "Lavadora Newmaq 10 kg — 220 V",
+      "aliases": [],
+      "energyProfile": {
+        "method": "PER_CYCLE",
+        "energyPerCycleKwh": 0.098
+      },
+      "source": {
+        "type": "PBE",
+        "reference": "https://registro.inmetro.gov.br/consulta/detalhe.aspx?NumeroRegistro=007648%2F2023&pag=1",
+        "verifiedAt": "2026-10-23T00:00:00.000Z"
+      },
+      "region": "BR",
+      "verified": true,
+      "isGeneric": false
+    }
+  ]
+}

@@ -23,4 +23,3 @@ export const nodeLook = (id: NodeId, scenario: Scenario, stage: number, focus: N
   if (stage === 3) return isEvidence ? "active" : "dim";
   return inContext ? "active" : stage === 1 ? "dim" : "idle";
 };
-

@@ -275,6 +275,7 @@ export default function Dashboard() {
           <span className="font-semibold">Visão geral</span>
         </header>
         <main className="container mx-auto min-w-0 max-w-7xl space-y-8 px-4 py-6 sm:py-8">
+          {appliances.some(item => item.monitoringOnly) && <p role="status" className="text-sm text-muted-foreground">Os totais estimados excluem aparelhos configurados apenas para medição real. Consulte os intervalos medidos; eles não são somados às estimativas.</p>}
           {preferences.onboarding && preferences.onboarding.status !== "complete" && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
               <span>Continue sua configuração para ver a primeira estimativa de energia.</span>
@@ -320,11 +321,10 @@ export default function Dashboard() {
               ) : estimate.rows.length === 0 ? (
                 <section className="rounded-3xl border border-dashed bg-card p-8 text-center sm:p-12">
                   <h2 className="text-xl font-semibold">
-                    Nenhum aparelho em <span className="capitalize">{periodLabel}</span>
+                    Sem estimativa disponível em <span className="capitalize">{periodLabel}</span>
                   </h2>
                   <p className="mx-auto mt-2 max-w-md text-muted-foreground">
-                    Seus aparelhos foram cadastrados depois deste mês. Escolha
-                    outro período ou adicione um aparelho com data anterior.
+                    Não há aparelhos com estimativa para este período. Confira a data do cadastro e o método escolhido; aparelhos apenas monitorados aparecem nas medições abaixo.
                   </p>
                   <Button variant="outline" className="mt-6 h-11" onClick={resetPeriod}>
                     Voltar ao mês atual
@@ -398,8 +398,7 @@ export default function Dashboard() {
                   <div className="mt-3 space-y-2 text-muted-foreground">
                     <p>
                       <strong className="text-foreground">Estimado:</strong>{" "}
-                      potência × horas de uso × dias de uso (limitados aos{" "}
-                      {estimate.days} dias do mês), com a tarifa cadastrada.
+                      referência de período, consumo por ciclo ou potência/standby × uso, conforme o perfil salvo, com a tarifa cadastrada.
                       Aparelhos cadastrados até o fim do período entram nos
                       meses seguintes.
                     </p>

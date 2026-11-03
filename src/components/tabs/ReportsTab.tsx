@@ -35,9 +35,13 @@ import {
   formatDuration,
   formatNumber,
   getMonthlyEstimate,
+  applianceSourceLabel,
+  STATE_TARIFFS,
 } from "@/lib/energy";
 import { applianceVisual } from "@/components/appliances/applianceVisual";
 import { cn } from "@/lib/utils";
+import { normalizeEnergyProfile, referenceLabel } from "../../../backend/src/modules/catalog/reference";
+import { cyclesInMonth } from "../../../backend/src/modules/calculations/usage";
 
 interface ReportsTabProps {
   appliances: Appliance[];
@@ -45,6 +49,10 @@ interface ReportsTabProps {
 
 interface ReportRow {
   id: string;
+  calculationMethod: string;
+  source: string;
+  cyclesPerMonth: number;
+  reference: string;
   applianceName: string;
   power: number;
   usageHours: number;
@@ -99,14 +107,19 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
     .filter((appliance) => availableIds.has(appliance.id) && (selectedAppliance === "all" || appliance.id === selectedAppliance))
     .map((appliance) => {
       const { consumption, cost } = estimateAppliance(appliance, daysInMonth);
+      const tariffValue = appliance.tariffValue ?? (consumption > 0 ? cost / consumption : STATE_TARIFFS[appliance.tariff] || 0);
       return {
         id: appliance.id,
+        source: applianceSourceLabel(appliance),
+        calculationMethod: appliance.energyProfile ? normalizeEnergyProfile(appliance.energyProfile).method : "POWER_TIME",
+        reference: appliance.energyProfile ? referenceLabel(appliance.energyProfile) : "",
+        cyclesPerMonth: cyclesInMonth(appliance.cyclesPerMonth, appliance.cyclesPerWeek),
         applianceName: appliance.name,
         power: appliance.power,
         usageHours: appliance.usageHours,
         daysInMonth: Math.min(appliance.days, daysInMonth),
         tariff: appliance.tariff,
-        tariffValue: consumption > 0 ? cost / consumption : 0,
+        tariffValue,
         consumption,
         cost,
       };
@@ -166,7 +179,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
         issuedAt: new Date().toLocaleString("pt-BR"),
         estimated: rows.map((item) => ({
           applianceName: item.applianceName,
-          source: "Estimativa",
+          source: `Estimativa · ${item.source}${item.reference ? ` · ${item.reference}` : ""}`,
           tariffValue: item.tariffValue,
           consumptionKWh: item.consumption,
           cost: item.cost,
@@ -226,6 +239,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
 
   return (
     <div className="space-y-8">
+      {appliances.some(item => item.monitoringOnly) && <p role="status" className="text-sm text-muted-foreground">Aparelhos sem estimativa mensal aparecem somente na seção de medições quando há intervalos disponíveis. Ausência de dados não significa consumo zero.</p>}
       <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="inline-flex items-center gap-1.5 rounded-full bg-energy-green-light/10 px-3 py-1 text-xs font-medium text-energy-700 dark:text-energy-400">
@@ -350,8 +364,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
               <dt className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-white/50">
                 <Calculator className="h-3.5 w-3.5" aria-hidden="true" /> Estimado
               </dt>
-              <dd className="mt-2 text-4xl font-bold tabular-nums">{formatCurrency(totalCost)}</dd>
-              <dd className="text-sm text-white/60">{formatNumber(totalConsumption, 1)} kWh</dd>
+              <dd className="mt-2 text-4xl font-bold tabular-nums">{rows.length ? formatCurrency(totalCost) : "—"}</dd>
+              <dd className="text-sm text-white/60">{rows.length ? `${formatNumber(totalConsumption, 1)} kWh` : "Sem estimativa"}</dd>
             </div>
             <div>
               <dt className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-white/50">
@@ -386,8 +400,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
             </div>
             <div>
               <dt className="text-xs uppercase tracking-widest text-white/50">Média diária</dt>
-              <dd className="mt-2 text-4xl font-bold tabular-nums">{formatCurrency(totalCost / daysInMonth)}</dd>
-              <dd className="text-sm text-white/60">{formatNumber(totalConsumption / daysInMonth, 1)} kWh/dia</dd>
+              <dd className="mt-2 text-4xl font-bold tabular-nums">{rows.length ? formatCurrency(totalCost / daysInMonth) : "—"}</dd>
+              <dd className="text-sm text-white/60">{rows.length ? `${formatNumber(totalConsumption / daysInMonth, 1)} kWh/dia` : "Sem estimativa"}</dd>
             </div>
           </dl>
           {measured.loading && expectsMeasured && (
@@ -415,7 +429,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
           </h2>
           {rows.length === 0 ? (
             <p className="mt-4 rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-              Nenhum aparelho cadastrado até o fim de {periodLabel}. Escolha outro mês ou aparelho.
+              Nenhuma estimativa disponível em {periodLabel}. Confira o período, o aparelho e o método de monitoramento.
             </p>
           ) : (
             <div className="mt-4 overflow-x-auto">
@@ -449,7 +463,10 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ appliances: allAppliances }) =>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
-                          {formatNumber(item.power, 0)} W · {formatDuration(item.usageHours)}/dia · {item.daysInMonth} dias
+                          {item.calculationMethod === "PER_CYCLE" ? `${formatNumber(item.cyclesPerMonth)} ciclos/mês (frequência mensal equivalente)`
+                            : item.calculationMethod === "REFERENCE_PERIOD" ? item.reference
+                            : `${formatNumber(item.power, 0)} W · ${formatDuration(item.usageHours)}/dia · ${item.daysInMonth} dias`}
+                          <span className="block text-xs">Estimativa · {item.source}</span>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {item.tariff} · {formatCurrency(item.tariffValue)}

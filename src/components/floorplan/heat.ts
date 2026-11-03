@@ -6,7 +6,7 @@ export type HeatMetric = "estimated" | "measured";
 export const metricValue = (bucket: EnergyBucket | undefined, metric: HeatMetric): number | null => {
   if (!bucket) return null;
   if (metric === "measured") return bucket.measuredIntervals > 0 ? bucket.measuredKWh : null;
-  return bucket.applianceCount > 0 ? bucket.estimatedKWh : null;
+  return (bucket.estimatedApplianceCount ?? bucket.applianceCount) > 0 ? bucket.estimatedKWh : null;
 };
 
 // Rooms without data return null and are drawn hatched, never as "low".

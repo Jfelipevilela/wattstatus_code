@@ -145,10 +145,11 @@ export function FloorPlan2D({
           ? value === null
             ? heat === "measured"
               ? "sem medição"
-              : "sem aparelhos"
+              : "sem estimativa"
             : `${formatNumber(value, 1)} kWh`
           : bucket && bucket.applianceCount > 0
-            ? `${formatNumber(bucket.estimatedKWh, 0)} kWh · ${appliances.length} ap.`
+            ? (bucket.estimatedApplianceCount ?? bucket.applianceCount) > 0
+              ? `${formatNumber(bucket.estimatedKWh, 0)} kWh · ${appliances.length} ap.` : "sem estimativa"
             : "vazio";
         return (
           <g

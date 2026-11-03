@@ -118,7 +118,7 @@ export const applianceRate = (appliance: ApplianceRecord, property?: PropertyRec
   if (typeof appliance.tariffValue === "number" && appliance.tariffValue > 0) {
     return { rate: appliance.tariffValue, origin: "aparelho" as const };
   }
-  if (appliance.monthlyConsumption > 0 && appliance.monthlyCost > 0) {
+  if (appliance.monthlyConsumption !== null && appliance.monthlyCost !== null && appliance.monthlyConsumption > 0 && appliance.monthlyCost > 0) {
     return { rate: appliance.monthlyCost / appliance.monthlyConsumption, origin: "aparelho" as const };
   }
   const state = STATE_TARIFFS[appliance.tariff];

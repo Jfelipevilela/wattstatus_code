@@ -76,6 +76,29 @@ const appliance = (overrides) => ({
   ...overrides,
 });
 
+test('merge: catálogo preserva snapshot e cálculo ao cadastrar e mover entre imóveis', async () => {
+  const { catalogSeed } = require('../dist/modules/catalog/catalog.seed');
+  const repo = createRepo();
+  repo.getCatalogDevice = async id => structuredClone(catalogSeed.devices.find(row => row.id === id) || null);
+  const properties = new PropertyService(repo);
+  const [primary] = await properties.list('a');
+  const secondary = await properties.create('a', { name: 'Segundo imóvel', type: 'house', timezone: 'America/Sao_Paulo' });
+  const service = new ApplianceService(repo, properties);
+  const row = await service.create('a', { name: 'Geladeira do catálogo', power: 0, usageHours: 0, days: 30,
+    tariff: 'SP', tariffValue: 1, catalogDeviceId: 'pbe-samsung-rf29db9950qdaz', propertyId: primary.id });
+  assert.equal(row.propertyId, primary.id);
+  assert.equal(row.monthlyConsumption, 40.5);
+  assert.equal(estimateMonthly(row, 28).consumption, 40.5);
+  const moved = await service.update('a', row.id, { propertyId: secondary.id });
+  assert.equal(moved.propertyId, secondary.id);
+  assert.deepEqual(moved.energyProfile, row.energyProfile);
+  assert.equal(moved.monthlyConsumption, 40.5);
+  assert.equal((await service.list('a'))[0].origin, 'CATALOG');
+  assert.equal(estimateMonthly({ ...moved, energyProfile: { method: 'REFERENCE_PERIOD', value: 402, unit: 'kWh', period: 'YEAR' } }, 28).consumption, 33.5);
+  assert.equal(estimateMonthly({ ...moved, energyProfile: { method: 'PER_CYCLE', energyPerCycleKwh: .42 }, cyclesPerMonth: 10 }, 28).consumption, 4.2);
+  await assert.rejects(service.update('b', row.id, { propertyId: secondary.id }), /encontrado/);
+});
+
 test('default property is created once and adopts legacy appliances', async () => {
   const repo = createRepo();
   repo.data.appliances.push(appliance({ id: 'legacy-1' }), appliance({ id: 'legacy-2', propertyId: null }));

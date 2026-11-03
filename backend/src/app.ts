@@ -21,9 +21,12 @@ import { env } from "./config/env";
 import { createReportRouter } from "./modules/reports/report.routes";
 import { PropertyService } from "./modules/properties/properties.service";
 import { createPropertyRouter } from "./modules/properties/properties.routes";
-import { createHttpLimiter, protectMutation } from "./middleware/security";
+import { createHttpLimiter, createRequestLimiter, protectMutation } from "./middleware/security";
 import { createAIRouter } from "./modules/ai/ai.routes";
 import { MongoAIStore } from "./modules/ai/ai.store";
+import { createCatalogRouter } from "./modules/catalog/catalog.routes";
+import { SimulationService } from "./modules/simulations/simulations.service";
+import { createSimulationRouter } from "./modules/simulations/simulations.routes";
 
 export interface AppDependencies {
   db: MongoDatabase;
@@ -63,12 +66,14 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
   });
 
   app.use("/api/auth", createAuthRouter(authService, db));
+  app.use("/api/device-catalog", authenticate, createRequestLimiter(db, "catalog", 90, 60000), createCatalogRouter(db));
   app.use(
     "/api/appliances",
     authenticate,
     createApplianceRouter(applianceService)
   );
   app.use("/api/calculations", authenticate, createCalculationRouter());
+  app.use("/api/simulations", authenticate, createSimulationRouter(new SimulationService(db)));
   app.use("/api/properties", authenticate, createPropertyRouter(propertyService));
   app.use(
     "/api/integrations",

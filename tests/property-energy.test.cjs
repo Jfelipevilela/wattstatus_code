@@ -17,7 +17,7 @@ const load = (relative) => {
   const parentRequire = loaded.require.bind(loaded);
   loaded.require = (request) => {
     if (request.startsWith('@/')) return load(`${request.slice(2)}.ts`);
-    if (request.startsWith('./')) {
+    if (request.startsWith('./') || request.startsWith('../')) {
       const target = path.relative(path.resolve(__dirname, '../src'), path.resolve(path.dirname(filename), request));
       return load(`${target}.ts`);
     }
@@ -83,6 +83,14 @@ test('heat map treats missing data as unknown, not as low', () => {
   assert.equal(scale(10), 1);
   assert.equal(scale(5), 0.5);
   assert.equal(scale(null), null);
+});
+
+test('monitoramento real sem estimativa não é pintado como consumo baixo', () => {
+  const result=aggregatePropertyEnergy('casa','casa',[appliance('meter',{monitoringOnly:true,propertyId:'casa',roomId:'sala',monthlyConsumption:null,monthlyCost:null})],rooms,[],30);
+  assert.equal(result.total.applianceCount,1);
+  assert.equal(result.total.estimatedApplianceCount,0);
+  assert.equal(metricValue(result.byRoom.get('sala'),'estimated'),null);
+  assert.equal(metricValue(result.byRoom.get('sala'),'measured'),null);
 });
 
 test('room type is guessed from free-form names', () => {

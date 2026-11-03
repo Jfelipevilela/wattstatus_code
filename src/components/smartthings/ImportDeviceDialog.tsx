@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,8 @@ import { STATE_TARIFFS, formatCurrency, formatNumber } from "@/lib/energy";
 import { deviceKind, type DeviceKind, type OverviewItem } from "./types";
 import { useProperties, usePropertyLayout } from "@/hooks/useProperties";
 import { normalizeSearch } from "@/lib/energy";
+import RegionalTariffHint from "@/components/RegionalTariffHint";
+import { useRegionalTariffDefault } from "@/hooks/useRegionalTariff";
 
 // Starting points only; the user confirms or edits them before importing.
 const TYPICAL_POWER_W: Record<DeviceKind, number | null> = {
@@ -56,8 +58,9 @@ export function ImportDeviceDialog({ item, defaultState, defaultTariff, importin
   const [power, setPower] = useState("");
   const [hours, setHours] = useState("");
   const [days, setDays] = useState("30");
-  const [state, setState] = useState("SP");
+  const [state, setState] = useState("");
   const [tariff, setTariff] = useState("");
+  const tariffTouched = useRef(false);
   const { properties, primary } = useProperties();
   const [propertyId, setPropertyId] = useState("");
   const [roomId, setRoomId] = useState("");
@@ -77,15 +80,20 @@ export function ImportDeviceDialog({ item, defaultState, defaultTariff, importin
 
   useEffect(() => {
     if (!item) return;
+    tariffTouched.current = false;
     const kind = deviceKind(item.device.capabilities);
-    const initialState = defaultState && STATE_TARIFFS[defaultState] ? defaultState : "SP";
+    const initialState = defaultState && STATE_TARIFFS[defaultState] ? defaultState : "";
     setName(item.device.name);
     setPower(String(reported && reported > 0 ? Math.round(reported) : TYPICAL_POWER_W[kind] ?? ""));
     setHours(String(TYPICAL_HOURS[kind]));
     setDays("30");
     setState(initialState);
-    setTariff(String(defaultTariff ?? STATE_TARIFFS[initialState]));
+    setTariff(String(defaultTariff ?? STATE_TARIFFS[initialState] ?? ""));
   }, [item, reported, defaultState, defaultTariff]);
+  const applyRegionalTariff = (suggestion: { state: string; rate: number }) => {
+    tariffTouched.current = true; setState(suggestion.state); setTariff(String(suggestion.rate));
+  };
+  useRegionalTariffDefault(applyRegionalTariff, () => Boolean(item) && !tariffTouched.current, item?.device.id);
 
   const values = {
     power: Number(power),
@@ -94,6 +102,7 @@ export function ImportDeviceDialog({ item, defaultState, defaultTariff, importin
     tariffValue: Number(tariff.replace(",", ".")),
   };
   const valid =
+    Boolean(STATE_TARIFFS[state]) &&
     name.trim().length >= 2 &&
     values.power > 0 &&
     values.usageHours > 0 &&
@@ -217,9 +226,11 @@ export function ImportDeviceDialog({ item, defaultState, defaultTariff, importin
               value={state}
               onChange={(e) => {
                 setState(e.target.value);
-                setTariff(String(STATE_TARIFFS[e.target.value]));
+                tariffTouched.current = true;
+                setTariff(String(STATE_TARIFFS[e.target.value] ?? ""));
               }}
             >
+              <option value="">Selecione seu estado</option>
               {Object.keys(STATE_TARIFFS).map((uf) => (
                 <option key={uf} value={uf}>
                   {uf}
@@ -234,8 +245,9 @@ export function ImportDeviceDialog({ item, defaultState, defaultTariff, importin
               className="h-11"
               inputMode="decimal"
               value={tariff}
-              onChange={(e) => setTariff(e.target.value.replace(/[^\d.,]/g, ""))}
+              onChange={(e) => { tariffTouched.current = true; setTariff(e.target.value.replace(/[^\d.,]/g, "")); }}
             />
+            <RegionalTariffHint onApply={applyRegionalTariff} />
           </div>
         </form>
         <div className="rounded-xl bg-muted/50 p-3 text-sm">

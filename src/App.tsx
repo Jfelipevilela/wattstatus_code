@@ -23,6 +23,7 @@ const Onboarding = lazy(() => import("./pages/Onboarding"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Calculadora = lazy(() => import("./pages/Calculator"));
+const EnvironmentSimulation = lazy(() => import("./pages/EnvironmentSimulation"));
 const Appliances = lazy(() => import("./pages/Appliances"));
 const Anomalies = lazy(() => import("./pages/Anomalies"));
 const Tips = lazy(() => import("./pages/Tips"));
@@ -109,6 +110,7 @@ const App = () => (
                       </ProtectedRoute>
                     }
                   />
+                  <Route path="/simulacao-ambiente" element={<ProtectedRoute><EnvironmentSimulation /></ProtectedRoute>} />
                   <Route
                     path="/anomalias"
                     element={

@@ -44,7 +44,7 @@ export function PersistentHouseHost() {
     let cancelIdle = () => {};
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => {
-        if ("requestIdleCallback" in window) {
+        if (typeof window.requestIdleCallback === "function") {
           const idle = window.requestIdleCallback(() => setStageMounted(true), { timeout: 900 });
           cancelIdle = () => window.cancelIdleCallback(idle);
         } else {

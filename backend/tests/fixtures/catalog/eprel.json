@@ -1,0 +1,17 @@
+[
+  {
+    "id": "synthetic-eprel-fridge",
+    "category": "kitchen",
+    "subcategory": "Geladeira",
+    "brand": "SYNTHETIC",
+    "model": "TEST-ONLY-EU",
+    "displayName": "Fixture sintética EPREL, não é produto real",
+    "region": "EU",
+    "aliases": [],
+    "variant": { "voltage": 230 },
+    "energyProfile": { "method": "REFERENCE_PERIOD", "value": "204 kWh/ano" },
+    "source": { "type": "EPREL", "reference": "https://eprel.ec.europa.eu/", "verifiedAt": "2026-10-25T00:00:00.000Z" },
+    "verified": true,
+    "isGeneric": false
+  }
+]

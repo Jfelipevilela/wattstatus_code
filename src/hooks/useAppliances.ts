@@ -3,16 +3,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { applianceKeys, refreshAfterApplianceChange } from "@/lib/cache-keys";
 import { useAuth } from "./useAuth";
+import type { ApplianceCatalogFields } from "../../backend/src/types";
 
-export interface Appliance {
+export interface Appliance extends ApplianceCatalogFields {
   id: string;
   name: string;
   power: number;
   status: "critical" | "normal" | "warning";
   usageHours: number;
   days: number;
-  monthlyCost: number;
-  monthlyConsumption: number;
+  monthlyCost: number | null;
+  monthlyConsumption: number | null;
   tariff: string;
   tariffValue?: number;
   createdAt: string;
@@ -23,7 +24,7 @@ export interface Appliance {
   roomId?: string | null;
 }
 
-export interface ApplianceInput {
+export interface ApplianceInput extends Pick<ApplianceCatalogFields, "catalogDeviceId" | "energyProfile" | "cyclesPerMonth" | "cyclesPerWeek" | "standbyEnabled" | "monitoringOnly" | "estimateByUsage" | "room"> {
   name: string;
   power: number;
   usageHours: number;
@@ -70,7 +71,7 @@ export const useAppliances = () => {
     };
     const data = await apiRequest<{ appliance: Appliance }>(
       "/api/appliances",
-      { method: "POST", body: JSON.stringify(payload) },
+      { method: "POST", body: JSON.stringify(payload), headers: { "X-Wattstatus-User": user.id } },
       token || undefined
     );
     write((prev) => [data.appliance, ...prev.filter((appliance) => appliance.id !== data.appliance.id)]);
@@ -81,7 +82,7 @@ export const useAppliances = () => {
     if (!user) throw new Error("Não autenticado");
     const data = await apiRequest<{ appliance: Appliance }>(
       `/api/appliances/${id}`,
-      { method: "PUT", body: JSON.stringify(input) },
+      { method: "PUT", body: JSON.stringify(input), headers: { "X-Wattstatus-User": user.id } },
       token || undefined
     );
     write((prev) => prev.map((appliance) => (appliance.id === id ? data.appliance : appliance)));
@@ -90,7 +91,7 @@ export const useAppliances = () => {
 
   const deleteAppliance = async (id: string) => {
     if (!user) throw new Error("Não autenticado");
-    await apiRequest(`/api/appliances/${id}`, { method: "DELETE" }, token || undefined);
+    await apiRequest(`/api/appliances/${id}`, { method: "DELETE", headers: { "X-Wattstatus-User": user.id } }, token || undefined);
     write((prev) => prev.filter((appliance) => appliance.id !== id));
   };
 

@@ -17,6 +17,7 @@ const load = (relative) => {
   loaded.require = (request) => {
     if (request.startsWith('@/')) return load(`${request.slice(2)}.ts`);
     if (request.startsWith('./')) return load(`${path.join(path.dirname(relative), request)}.ts`);
+    if (request.startsWith('../')) return load(`${path.relative(path.resolve(__dirname, '../src'), path.resolve(path.dirname(filename), request))}.ts`);
     return parentRequire(request);
   };
   loaded._compile(compiled, filename);

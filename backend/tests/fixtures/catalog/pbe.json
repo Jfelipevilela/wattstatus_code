@@ -1,0 +1,9 @@
+[
+  {
+    "id": "pbe-samsung-rf29db9950qdaz", "category": "kitchen", "subcategory": "Geladeira",
+    "brand": "Samsung", "model": "RF29DB9950QDAZ", "displayName": "Geladeira Samsung RF29DB9950QDAZ", "aliases": [],
+    "energyProfile": { "method": "REFERENCE_PERIOD", "value": 40.5, "unit": "kWh", "period": "MONTH", "measurementType": "ESTIMATED" },
+    "source": { "type": "PBE", "registrationNumber": "011133/2025", "reference": "https://registro.inmetro.gov.br/consulta/detalhe.aspx?NumeroRegistro=011133%2F2025&pag=1", "verifiedAt": "2026-10-23T00:00:00.000Z" },
+    "region": "BR", "verified": true, "isGeneric": false
+  }
+]
