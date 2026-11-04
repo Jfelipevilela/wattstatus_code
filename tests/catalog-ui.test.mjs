@@ -94,7 +94,7 @@ test("renderização do fluxo mantém biblioteca padrão, alternativas e formul�
     assert.match(cycle, /Um ciclo é uma execução completa/);
     assert.doesNotMatch(cycle, /Horas por dia|Dias por mês/);
     assert.match(cycle, /0,143/);
-    assert.match(render.manual(), /Simular sem salvar/);
+    assert.match(render.manual(), /Recalcular estimativa/);
     const monthlyProfile = { method: "REFERENCE_MONTHLY", referenceMonthlyKwh: 40.5 };
     const monthlyCard = render.card(monthlyProfile);
     assert.match(monthlyCard, /Biblioteca de aparelhos/);

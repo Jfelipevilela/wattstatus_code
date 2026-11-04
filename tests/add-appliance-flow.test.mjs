@@ -56,7 +56,7 @@ test("voltar à biblioteca preserva rascunho por modelo e só confirma depois de
   const originalFetch=globalThis.fetch;
   const device={id:'fixture-led',category:'lighting',subcategory:'Lâmpada',displayName:'Lâmpada de teste 9 W',aliases:[],region:'BR',verified:false,isGeneric:true,
     energyProfile:{method:'POWER_TIME',typicalPowerW:9},source:{type:'WATTSTATUS_GENERIC',reference:'https://example.invalid',verifiedAt:'2026-10-26T00:00:00Z'}};
-  globalThis.fetch=async(url)=>new Response(JSON.stringify(String(url).includes('/auth/csrf')?{csrfToken:'synthetic-csrf'}:String(url).includes('/calculations/')?{result:{consumptionKWh:1.62,cost:1.3284}}:
+  globalThis.fetch=async(url)=>new Response(JSON.stringify(String(url).includes('/auth/csrf')?{csrfToken:'synthetic-csrf'}:String(url).endsWith('/api/properties')?{properties:[{id:'fixture-home',name:'Casa de teste',isPrimary:true}]}:String(url).endsWith('/rooms')?{rooms:[{id:'fixture-room',name:'Sala de teste'}]}:String(url).includes('/calculations/')?{result:{consumptionKWh:1.62,cost:1.3284}}:
     {devices:[device],total:1,totalPages:1,page:1,limit:12,categories:[{id:'lighting',name:'Iluminação',icon:'lightbulb'}],brands:[],subcategories:['Lâmpada']}),{status:200,headers:{'Content-Type':'application/json'}});
   const container={children:[]};
   const root=renderer.createContainer(container,0,null,false,null,'',()=>{},null);
@@ -80,12 +80,18 @@ test("voltar à biblioteca preserva rascunho por modelo e só confirma depois de
     await form.props.onSubmit({preventDefault(){}});renderer.flushPassiveEffects();
     assert.match(textOf(container),/Falha sintética de gravação/);
     assert.equal(input('name').props.value,'Lâmpada da sala');assert.equal(created.length,0);assert.equal(closed,0);
+    const placementSelect=(suffix)=>all().find(n=>n.type==='select'&&n.props.id?.endsWith('-'+suffix));
+    await waitFor(()=>textOf(container).includes('Casa de teste'));
+    placementSelect('property').props.onChange({target:{value:'fixture-home'}});renderer.flushPassiveEffects();
+    await waitFor(()=>textOf(container).includes('Sala de teste'));
+    placementSelect('room-id').props.onChange({target:{value:'fixture-room'}});renderer.flushPassiveEffects();
     saveFailure=false;
-    const first=form.props.onSubmit({preventDefault(){}});
-    const duplicate=form.props.onSubmit({preventDefault(){}});
+    const currentForm=all().find(n=>n.type==='form'&&n.props.onSubmit&&nodes(n).includes(input('name')));
+    const first=currentForm.props.onSubmit({preventDefault(){}});
+    const duplicate=currentForm.props.onSubmit({preventDefault(){}});
     await Promise.all([first,duplicate]);renderer.flushPassiveEffects();
     await waitFor(()=>textOf(container).includes('Aparelho adicionado'));
-    assert.equal(created.length,1);assert.equal(created[0].name,'Lâmpada da sala');assert.equal(attempts,2,'Duplo clique não gera segunda gravação');
+    assert.equal(created.length,1);assert.equal(created[0].name,'Lâmpada da sala');assert.equal(created[0].propertyId,'fixture-home');assert.equal(created[0].roomId,'fixture-room');assert.equal(attempts,2,'Duplo clique não gera segunda gravação');
     assert.equal(closed,0,'Sucesso é visível antes de concluir');
     button('Concluir').props.onClick();assert.equal(closed,1);
   }finally{renderer.updateContainer(null,root,null);renderer.flushPassiveEffects();globalThis.fetch=originalFetch;await server.close();}
