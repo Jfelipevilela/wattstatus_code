@@ -138,9 +138,9 @@ export default function AppliancesTab({
     <Dialog open={adding} onOpenChange={changeAdding}>
       <DialogContent className="appliance-flow-theme appliance-flow-dialog sm:max-w-6xl" onPointerDownOutside={event => event.preventDefault()} onOpenAutoFocus={event => { const input = document.querySelector<HTMLInputElement>('.appliance-flow-dialog input[type="search"]'); if (input && window.matchMedia("(min-width: 768px)").matches) { event.preventDefault(); input.focus(); } }}>
         <DialogHeader className="appliance-dialog-heading">
-          <p className="appliance-brand"><PlugZap className="size-4" aria-hidden="true" />WattStatus<span>Configuração de aparelhos</span></p>
-          <DialogTitle className="text-2xl font-semibold">Adicionar aparelho</DialogTitle>
-          <DialogDescription>Encontre o modelo, ajuste seu uso e acompanhe o consumo.</DialogDescription>
+          <span className="appliance-heading-icon" aria-hidden="true"><PlugZap className="size-5" /></span>
+          <DialogTitle className="text-2xl font-bold tracking-tight">Adicionar aparelho</DialogTitle>
+          <DialogDescription className="text-sm">Escolha o modelo, ajuste o uso da sua casa e veja o custo antes de salvar.</DialogDescription>
         </DialogHeader>
         <AddApplianceFlow key={user?.id ?? "no-session"} onAddAppliance={onAddAppliance} onSaved={() => setAdding(false)} onBusyChange={setBusy} onDirtyChange={setDirty} />
       </DialogContent>
@@ -157,7 +157,8 @@ export default function AppliancesTab({
 
   if (appliances.length === 0)
     return (
-      <>
+      // Same parent element as the list view: saving the first appliance must not remount the dialog.
+      <div className="space-y-8">
         {addDialog}
         <section className="relative overflow-hidden rounded-[32px] border bg-card px-6 py-14 text-center shadow-sm sm:px-10">
           <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-energy-green-light/20 blur-3xl" />
@@ -179,7 +180,7 @@ export default function AppliancesTab({
             </Button>
           </div>
         </section>
-      </>
+      </div>
     );
 
   return (

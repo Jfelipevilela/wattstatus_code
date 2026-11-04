@@ -127,7 +127,7 @@ export default function SmartDeviceDiscovery({
   return (
     <section className="flex flex-col gap-4" aria-label="Dispositivos inteligentes">
       <Card className="appliance-smart-connection flex flex-col gap-4 shadow-none">
-        <Wifi className="size-6 text-primary" aria-hidden="true" />
+        <Wifi className="size-6 text-[hsl(var(--flow-accent))]" aria-hidden="true" />
         <h2 className="text-2xl font-semibold">Seus dispositivos, conectados</h2>
         <p className="text-sm text-muted-foreground">Encontre os aparelhos autorizados na sua conta Samsung SmartThings.</p>
         <p className="text-sm text-muted-foreground">
@@ -135,7 +135,7 @@ export default function SmartDeviceDiscovery({
             ? "Verificando conexão…"
             : configured
               ? "Conta conectada. Busque os dispositivos autorizados."
-              : "Conta não conectada."}
+              : "Sua conta SmartThings ainda não está conectada."}
         </p>
         <p className="text-xs text-muted-foreground">
           A conexão permite consultar dispositivos. A medição de energia depende dos recursos de cada aparelho.
@@ -149,9 +149,12 @@ export default function SmartDeviceDiscovery({
             {loading ? "Buscando dispositivos…" : "Buscar dispositivos"}
           </Button>
         ) : (
-          <Button asChild variant="outline">
-            <Link to="/integracoes/smartthings">Configurar conexão</Link>
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button asChild className="min-h-11">
+              <Link to="/integracoes/smartthings">Conectar SmartThings</Link>
+            </Button>
+            <p className="text-xs text-muted-foreground">Abre a página de integrações e fecha este cadastro. Depois de conectar, volte em Aparelhos e escolha SmartThings.</p>
+          </div>
         )}
       </Card>
       {error && <div role="alert" className="appliance-origin flex flex-col gap-3"><p className="text-sm text-destructive">{error}</p><div className="flex flex-wrap gap-3"><Button type="button" variant="outline" onClick={() => configured === null ? setRetry(value => value + 1) : void discover()} disabled={loading}>Tentar novamente</Button><Button asChild variant="link"><Link to="/integracoes/smartthings">Verificar conexão</Link></Button></div></div>}

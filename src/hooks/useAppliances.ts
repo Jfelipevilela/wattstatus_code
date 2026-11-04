@@ -37,6 +37,8 @@ export interface ApplianceInput extends Pick<ApplianceCatalogFields, "catalogDev
   createdAt?: string;
   propertyId?: string | null;
   roomId?: string | null;
+  /** Create-only: number of identical units (1–20). Never persisted. */
+  quantity?: number;
 }
 
 export { applianceKeys };
@@ -69,12 +71,14 @@ export const useAppliances = () => {
       ...input,
       createdAt: input.createdAt || new Date().toISOString(),
     };
-    const data = await apiRequest<{ appliance: Appliance }>(
+    const data = await apiRequest<{ appliance: Appliance; appliances?: Appliance[] }>(
       "/api/appliances",
       { method: "POST", body: JSON.stringify(payload), headers: { "X-Wattstatus-User": user.id } },
       token || undefined
     );
-    write((prev) => [data.appliance, ...prev.filter((appliance) => appliance.id !== data.appliance.id)]);
+    const created = Array.isArray(data.appliances) && data.appliances.length ? data.appliances : [data.appliance];
+    const ids = new Set(created.map((appliance) => appliance.id));
+    write((prev) => [...created, ...prev.filter((appliance) => !ids.has(appliance.id))]);
     return data.appliance;
   };
 

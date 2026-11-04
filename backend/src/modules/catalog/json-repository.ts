@@ -9,14 +9,14 @@ export class JsonCatalogRepository {
   async getCatalogDevice(id: string) { return structuredClone(this.rows.find(row => row.id === id && row.active !== false) || null); }
   async searchCatalog(query: CatalogQuery) {
     const search = catalogTokens(query.search || "");
-    const active = this.rows.filter(row => row.active !== false);
+    const active = this.rows.filter(row => row.active !== false && (!query.generic || row.isGeneric));
     const rows = active.filter(row => {
       const tokens = catalogTokens([row.displayName, row.category, catalogSeed.categories.find(category => category.id === row.category)?.name,
         row.subcategory, row.brand, row.model, ...row.aliases].filter(Boolean).join(" "));
       return (!query.search?.trim() || (search.length > 0 && search.every(token => tokens.some(value => value.startsWith(token))))) &&
         (!query.category || row.category === query.category) && (!query.subcategory || row.subcategory === query.subcategory) &&
         (!query.brand || row.brand === query.brand) && (!query.model || row.model === query.model) && (!query.region || row.region === query.region);
-    }).sort((a, b) => catalogPriority(a) - catalogPriority(b) || (a.displayName < b.displayName ? -1 : a.displayName > b.displayName ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    }).sort((a, b) => (query.generic ? 0 : catalogPriority(a) - catalogPriority(b)) || (a.displayName < b.displayName ? -1 : a.displayName > b.displayName ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     const facet = active.filter(row => (!query.category || row.category === query.category) && (!query.region || row.region === query.region));
     return structuredClone({ devices: rows.slice((query.page - 1) * query.limit, query.page * query.limit), total: rows.length,
       page: query.page, limit: query.limit, brands: [...new Set(facet.map(row => row.brand).filter((brand): brand is string => Boolean(brand)))].sort(),

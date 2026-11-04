@@ -278,6 +278,385 @@
       "region": "BR",
       "verified": true,
       "isGeneric": false
+    },
+    {
+      "id": "generic-shower-5500w",
+      "category": "climate",
+      "subcategory": "Chuveiro elétrico",
+      "displayName": "Chuveiro elétrico 5.500 W",
+      "aliases": [
+        "banho",
+        "chuveiro"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 5500,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-shower-7500w",
+      "category": "climate",
+      "subcategory": "Chuveiro elétrico",
+      "displayName": "Chuveiro elétrico 7.500 W",
+      "aliases": [
+        "banho",
+        "chuveiro"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 7500,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-iron-1200w",
+      "category": "laundry",
+      "subcategory": "Ferro de passar",
+      "displayName": "Ferro de passar 1.200 W",
+      "aliases": [
+        "ferro",
+        "roupa"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 1200,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-hair-dryer-1800w",
+      "category": "climate",
+      "subcategory": "Secador de cabelo",
+      "displayName": "Secador de cabelo 1.800 W",
+      "aliases": [
+        "secador"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 1800,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-air-fryer-1500w",
+      "category": "kitchen",
+      "subcategory": "Air fryer",
+      "displayName": "Air fryer 1.500 W",
+      "aliases": [
+        "fritadeira sem oleo"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 1500,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-coffee-maker-800w",
+      "category": "kitchen",
+      "subcategory": "Cafeteira",
+      "displayName": "Cafeteira elétrica 800 W",
+      "aliases": [
+        "cafe"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 800,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-oven-1800w",
+      "category": "kitchen",
+      "subcategory": "Forno elétrico",
+      "displayName": "Forno elétrico 1.800 W",
+      "aliases": [
+        "forno"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 1800,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-dishwasher-cycle",
+      "category": "kitchen",
+      "subcategory": "Lava-louças",
+      "displayName": "Lava-louças — 1,2 kWh por ciclo",
+      "aliases": [
+        "lava loucas"
+      ],
+      "energyProfile": {
+        "method": "PER_CYCLE",
+        "energyPerCycleKwh": 1.2,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-fridge-monthly",
+      "category": "kitchen",
+      "subcategory": "Geladeira",
+      "displayName": "Geladeira — 45 kWh por mês",
+      "aliases": [
+        "refrigerador"
+      ],
+      "energyProfile": {
+        "method": "REFERENCE_PERIOD",
+        "value": 45,
+        "unit": "kWh",
+        "period": "MONTH",
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-freezer-monthly",
+      "category": "kitchen",
+      "subcategory": "Freezer",
+      "displayName": "Freezer — 50 kWh por mês",
+      "aliases": [
+        "congelador"
+      ],
+      "energyProfile": {
+        "method": "REFERENCE_PERIOD",
+        "value": 50,
+        "unit": "kWh",
+        "period": "MONTH",
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-pool-pump-750w",
+      "category": "climate",
+      "subcategory": "Bomba de piscina",
+      "displayName": "Bomba de piscina 750 W",
+      "aliases": [
+        "motor piscina"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 750,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-heater-1500w",
+      "category": "climate",
+      "subcategory": "Aquecedor elétrico",
+      "displayName": "Aquecedor elétrico 1.500 W",
+      "aliases": [
+        "aquecedor ambiente"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 1500,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-fluorescent-20w",
+      "category": "lighting",
+      "subcategory": "Lâmpada",
+      "displayName": "Lâmpada fluorescente 20 W",
+      "aliases": [
+        "luz",
+        "fluorescente"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 20,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-ceiling-fan-100w",
+      "category": "climate",
+      "subcategory": "Ventilador de teto",
+      "displayName": "Ventilador de teto 100 W",
+      "aliases": [
+        "ventilador"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 100,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-router-12w",
+      "category": "computing",
+      "subcategory": "Roteador",
+      "displayName": "Roteador Wi-Fi 12 W",
+      "aliases": [
+        "wifi",
+        "wi fi",
+        "internet"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 12,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
+    },
+    {
+      "id": "generic-console-150w",
+      "category": "entertainment",
+      "subcategory": "Videogame",
+      "displayName": "Videogame 150 W",
+      "aliases": [
+        "console",
+        "video game"
+      ],
+      "energyProfile": {
+        "method": "POWER_TIME",
+        "typicalPowerW": 150,
+        "measurementType": "ESTIMATED"
+      },
+      "source": {
+        "type": "WATTSTATUS_GENERIC",
+        "reference": "Referência genérica editorial WattStatus para estimativa no Brasil; não é medição nem dado oficial. Varia com capacidade, modo e condições de uso. Confira a etiqueta; potência é de entrada durante o uso, não média de 24 h. Ajuste tempos/ciclos e consumo conforme seu aparelho.",
+        "verifiedAt": "2026-11-04T00:00:00.000Z",
+        "official": false
+      },
+      "region": "BR",
+      "verified": false,
+      "isGeneric": true
     }
   ]
 }

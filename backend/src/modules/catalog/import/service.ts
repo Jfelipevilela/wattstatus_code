@@ -8,6 +8,16 @@ export interface CatalogImportStore {
   upsertCatalogRecord(record: CatalogDevice): Promise<"inserted" | "updated" | "unchanged">;
   getCatalogDevice?(id: string): Promise<CatalogDevice | null>;
 }
+// Bounded parallelism: each record keeps its own optimistic-concurrency write, but the
+// network round trips overlap instead of running one at a time. Staged ids are unique.
+const STORE_CONCURRENCY = 16;
+async function eachLimited<T>(items: T[], worker: (item: T, index: number) => Promise<void>) {
+  let next = 0;
+  const lanes = Array.from({ length: Math.min(STORE_CONCURRENCY, items.length) }, async () => {
+    while (next < items.length) { const index = next++; await worker(items[index], index); }
+  });
+  await Promise.all(lanes);
+}
 export class CatalogImportService {
   constructor(private store?: CatalogImportStore) {}
   async run(records: unknown[], input: unknown, dryRun = true, onStaged?: (rows: CatalogDevice[]) => void) {
@@ -57,26 +67,25 @@ export class CatalogImportService {
     // Resolve stored evidence before writing any record, including conflicts across providers/batches.
     if (!report.invalid && this.store?.getCatalogDevice) {
       try {
-        for (const [index, row] of staged.entries()) {
-          const previous = await this.store.getCatalogDevice(canonicalCatalogId(row));
+        const store = this.store, lookup = store.getCatalogDevice!.bind(store);
+        await eachLimited(staged, async (row, index) => {
+          const previous = await lookup(canonicalCatalogId(row));
           const merged = previous && row.equivalence ? resolveCatalog([previous, row])[0] : row;
           staged[index] = merged;
           if (!previous) report.wouldInsert!++;
           else if (catalogFingerprint(previous) === catalogFingerprint(merged)) report.wouldRemainUnchanged!++;
           else report.wouldUpdate!++;
-        }
+        });
       } catch { report.invalid++; report.rejections.push({ row: 0, reason: "STORED_EVIDENCE_CONFLICT" }); }
     }
     report.wouldWrite = report.invalid ? 0 : staged.length;
     if (report.invalid) logger.warn("catalog.record.invalid", { importBatchId: report.importBatchId, invalidCount: report.invalid });
     if (!report.invalid) onStaged?.(staged);
-    for (const row of incoming) {
-      if (dryRun || report.invalid) { report.skipped++; continue; }
-      try {
-        report[await this.store!.upsertCatalogRecord(row)]++;
-      }
+    if (dryRun || report.invalid) report.skipped += incoming.length;
+    else await eachLimited(incoming, async row => {
+      try { report[await this.store!.upsertCatalogRecord(row)]++; }
       catch { report.failed++; }
-    }
+    });
     report.finishedAt = new Date().toISOString();
     logger.info(report.failed || report.invalid ? "catalog.import.failed" : "catalog.import.completed", report);
     return report;

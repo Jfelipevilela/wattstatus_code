@@ -58,7 +58,7 @@ export default function SimulationItemEditor({ item, onSave, onCancel }: Props) 
     <div className="flex min-w-0 flex-col gap-2">
       <Label htmlFor={`${id}-${key}`}>{label}</Label>
       <Input id={`${id}-${key}`} type="number" inputMode={bounds.step === 1 ? "numeric" : "decimal"} value={value}
-        min={bounds.min} max={bounds.max} step={bounds.step} required className="h-11"
+        min={bounds.min} max={bounds.max} step={bounds.step} required className="h-12 rounded-xl"
         aria-invalid={submitted && Boolean(errors[key])} aria-describedby={submitted && errors[key] ? `${id}-${key}-error` : undefined}
         onChange={(event) => onChange(event.target.value)} />
       {submitted && errors[key] && <p id={`${id}-${key}-error`} className="text-sm text-destructive">{errors[key]}</p>}
@@ -83,7 +83,7 @@ export default function SimulationItemEditor({ item, onSave, onCancel }: Props) 
   const measurementDate = item.measurementContext && new Date(item.measurementContext.capturedAt);
 
   return <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
-    <DialogContent className="sm:max-w-xl">
+    <DialogContent className="appliance-flow-theme sim-editor sm:max-w-xl">
       <DialogHeader>
         <DialogIcon><Pencil /></DialogIcon>
         <DialogTitle>Editar uso no cenário</DialogTitle>
@@ -97,7 +97,7 @@ export default function SimulationItemEditor({ item, onSave, onCancel }: Props) 
             setEstimateByUsage(value === "USAGE");
             if (value === "USAGE" && !power && profiles.documentedPower) setPower(String(profiles.documentedPower));
           }}>
-            <SelectTrigger id={`${id}-method`} className="h-11"><SelectValue /></SelectTrigger>
+            <SelectTrigger id={`${id}-method`} className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
             <SelectContent><SelectGroup>
               <SelectItem value="REFERENCE">Usar referência de ensaio</SelectItem>
               <SelectItem value="USAGE">Calcular pelo meu uso</SelectItem>
@@ -123,7 +123,7 @@ export default function SimulationItemEditor({ item, onSave, onCancel }: Props) 
                 if (time.trim() && Number.isFinite(numeric(time))) setTime(String(next === "MINUTES" ? numeric(time) * 60 : numeric(time) / 60));
                 setTimeUnit(next);
               }}>
-                <SelectTrigger id={`${id}-time-unit`} className="h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger id={`${id}-time-unit`} className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectGroup><SelectItem value="HOURS">Horas</SelectItem><SelectItem value="MINUTES">Minutos</SelectItem></SelectGroup></SelectContent>
               </Select>
             </div>
@@ -141,7 +141,7 @@ export default function SimulationItemEditor({ item, onSave, onCancel }: Props) 
             <div className="flex flex-col gap-2">
               <Label htmlFor={`${id}-cycle-period`}>Frequência de uso</Label>
               <Select value={cyclePeriod} onValueChange={(value) => { setCyclePeriod(value as "WEEK" | "MONTH"); setCycles(""); }}>
-                <SelectTrigger id={`${id}-cycle-period`} className="h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger id={`${id}-cycle-period`} className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectGroup><SelectItem value="WEEK">Por semana</SelectItem><SelectItem value="MONTH">Por mês</SelectItem></SelectGroup></SelectContent>
               </Select>
             </div>

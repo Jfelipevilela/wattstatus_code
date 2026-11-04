@@ -219,20 +219,21 @@ export class MongoDatabase {
   }
 
   async searchCatalog(query: CatalogQuery) {
-    const { search, category, subcategory, brand, model, region, page, limit } = query;
+    const { search, category, subcategory, brand, model, region, page, limit, generic } = query;
     const tokens = search ? catalogTokens(search) : [];
     const filter = {
       active: { $ne: false },
+      ...(generic ? { isGeneric: true } : {}),
       ...(category ? { category } : {}), ...(subcategory ? { subcategory } : {}),
       ...(brand ? { brand } : {}), ...(model ? { model } : {}), ...(region ? { region } : {}),
       // Tokens contain only [a-z0-9]: anchored prefix patterns are generated here, never accepted from a caller.
       ...(search?.trim() ? { searchTokens: { $all: tokens.length ? tokens.map(token => new RegExp(`^${token}`)) : ["__no_match__"] } } : {}),
     };
     const collection = this.db.collection<CatalogDevice>("device_catalog");
-    const facets = { active: { $ne: false }, ...(category ? { category } : {}), ...(region ? { region } : {}) };
+    const facets = { active: { $ne: false }, ...(generic ? { isGeneric: true } : {}), ...(category ? { category } : {}), ...(region ? { region } : {}) };
     const [devices, total, brands, subcategories] = await Promise.all([
       collection.find(filter, { projection: { _id: 0, searchTokens: 0, catalogPriority: 0, importFingerprint: 0 }, maxTimeMS: 3000 })
-        .sort({ catalogPriority: 1, displayName: 1, id: 1 }).skip((page - 1) * limit).limit(limit).toArray(),
+        .sort(generic ? { displayName: 1, id: 1 } : { catalogPriority: 1, displayName: 1, id: 1 }).skip((page - 1) * limit).limit(limit).toArray(),
       collection.countDocuments(filter, { maxTimeMS: 3000 }),
       collection.distinct("brand", facets, { maxTimeMS: 3000 }),
       collection.distinct("subcategory", facets, { maxTimeMS: 3000 }),

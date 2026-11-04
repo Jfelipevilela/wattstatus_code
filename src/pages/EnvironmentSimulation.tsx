@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FlaskConical, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { FlaskConical, Plus, Pencil, Trash2, Zap, ShieldCheck } from "lucide-react";
 import { AppSidebar, SidebarProvider, SidebarTrigger } from "@/components/Sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectGroup, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -114,37 +114,59 @@ function SimulationWorkspace() {
     } catch (err) { if (active(version, controller)) setError(errorText(err)); }
     finally { if (active(version, controller)) setBusy(null); }
   }
-  async function calculate() {
+  async function calculate(auto = false) {
     if (!validTariff || !ready || !scenario.items.length) return;
     tariffTouched.current = true;
     const { controller, version } = begin("calculate");
     try {
       const response = await apiRequest<SimulationCalculationResult>("/api/simulations/calculate", { method: "POST", headers: { "X-Wattstatus-User": user.id }, body: JSON.stringify(simulationPayload({ ...scenario, tariffPerKwh: tariffValue })), signal: controller.signal, skipErrorToast: true });
       if (!active(version, controller)) return;
-      setResult(response); requestAnimationFrame(() => resultRegion.current?.focus());
+      // Automatic updates announce through aria-live; only an explicit click moves focus.
+      setResult(response); if (!auto) requestAnimationFrame(() => resultRegion.current?.focus());
     } catch (err) { if (active(version, controller)) setError(errorText(err)); }
     finally { if (active(version, controller)) setBusy(null); }
   }
+  // Recalculate shortly after any change, so the total always reflects the scenario on screen.
+  // Each change invalidates the previous request (begin/invalidate abort it), and failures wait for the next change.
+  useEffect(() => {
+    if (editing || adding || busy || result || error || !ready || !validTariff || !scenario.items.length) return;
+    const timer = setTimeout(() => { void calculate(true); }, 600);
+    return () => clearTimeout(timer);
+    // calculate reads the current scenario and tariff; listing them here is what schedules the update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenario, tariffValue, validTariff, ready, editing, adding, busy, result, error]);
   const rooms = sources?.rooms.filter((room) => room.propertyId === propertyId) ?? [];
   const ownItems = sources?.appliances.filter((item) => normalizeSearch(item.name).includes(normalizeSearch(search))) ?? [];
 
-  return <div className="space-y-6">
-    <div><h1 className="text-2xl font-bold tracking-tight">Simulação por ambiente</h1>
-      <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Monte um ambiente com vários aparelhos e compare padrões de uso. Este cenário é temporário e não altera imóveis, aparelhos, preferências ou medições. Ao sair da página, ele será descartado.</p></div>
+  return <div className="appliance-flow-theme sim-workspace">
+    <div className="sim-heading"><div><h1 className="text-3xl font-semibold tracking-tight">Simulação por ambiente</h1>
+      <p className="mt-2 text-sm text-muted-foreground">Ajuste os aparelhos e descubra o custo do seu cenário.</p></div>
+      <div className="sim-temporary"><ShieldCheck className="size-4" aria-hidden="true" /><span>Temporário · não altera seus cadastros</span></div></div>
     {sourceError && <Alert variant="destructive"><AlertDescription>{sourceError} <Button size="sm" variant="outline" onClick={() => setReload((value) => value + 1)}>Recarregar fontes</Button></AlertDescription></Alert>}
     {!sources && !sourceError && <div role="status" aria-label="Carregando fontes"><Skeleton className="h-12 w-full" /><span className="sr-only">Carregando ambientes e aparelhos…</span></div>}
-    <Card><CardHeader><CardTitle className="text-lg">Monte seu cenário</CardTitle><CardDescription>Comece vazio ou copie um ambiente cadastrado. As edições ficam apenas nesta página.</CardDescription></CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2"><Label htmlFor="simulation-origin">Ponto de partida</Label>
+    <div className="sim-layout"><div className="sim-configuration">{ready && <Card className="sim-appliances"><CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between"><div><CardTitle className="text-lg">Aparelhos do cenário</CardTitle><CardDescription>{scenario.items.length}/100 itens. Cada item aceita até 1.000 unidades.</CardDescription></div>
+      <Button ref={addButton} disabled={!sources || !!busy || scenario.items.length >= 100} onClick={() => setAdding(true)}><Plus className="mr-2 h-4 w-4" />Adicionar aparelho</Button></CardHeader>
+      <CardContent className="space-y-3">{!scenario.items.length ? <div className="sim-empty"><Zap className="size-8" aria-hidden="true" /><h2 className="text-lg font-semibold">Seu cenário está vazio</h2><p className="text-sm text-muted-foreground">Adicione aparelhos da sua conta ou da biblioteca.<br />Depois, ajuste quantidade e uso para comparar o consumo.</p><Button variant="outline" disabled={!sources || !!busy} onClick={() => setAdding(true)}><Plus aria-hidden="true" />Escolher primeiro aparelho</Button></div>
+        : scenario.items.map((item) => <div key={item.id} className="sim-appliance-row">
+          <div className="min-w-0"><h2 className="break-words font-semibold">{item.name}</h2><p className="mt-1 text-sm">{simulationUsageSummary(item)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{item.source === "USER_APPLIANCE" ? "Cópia de aparelho cadastrado" : "Biblioteca de aparelhos"} · perfil preservado na fonte</p>
+            {item.measurementContext && <p className="mt-1 text-xs text-muted-foreground">Há medição histórica neste aparelho. Ela serve apenas de contexto e não projeta o consumo futuro.</p>}</div>
+          <div className="sim-row-actions"><div className="sim-quantity" role="group" aria-label={`Quantidade de ${item.name}`}><Button size="icon" variant="ghost" aria-label={`Diminuir quantidade de ${item.name}`} disabled={!!busy || item.quantity <= 1} onClick={() => replace({ ...scenario, items: scenario.items.map((entry) => entry.id === item.id ? { ...entry, quantity: entry.quantity - 1 } : entry) })}>−</Button><span className="text-sm tabular-nums">{item.quantity} un.</span><Button size="icon" variant="ghost" aria-label={`Aumentar quantidade de ${item.name}`} disabled={!!busy || item.quantity >= 1000} onClick={() => replace({ ...scenario, items: scenario.items.map((entry) => entry.id === item.id ? { ...entry, quantity: entry.quantity + 1 } : entry) })}>+</Button></div><Button ref={(node) => { if (node) itemButtons.current.set(item.id, node); else itemButtons.current.delete(item.id); }} size="sm" variant="outline" aria-label={`Editar uso e quantidade de ${item.name}`} onClick={() => setEditing(item.id)} disabled={!!busy}><Pencil className="mr-2 h-4 w-4" />Ajustar uso</Button>
+            <Button size="icon" variant="ghost" aria-label={`Remover ${item.name} do cenário`} onClick={() => { replace({ ...scenario, items: scenario.items.filter((entry) => entry.id !== item.id) }); requestAnimationFrame(() => addButton.current?.focus()); }} disabled={!!busy}><Trash2 className="h-4 w-4" /></Button></div>
+        </div>)}
+      </CardContent></Card>}
+    <Card className="sim-settings"><CardHeader><CardTitle className="text-lg">Seu cenário</CardTitle><CardDescription>Comece do zero ou experimente mudanças em um ambiente cadastrado.</CardDescription></CardHeader>
+      <CardContent className="sim-settings-content">
+        <div className="sim-origin space-y-2"><Label htmlFor="simulation-origin">Ponto de partida</Label>
           <Select value={origin} onValueChange={(value: "NEW" | "EXISTING_ENVIRONMENT") => { setOrigin(value); replace(createSimulationScenario(validTariff ? tariffValue : 0)); }} disabled={!!busy}>
-            <SelectTrigger id="simulation-origin"><SelectValue /></SelectTrigger><SelectContent>
+            <SelectTrigger id="simulation-origin"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>
               <SelectItem value="NEW">Novo ambiente</SelectItem><SelectItem value="EXISTING_ENVIRONMENT">Copiar ambiente cadastrado</SelectItem>
-            </SelectContent></Select></div>
+            </SelectGroup></SelectContent></Select></div>
         {origin === "EXISTING_ENVIRONMENT" && <div className="grid items-end gap-4 sm:grid-cols-3">
           <div className="space-y-2"><Label htmlFor="simulation-property">Imóvel</Label><Select value={propertyId} onValueChange={(value) => { invalidate(); setPropertyId(value); setRoomId(""); }} disabled={!sources || !!busy}>
-            <SelectTrigger id="simulation-property"><SelectValue placeholder="Escolha o imóvel" /></SelectTrigger><SelectContent>{sources?.properties.map((property) => <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>)}</SelectContent></Select></div>
+            <SelectTrigger id="simulation-property"><SelectValue placeholder="Escolha o imóvel" /></SelectTrigger><SelectContent><SelectGroup>{sources?.properties.map((property) => <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
           <div className="space-y-2"><Label htmlFor="simulation-room">Ambiente</Label><Select value={roomId} onValueChange={(value) => { invalidate(); setRoomId(value); }} disabled={!rooms.length || !!busy}>
-            <SelectTrigger id="simulation-room"><SelectValue placeholder="Escolha o ambiente" /></SelectTrigger><SelectContent>{rooms.map((room) => <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>)}</SelectContent></Select></div>
+            <SelectTrigger id="simulation-room"><SelectValue placeholder="Escolha o ambiente" /></SelectTrigger><SelectContent><SelectGroup>{rooms.map((room) => <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
           <Button onClick={() => void loadRoom()} disabled={!roomId || !!busy}>{busy === "room" ? "Copiando…" : "Carregar cenário"}</Button>
           {sources && !sources.properties.length && <p className="text-sm text-muted-foreground sm:col-span-3">Você ainda não tem imóveis cadastrados. É possível simular um novo ambiente.</p>}
           {propertyId && !rooms.length && sources && <p className="text-sm text-muted-foreground sm:col-span-3">Este imóvel ainda não tem ambientes cadastrados.</p>}
@@ -153,33 +175,35 @@ function SimulationWorkspace() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="simulation-name">Nome do cenário</Label><Input id="simulation-name" maxLength={120} value={scenario.name} placeholder="Exemplo: Sala do RH" className="focus:placeholder:text-transparent" onChange={(e) => replace({ ...scenario, name: e.target.value })} /></div>
             <div className="space-y-2"><Label htmlFor="simulation-tariff">Tarifa deste cenário (R$/kWh)</Label><Input id="simulation-tariff" inputMode="decimal" value={tariff} placeholder="Ex.: 0,82" onChange={(e) => { tariffTouched.current = true; invalidate(); setTariff(e.target.value); }} aria-describedby="simulation-tariff-help" aria-invalid={tariff !== "" && !validTariff} />
-              <p id="simulation-tariff-help" className="text-xs text-muted-foreground">Use a tarifa da sua conta. Valor entre 0 e 100.000; não altera a tarifa cadastrada.</p></div>
+              <p id="simulation-tariff-help" className="text-xs text-muted-foreground">Entre 0 e 100.000 R$/kWh. Use a tarifa da sua conta.</p></div>
             <div className="sm:col-span-2"><RegionalTariffHint onApply={applyRegionalTariff} /></div>
             {origin === "NEW" && <>
-              <div className="space-y-2"><Label htmlFor="simulation-property-type">Tipo de local</Label><Select value={scenario.propertyType} onValueChange={(value: "RESIDENTIAL" | "BUSINESS") => replace({ ...scenario, propertyType: value })}><SelectTrigger id="simulation-property-type"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="RESIDENTIAL">Residencial</SelectItem><SelectItem value="BUSINESS">Comercial</SelectItem></SelectContent></Select></div>
-              <div className="space-y-2"><Label htmlFor="simulation-environment-type">Tipo de ambiente</Label><Select value={scenario.environmentType} onValueChange={(value) => replace({ ...scenario, environmentType: value })}><SelectTrigger id="simulation-environment-type"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(ROOM_TYPES).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-2"><Label htmlFor="simulation-property-type">Tipo de local</Label><Select value={scenario.propertyType} onValueChange={(value: "RESIDENTIAL" | "BUSINESS") => replace({ ...scenario, propertyType: value })}><SelectTrigger id="simulation-property-type"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="RESIDENTIAL">Residencial</SelectItem><SelectItem value="BUSINESS">Comercial</SelectItem></SelectGroup></SelectContent></Select></div>
+              <div className="space-y-2"><Label htmlFor="simulation-environment-type">Tipo de ambiente</Label><Select value={scenario.environmentType} onValueChange={(value) => replace({ ...scenario, environmentType: value })}><SelectTrigger id="simulation-environment-type"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{Object.entries(ROOM_TYPES).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
             </>}
           </div>
           {scenario.sourceType === "EXISTING_ENVIRONMENT" && <p className="text-sm text-muted-foreground">Cópia independente de {sources?.rooms.find((room) => room.id === scenario.sourceRoomId)?.name ?? "ambiente cadastrado"}. Recarregar o ambiente substitui esta cópia.</p>}
         </>}
       </CardContent></Card>
     {error && <Alert variant="destructive" role="alert"><AlertDescription>{error}</AlertDescription></Alert>}
-    {ready && <Card><CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between"><div><CardTitle className="text-lg">Aparelhos do cenário</CardTitle><CardDescription>{scenario.items.length}/100 itens. Cada item aceita até 1.000 unidades.</CardDescription></div>
-      <Button ref={addButton} disabled={!sources || !!busy || scenario.items.length >= 100} onClick={() => setAdding(true)}><Plus className="mr-2 h-4 w-4" />Adicionar aparelho</Button></CardHeader>
-      <CardContent className="space-y-3">{!scenario.items.length ? <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Seu cenário está vazio. Adicione aparelhos da sua conta ou da biblioteca para começar.</p>
-        : scenario.items.map((item) => <div key={item.id} className="flex min-w-0 flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0"><h2 className="break-words font-medium">{item.name}</h2><p className="mt-1 text-sm">Quantidade: {item.quantity} · {simulationUsageSummary(item)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{item.source === "USER_APPLIANCE" ? "Cópia de aparelho cadastrado" : "Biblioteca de aparelhos"} · perfil preservado na fonte</p>
-            {item.measurementContext && <p className="mt-1 text-xs text-muted-foreground">Há medição histórica neste aparelho. Ela serve apenas de contexto e não projeta o consumo futuro.</p>}</div>
-          <div className="flex shrink-0 gap-2"><Button ref={(node) => { if (node) itemButtons.current.set(item.id, node); else itemButtons.current.delete(item.id); }} size="sm" variant="outline" aria-label={`Editar uso e quantidade de ${item.name}`} onClick={() => setEditing(item.id)} disabled={!!busy}><Pencil className="mr-2 h-4 w-4" />Editar uso</Button>
-            <Button size="icon" variant="ghost" aria-label={`Remover ${item.name} do cenário`} onClick={() => replace({ ...scenario, items: scenario.items.filter((entry) => entry.id !== item.id) })} disabled={!!busy}><Trash2 className="h-4 w-4" /></Button></div>
-        </div>)}
-        <Button className="mt-3 w-full sm:w-auto" onClick={() => void calculate()} disabled={!scenario.items.length || !validTariff || !!busy}>{busy === "calculate" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{busy === "calculate" ? "Calculando…" : "Calcular cenário"}</Button>
-        {!validTariff && <p className="text-xs text-muted-foreground">Informe uma tarifa válida para calcular.</p>}
-      </CardContent></Card>}
-    {result && <div ref={resultRegion} tabIndex={-1} className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><SimulationResults result={result} scenario={{ ...scenario, tariffPerKwh: tariffValue }} /></div>}
+    </div>
+    <aside id="sim-result-anchor" className="sim-result-rail" aria-label="Estimativa do cenário">
+      <div className="sim-result-panel">
+        <div className="sim-result-heading"><Zap className="size-5" aria-hidden="true" /><h2 className="text-lg font-semibold">Estimativa mensal</h2></div>
+        <div aria-live="polite" aria-atomic="true" className="sim-calculation-status">
+          {busy === "calculate" ? "Calculando o consumo dos aparelhos…" : result ? "Atualizado com o cenário atual" : error ? "Não foi possível calcular" : scenario.items.length ? (validTariff ? "Atualizando estimativa…" : "Informe uma tarifa válida") : "Adicione aparelhos para calcular"}
+        </div>
+        {result ? <div ref={resultRegion} tabIndex={-1} className="sim-result-region"><SimulationResults result={result} scenario={{ ...scenario, tariffPerKwh: tariffValue }} /></div>
+          : busy === "calculate" ? <div role="status" aria-label="Calculando cenário" className="sim-result-loading"><Skeleton className="h-12 w-3/4" /><Skeleton className="h-6 w-1/2" /><Skeleton className="h-24 w-full" /></div>
+          : <div className="sim-result-placeholder"><p className="text-4xl font-semibold">R$ —</p><p className="text-sm text-muted-foreground">O custo e a participação de cada aparelho aparecerão aqui.</p></div>}
+        <div className="sim-calculate-action"><Button className="sim-calculate-button" variant={result ? "outline" : "default"} onClick={() => void calculate()} disabled={!ready || !scenario.items.length || !validTariff || !!busy}>{busy === "calculate" ? "Calculando…" : "Calcular cenário"}</Button>
+        {!validTariff && <p className="text-xs text-muted-foreground">Informe uma tarifa válida para calcular.</p>}</div>
+        <p className="sim-disclaimer">Ao sair da página, este cenário será descartado.</p>
+      </div>
+    </aside></div>
+    <div className="sim-mobile-total" aria-label="Resumo mensal"><div><span className="text-xs text-muted-foreground">{result?.unavailableCount ? "Subtotal mensal" : "Estimativa mensal"}</span><p className="font-semibold">{result ? (result.unavailableCount ? result.knownMonthlyCost : result.monthlyCost)?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) ?? "Indisponível" : busy === "calculate" ? "Calculando…" : "R$ —"}</p></div><Button variant="outline" onClick={() => document.getElementById("sim-result-anchor")?.scrollIntoView({ block: "start" })}>Ver estimativa</Button></div>
     <Dialog open={adding} onOpenChange={(open) => { if (!open && busy === "catalog") invalidate(); setAdding(open); }}>
-      <DialogContent className="sm:max-w-5xl" onCloseAutoFocus={(event) => { event.preventDefault(); if (!editing) addButton.current?.focus(); }}>
+      <DialogContent className="appliance-flow-theme sim-picker sm:max-w-5xl" onCloseAutoFocus={(event) => { event.preventDefault(); if (!editing) addButton.current?.focus(); }}>
         <DialogHeader><DialogTitle>Adicionar ao cenário</DialogTitle><DialogDescription>Escolha uma fonte. A inclusão cria somente uma cópia temporária.</DialogDescription></DialogHeader>
         {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
         {busy === "catalog" && <p role="status" className="text-sm">Preparando cópia do aparelho…</p>}

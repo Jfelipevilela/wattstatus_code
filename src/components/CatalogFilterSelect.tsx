@@ -11,7 +11,7 @@ export default function CatalogFilterSelect({ id, label, value, options, onChang
 }) {
   const [open, setOpen] = useState(false);
   return <Popover open={open} onOpenChange={setOpen}>
-    <PopoverTrigger asChild><Button id={id} type="button" variant="outline" role="combobox" aria-label={label} aria-expanded={open} disabled={disabled} className="w-full justify-between gap-2">
+    <PopoverTrigger asChild><Button id={id} type="button" variant="outline" role="combobox" aria-label={label} aria-expanded={open} disabled={disabled} className="appliance-combobox w-full justify-between gap-2 font-normal">
       <span className="truncate">{options.find(option => option.value === value)?.label || label}</span><ChevronsUpDown className="size-4 shrink-0" aria-hidden="true" />
     </Button></PopoverTrigger>
     <PopoverContent align="start" className="appliance-flow-theme appliance-filter-popover p-0">

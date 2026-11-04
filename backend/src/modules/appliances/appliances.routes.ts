@@ -2,7 +2,7 @@ import { Router } from "express";
 import { AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { ApiError } from "../../middleware/error-handler";
 import {
-  applianceInputSchema,
+  applianceCreateSchema,
   applianceUpdateSchema,
 } from "./appliances.schema";
 import { ApplianceService } from "./appliances.service";
@@ -31,9 +31,9 @@ export const createApplianceRouter = (service: ApplianceService) => {
   router.post("/", async (req: AuthenticatedRequest, res, next) => {
     try {
       if (!req.userId) throw new ApiError(401, "N\u00e3o autenticado");
-      const parsed = applianceInputSchema.parse(req.body);
-      const appliance = await service.create(req.userId, parsed);
-      res.status(201).json({ appliance });
+      const parsed = applianceCreateSchema.parse(req.body);
+      const appliances = await service.createMany(req.userId, parsed);
+      res.status(201).json({ appliance: appliances[0], appliances, created: appliances.length });
     } catch (err) {
       next(err);
     }

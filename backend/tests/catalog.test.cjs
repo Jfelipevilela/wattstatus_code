@@ -615,3 +615,145 @@ test('SmartThings delta-only aceita monitoramento sem inventar contador e rejeit
     assert.equal(db.records.size,1);
   } finally {axios.defaults.adapter=original;}
 });
+
+test("perfis brasileiros preservam IDs e declaram estimativas sem marcas inventadas", () => {
+  const expected = {
+    "generic-shower-5500w": 5500, "generic-shower-7500w": 7500,
+    "generic-iron-1200w": 1200, "generic-hair-dryer-1800w": 1800,
+    "generic-air-fryer-1500w": 1500, "generic-coffee-maker-800w": 800,
+    "generic-oven-1800w": 1800, "generic-pool-pump-750w": 750,
+    "generic-heater-1500w": 1500, "generic-fluorescent-20w": 20,
+    "generic-ceiling-fan-100w": 100, "generic-router-12w": 12,
+    "generic-console-150w": 150, "generic-led-9w": 9,
+    "generic-microwave-1200w": 1200, "generic-tv-40": 80, "generic-tv-50": 120,
+  };
+  for (const [id, power] of Object.entries(expected)) {
+    const row = catalogSeed.devices.find(row => row.id === id);
+    assert.equal(row.energyProfile.method, "POWER_TIME");
+    assert.equal(row.energyProfile.typicalPowerW, power);
+    assert.equal(row.isGeneric, true);
+    assert.equal(row.verified, false);
+    assert.equal(row.source.type, "WATTSTATUS_GENERIC");
+    assert.equal(row.region, "BR");
+    assert.equal(row.model, undefined);
+    assert.ok(!row.brand || row.brand === "Genérico");
+  }
+  for (const [id, value] of [["generic-fridge-monthly", 45], ["generic-freezer-monthly", 50]]) {
+    const row = catalogSeed.devices.find(row => row.id === id);
+    assert.equal(row.energyProfile.method, "REFERENCE_PERIOD");
+    assert.equal(row.energyProfile.period, "MONTH");
+    assert.equal(row.energyProfile.value, value);
+    assert.equal(row.source.official, false);
+    assert.match(row.source.reference, /não é medição nem dado oficial/);
+  }
+  assert.equal(catalogSeed.devices.find(row => row.id === "generic-dishwasher-cycle").energyProfile.energyPerCycleKwh, 1.2);
+});
+
+test("generic=true valida entrada, filtra, ordena e pagina no endpoint e JSON", async () => {
+  const { JsonCatalogRepository } = require("../dist/modules/catalog/json-repository");
+  const rows = structuredClone(catalogSeed.devices);
+  // Priority differs deliberately; generic order must depend only on displayName/id.
+  rows.find(row => row.id === "generic-led-9w").region = "US";
+  const repository = new JsonCatalogRepository(rows);
+  const db = database();
+  db.searchCatalog = query => repository.searchCatalog(query);
+  const call = client(db);
+  const expected = rows.filter(row => row.isGeneric).sort((a,b) =>
+    a.displayName < b.displayName ? -1 : a.displayName > b.displayName ? 1 : a.id < b.id ? -1 : 1);
+  const first = await call("/api/device-catalog?generic=true&limit=3");
+  assert.equal(first.status, 200);
+  assert.equal(first.data.total, expected.length);
+  assert.deepEqual(first.data.devices.map(row => row.id), expected.slice(0,3).map(row => row.id));
+  const next = await call("/api/device-catalog?generic=true&limit=3&page=2");
+  assert.deepEqual(next.data.devices.map(row => row.id), expected.slice(3,6).map(row => row.id));
+  const filtered = await call("/api/device-catalog?generic=true&category=kitchen&region=BR&limit=48");
+  assert.ok(filtered.data.devices.every(row => row.isGeneric && row.category === "kitchen" && row.region === "BR"));
+  assert.deepEqual((await call("/api/device-catalog?generic=false")).data, (await call("/api/device-catalog")).data);
+  for (const value of ["1", "yes", "", "TRUE", "%24ne"]) {
+    assert.equal((await call("/api/device-catalog?generic=" + value)).status, 400);
+  }
+});
+
+test("Mongo generic filtra resultados e facetas e ordena por nome antes da paginação", async () => {
+  const db = new MongoDatabase("mongodb://127.0.0.1:27017", "test");
+  let filter, order, offset, size;
+  const facets = [];
+  const cursor = {
+    sort(value) { order = value; return this; },
+    skip(value) { offset = value; return this; },
+    limit(value) { size = value; return this; },
+    toArray: async () => [],
+  };
+  db.db = { collection: () => ({
+    find(value) { filter = value; return cursor; },
+    countDocuments: async value => { assert.equal(value.isGeneric, true); return 0; },
+    distinct: async (_key, value) => { facets.push(value); return []; },
+  }) };
+  await db.searchCatalog({generic:true, category:"kitchen", page:2, limit:3});
+  assert.equal(filter.isGeneric, true);
+  assert.equal(filter.category, "kitchen");
+  assert.deepEqual(order, {displayName:1, id:1});
+  assert.equal(offset, 3);
+  assert.equal(size, 3);
+  assert.ok(facets.every(value => value.isGeneric === true));
+});
+
+test("quantity cria unidades independentes, limita nomes e preserva isolamento", async () => {
+  const db = database(), call = client(db);
+  for (const quantity of [0, 21, -1, 1.5, "2", null]) {
+    assert.equal((await call("/api/appliances", {method:"POST", body:{...base, quantity}})).status, 400);
+  }
+  assert.equal(db.records.size, 0);
+  const single = await call("/api/appliances", {method:"POST", body:base});
+  assert.equal(single.data.created, 1);
+  assert.deepEqual(single.data.appliances, [single.data.appliance]);
+  assert.equal(single.data.appliance.name, base.name);
+  const result = await call("/api/appliances", {method:"POST",
+    body:{...base, name:"A".repeat(160), quantity:20, userId:"b", catalogDeviceId:"generic-led-9w"}});
+  assert.equal(result.status, 201);
+  assert.equal(result.data.created, 20);
+  assert.deepEqual(result.data.appliance, result.data.appliances[0]);
+  assert.equal(new Set(result.data.appliances.map(row => row.id)).size, 20);
+  for (const [index, row] of result.data.appliances.entries()) {
+    assert.ok(row.name.endsWith(" " + (index+1)));
+    assert.equal(row.name.length, 160);
+    assert.equal(row.userId, "a");
+    assert.equal(row.quantity, undefined);
+    assert.equal(db.records.get(row.id).quantity, undefined);
+    assert.equal((await call("/api/appliances/" + row.id, {method:"DELETE",user:"b"})).status,404);
+  }
+  assert.equal((await call("/api/appliances", {user:"b"})).data.appliances.length, 0);
+  const owned = result.data.appliance;
+  for (const placement of [{propertyId:owned.propertyId}, {roomId:require("node:crypto").randomUUID()}]) {
+    const before = db.records.size;
+    assert.equal((await call("/api/appliances", {method:"POST", user:"b",body:{...base, quantity:2,...placement}})).status,404);
+    assert.equal(db.records.size, before);
+  }
+  assert.equal((await call("/api/appliances", {method:"POST", body:{...base,quantity:2,
+    integrationProvider:"smartthings",integrationDeviceId:"owned"}})).status,400);
+});
+
+test("lote valida antes de gravar e reverte inclusive escrita sem acknowledgement", async () => {
+  const db = database(), call = client(db);
+  const before = await call("/api/appliances", {method:"POST", user:"b", body:base});
+  const original = db.addAppliance;
+  let writes = 0;
+  db.addAppliance = async row => {
+    writes++;
+    await original(row);
+    if (writes === 2) throw new Error("synthetic storage failure after write");
+  };
+  const invalid = await call("/api/appliances", {method:"POST",body:{...base,quantity:3,
+    energyProfile:{method:"PER_CYCLE",energyPerCycleKwh:1}}});
+  assert.equal(invalid.status,400);
+  assert.equal(writes,0);
+  const failed = await call("/api/appliances", {method:"POST", body:{...base,quantity:3}});
+  assert.equal(failed.status,500);
+  assert.equal(writes,2);
+  assert.deepEqual([...db.records.keys()], [before.data.appliance.id]);
+  db.deleteAppliance = async () => { throw new Error("synthetic cleanup failure"); };
+  writes = 0;
+  const partial = await call("/api/appliances", {method:"POST", body:{...base,quantity:3}});
+  assert.equal(partial.status,500);
+  assert.equal(partial.data.code,"APPLIANCE_BATCH_ROLLBACK_FAILED");
+});

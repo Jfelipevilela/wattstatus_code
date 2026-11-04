@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,6 +15,7 @@ import { useRegionalTariffDefault } from "@/hooks/useRegionalTariff";
 import type { Appliance, ApplianceInput } from "@/hooks/useAppliances";
 import { STATE_TARIFFS, formatNumber, formatCurrency } from "@/lib/energy";
 import ApplianceSetupSummary from "./ApplianceSetupSummary";
+import { ApplianceQuantityContext } from "./appliance-quantity";
 
 const schema = z
   .object({
@@ -92,6 +93,8 @@ export default function ApplianceCalculator({
 }: Props) {
   const { token } = useAuth();
   const { preferences, updatePreferences } = useUserPreferences();
+  const contextQuantity = useContext(ApplianceQuantityContext);
+  const quantity = initialAppliance ? 1 : contextQuantity;
   const id = useId();
   const tariffTouched = useRef(Boolean(initialAppliance || draft));
   const initialMinutes = Math.round((initialAppliance?.usageHours || 0) * 60);
@@ -188,8 +191,8 @@ export default function ApplianceCalculator({
         toast({
           title: initialAppliance
             ? "Aparelho atualizado"
-            : "Aparelho adicionado",
-          description: `${values.name} foi salvo na sua lista.`,
+            : quantity > 1 ? `${quantity} aparelhos adicionados` : "Aparelho adicionado",
+          description: quantity > 1 ? `${values.name} 1 a ${quantity} foram salvos na sua lista.` : `${values.name} foi salvo na sua lista.`,
         });
         if (onSaved) onSaved();
         else {
@@ -234,7 +237,7 @@ export default function ApplianceCalculator({
     "aria-describedby": `${id}-${name}-error${name === "power" ? ` ${id}-power-help` : ""}`,
   });
   return <Card className="appliance-flow-theme appliance-setup min-w-0">
-    <CardHeader className="pb-6"><CardTitle className="text-2xl">{initialAppliance ? 'Dados do aparelho' : 'Cadastre com os dados da etiqueta'}</CardTitle><p className="mt-2 text-sm text-muted-foreground">Dê um nome ao aparelho e conte como ele faz parte da sua rotina.</p></CardHeader>
+    {!initialAppliance && <CardHeader className="pb-6"><CardTitle className="text-2xl">Cadastre com os dados da etiqueta</CardTitle><p className="mt-2 text-sm text-muted-foreground">Dê um nome ao aparelho e conte como ele faz parte da sua rotina.</p></CardHeader>}
     <CardContent>
       <form noValidate onSubmit={form.handleSubmit(values => run(values,false))}>
         <fieldset disabled={action !== null} className="appliance-setup-layout min-w-0">
@@ -261,7 +264,8 @@ export default function ApplianceCalculator({
           </div>
           <ApplianceSetupSummary name={values.name || ''} kind="Potência × horas por dia × dias no mês." result={!previewLoading && result?.signature === signature ? result : null} loading={previewLoading || action === 'simulate'} editing={Boolean(initialAppliance)} error={error || previewError} tariff={Number(values.tariffValue)} assumptions={`${values.hours || 0} h e ${values.minutes || 0} min por dia, ${values.days || 0} dias no mês.`} source="Dados informados por você">
             <Button type="submit">{action === 'save' ? 'Salvando…' : initialAppliance ? 'Salvar alterações' : 'Adicionar aparelho'}</Button>
-            <Button type="button" variant="outline" onClick={form.handleSubmit(values => run(values,true))}>{action === 'simulate' ? 'Calculando…' : 'Recalcular estimativa'}</Button>
+            {/* The preview updates on its own; manual recalculation is only offered while no current estimate is shown. */}
+            {(result?.signature !== signature || previewError) && <Button type="button" variant="outline" onClick={form.handleSubmit(values => run(values,true))}>{action === 'simulate' ? 'Calculando…' : 'Recalcular estimativa'}</Button>}
             {result?.signature === signature && <p className="text-xs text-muted-foreground">Estimativa para {values.days} dias. A prévia não cadastra o aparelho.</p>}
           </ApplianceSetupSummary>
           <div className="appliance-mobile-save"><Button type="submit">{action === 'save' ? 'Salvando…' : initialAppliance ? 'Salvar alterações' : 'Adicionar aparelho'}</Button></div>

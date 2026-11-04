@@ -26,7 +26,7 @@ test(
       const { catalogSeed } = require('../dist/modules/catalog/catalog.seed');
       const json = new JsonCatalogRepository(catalogSeed.devices);
       assert.equal((await db.searchCatalog({page:1,limit:12})).devices[0].source.type,'PBE');
-      for (const query of [{page:1,limit:12},{page:2,limit:3},{page:1,limit:3,category:'kitchen'},{page:1,limit:12,search:'LÂMPADA LED'},{page:1,limit:2,brand:'Newmaq'},
+      for (const query of [{page:1,limit:3,generic:true},{page:2,limit:3,generic:true},{page:1,limit:48,generic:true,category:"kitchen"},{page:1,limit:12},{page:2,limit:3},{page:1,limit:3,category:'kitchen'},{page:1,limit:12,search:'LÂMPADA LED'},{page:1,limit:2,brand:'Newmaq'},
         {page:1,limit:12,region:'BR',search:'Samsung RF29'},{page:1,limit:12,region:'US'}]) {
         assert.deepEqual(await db.searchCatalog(query), await json.searchCatalog(query));
       }

@@ -24,6 +24,10 @@ export const applianceInputSchema = z.object({
   roomId: z.string().uuid().nullable().optional(),
 });
 
+export const applianceCreateSchema = applianceInputSchema.extend({
+  quantity: z.number().int().min(1).max(20).default(1),
+});
+
 export const applianceUpdateSchema = applianceInputSchema.partial();
 
 export type ApplianceInput = z.infer<typeof applianceInputSchema>;

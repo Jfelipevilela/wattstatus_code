@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { catalogPresentation } from "@/lib/catalog-presentation";
 import CatalogReferenceDetails from "./CatalogReferenceDetails";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { cyclesInMonth } from "../../backend/src/modules/calculations/usage";
 import { selectEnergyMethod } from "../../backend/src/modules/calculations/decision";
 import { toast } from "@/components/ui/use-toast";
 import ApplianceSetupSummary from "./ApplianceSetupSummary";
+import { ApplianceQuantityContext } from "./appliance-quantity";
 
 export interface DeviceConfigurationDraft {
   name: string; power: string; timeUnit: "HOURS" | "MINUTES"; hours: string; days: string;
@@ -50,6 +51,8 @@ interface Props {
   draft?: DeviceConfigurationDraft;
   onDraftChange?: (draft: DeviceConfigurationDraft) => void;
   placementFields?: ReactNode;
+  /** Name of the room chosen in the placement fields, used to suggest a short appliance name. */
+  roomName?: string;
 }
 export default function DeviceConfigurationPanel({
   device: suppliedDevice,
@@ -61,13 +64,17 @@ export default function DeviceConfigurationPanel({
   draft,
   onDraftChange,
   placementFields,
+  roomName,
 }: Props) {
   const { preferences, updatePreferences } = useUserPreferences();
+  const contextQuantity = useContext(ApplianceQuantityContext);
+  const quantity = initialAppliance || integration ? 1 : contextQuantity;
   const [matchedDevice, setMatchedDevice] = useState<CatalogDevice | undefined>(draft?.matchedDevice);
   const [matches, setMatches] = useState<Array<{ device: CatalogDevice; confidence: string }>>([]);
   const [matchError, setMatchError] = useState(false);
   const device = suppliedDevice || matchedDevice;
-  const description = device ? catalogPresentation(device) : undefined;
+  const presentedDevice = device || initialAppliance?.catalogSnapshot;
+  const description = presentedDevice ? catalogPresentation(presentedDevice) : undefined;
   useEffect(() => {
     if (!integration?.brand || !integration?.model || initialAppliance) return;
     const controller = new AbortController();
@@ -95,9 +102,18 @@ export default function DeviceConfigurationPanel({
   const decision = selectEnergyMethod(profile, integration?.energyInterval);
   const [monitoringOnly, setMonitoringOnly] = useState(draft?.monitoringOnly ?? initialAppliance?.monitoringOnly ?? Boolean(integration &&
     (decision.method === "LIVE_MEASUREMENT" || integration.counterKWh !== undefined)));
-  const [name, setName] = useState(
-    draft?.name ?? (initialAppliance?.name || description?.title.slice(0, 160) || integration?.name || ""),
+  // A short name reads better in lists and reports than the full catalog title.
+  const baseName = (device?.subcategory || description?.title || integration?.name || "").slice(0, 120);
+  const nameTouched = useRef(Boolean(draft?.name !== undefined || initialAppliance));
+  const [name, setNameState] = useState(
+    draft?.name ?? (initialAppliance?.name || baseName),
   );
+  const setName = (value: string) => { nameTouched.current = true; setNameState(value); };
+  useEffect(() => {
+    if (nameTouched.current || !baseName) return;
+    setNameState(roomName ? `${baseName} (${roomName})`.slice(0, 160) : baseName);
+  }, [roomName, baseName]);
+  const hoursTouched = useRef(Boolean(draft?.hours !== undefined || initialAppliance));
   const [power, setPower] = useState(
     draft?.power ?? String(
       (initialAppliance?.power || undefined) ??
@@ -250,8 +266,8 @@ export default function DeviceConfigurationPanel({
         tariffValue: Number(rate),
       }).catch(() => undefined);
       toast({
-        title: initialAppliance ? "Aparelho atualizado" : "Aparelho adicionado",
-        description: `${input.name} foi salvo.`,
+        title: initialAppliance ? "Aparelho atualizado" : quantity > 1 ? `${quantity} aparelhos adicionados` : "Aparelho adicionado",
+        description: quantity > 1 ? `${input.name} 1 a ${quantity} foram salvos.` : `${input.name} foi salvo.`,
       });
       onSaved();
     } catch (failure) {
@@ -292,13 +308,13 @@ export default function DeviceConfigurationPanel({
       : { integrationProvider: "smartthings" });
   const referenceSource = referenceDevice?.source || initialAppliance?.source;
   return <Card className="appliance-flow-theme appliance-setup min-w-0">
-    <CardHeader className="pb-6"><CardTitle className="text-2xl">Ajuste o uso à sua rotina</CardTitle><p className="mt-2 text-sm text-muted-foreground">Confira o aparelho e preencha somente o que muda na sua casa.</p></CardHeader>
+    {!initialAppliance && <CardHeader className="pb-6"><CardTitle className="text-2xl">Ajuste o uso à sua rotina</CardTitle><p className="mt-2 text-sm text-muted-foreground">Confira o aparelho e preencha somente o que muda na sua casa.</p></CardHeader>}
     <CardContent>
       <form onSubmit={save}>
         <fieldset disabled={saving} className="appliance-setup-layout min-w-0">
           <div className="appliance-setup-fields">
-            <div className="appliance-selected-product"><p className="text-xs text-muted-foreground">Modelo selecionado</p><h3 className="break-words text-lg font-semibold">{description?.title || integration?.name || initialAppliance?.name}</h3>
-              <p className="text-xs text-muted-foreground">{device?.brand ? `${device.brand} · ` : ''}{device?.model ? `Modelo: ${device.model} · ` : ''}{applianceSourceLabel(source)}</p>
+            <div className="appliance-selected-product"><p className="text-xs text-muted-foreground">{initialAppliance ? 'Referência do aparelho' : 'Modelo selecionado'}</p><h3 className="break-words text-lg font-semibold">{description?.title || integration?.name || initialAppliance?.name}</h3>
+              <p className="text-xs text-muted-foreground">{presentedDevice?.brand ? `${presentedDevice.brand} · ` : ''}{presentedDevice?.model ? `Modelo: ${presentedDevice.model} · ` : ''}{applianceSourceLabel(source)}</p>
             </div>
             {integration && <section className="appliance-field-section"><h3>Dispositivo conectado</h3><p className="text-xs text-muted-foreground">Samsung SmartThings. Nenhum modelo é associado automaticamente.</p>
               {integration.counterKWh === undefined && !integration.energyInterval && <p role="status" className="text-sm text-muted-foreground">Este dispositivo não forneceu uma medição de energia compatível. Para estimar o consumo, informe os dados da etiqueta e sua rotina de uso.</p>}
@@ -330,7 +346,8 @@ export default function DeviceConfigurationPanel({
                 {profile.typicalPowerW !== undefined && !technicalEdit ? <div className="rounded-lg bg-muted p-4"><p className="text-sm">Potência do modelo: <strong>{formatNumber(Number(power))} W</strong></p><button type="button" className="mt-2 text-xs text-primary underline underline-offset-4" onClick={() => setTechnicalEdit(true)}>Ajuste técnico opcional</button></div>
                   : field('power','Potência estimada (W)',power,setPower,{type:'number',min:.01,max:100000,step:'any',placeholder:'Ex.: 1200'})}
                 <div className="flex flex-col gap-2"><Label htmlFor={`${id}-time-unit`}>Unidade de uso diário</Label><select id={`${id}-time-unit`} className="appliance-control" value={timeUnit} onChange={event => { const next = event.target.value as 'HOURS' | 'MINUTES';setHours(String(next === 'MINUTES' ? Number(hours) * 60 : Number(hours) / 60));setTimeUnit(next); }}><option value="HOURS">Horas</option><option value="MINUTES">Minutos</option></select></div>
-                <div className="grid gap-4 sm:grid-cols-2">{field('hours',timeUnit === 'MINUTES' ? 'Minutos por dia' : 'Horas por dia',hours,setHours,{type:'number',min:0,max:timeUnit === 'MINUTES' ? 1440 : 24,step:'any',placeholder:timeUnit === 'MINUTES' ? 'Ex.: 30' : 'Ex.: 6'})}{field('days','Dias por mês',days,setDays,{type:'number',min:1,max:31,step:1,placeholder:'Ex.: 22'})}</div>
+                <div className="grid gap-4 sm:grid-cols-2">{field('hours',timeUnit === 'MINUTES' ? 'Minutos por dia' : 'Horas por dia',hours,value => { hoursTouched.current = true; setHours(value); },{type:'number',min:0,max:timeUnit === 'MINUTES' ? 1440 : 24,step:'any',placeholder:timeUnit === 'MINUTES' ? 'Ex.: 30' : 'Ex.: 6'})}{field('days','Dias por mês',days,setDays,{type:'number',min:1,max:31,step:1,placeholder:'Ex.: 22'})}</div>
+                {!hoursTouched.current && <p className="text-xs text-muted-foreground">O tempo de uso é uma sugestão inicial. Ajuste à rotina da sua casa para uma estimativa mais fiel.</p>}
                 {profile.standbyPowerW !== undefined && <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={standbyEnabled} onChange={event => setStandbyEnabled(event.target.checked)} className="mt-1" />Fica em standby nas horas restantes do dia ({formatNumber(profile.standbyPowerW)} W)</label>}
               </>}
               {profile.method === 'REFERENCE_PERIOD' && <div className="rounded-lg bg-muted p-4 text-sm"><p className="font-medium">Referência de ensaio</p><p className="mt-2">{referenceLabel(profile)}. Não é escalada por horas ou dias; condições reais podem variar.</p>{profile.testBasis && <p className="mt-2 text-xs text-muted-foreground">{profile.testBasis}</p>}</div>}
@@ -358,7 +375,7 @@ export default function DeviceConfigurationPanel({
               <p className="text-xs text-muted-foreground">Ajustes técnicos valem somente para o seu aparelho. A biblioteca e sua referência original permanecem preservadas.</p>
             </div></details>
           </div>
-          <ApplianceSetupSummary name={name} kind={monitoringOnly ? 'Acompanhe os intervalos medidos no histórico.' : profile.method === 'REFERENCE_PERIOD' ? 'Referência de ensaio, convertida para o mês.' : profile.method === 'PER_CYCLE' ? 'Energia por ciclo × frequência de uso.' : 'Potência × horas × dias, incluindo standby quando habilitado.'} result={!calculating && result?.signature === signature ? result : null} tariff={Number(rate)} source={device ? `${applianceSourceLabel(source)} · ${device.region}` : 'Dispositivo SmartThings'} assumptions={profile.method === 'POWER_TIME' ? `${formatNumber(Number(power))} W, ${hours} ${timeUnit === 'MINUTES' ? 'min' : 'h'} por dia, ${days} dias no mês.${standbyEnabled ? ' Inclui standby.' : ''}` : profile.method === 'PER_CYCLE' ? `${cycles} ciclos por ${cyclePeriod === 'WEEK' ? 'semana' : 'mês'}.` : 'Referência padronizada; horas e dias não alteram o valor.'} loading={calculating} monitoringOnly={monitoringOnly} editing={Boolean(initialAppliance)} error={error}>
+          <ApplianceSetupSummary name={name} kind={monitoringOnly ? 'Acompanhe os intervalos medidos no histórico.' : profile.method === 'REFERENCE_PERIOD' ? 'Referência de ensaio, convertida para o mês.' : profile.method === 'PER_CYCLE' ? 'Energia por ciclo × frequência de uso.' : 'Potência × horas × dias, incluindo standby quando habilitado.'} result={!calculating && result?.signature === signature ? result : null} tariff={Number(rate)} source={presentedDevice ? `${applianceSourceLabel(source)} · ${presentedDevice.region}` : initialAppliance ? applianceSourceLabel(source) : 'Dispositivo SmartThings'} assumptions={profile.method === 'POWER_TIME' ? `${formatNumber(Number(power))} W, ${hours} ${timeUnit === 'MINUTES' ? 'min' : 'h'} por dia, ${days} dias no mês.${standbyEnabled ? ' Inclui standby.' : ''}` : profile.method === 'PER_CYCLE' ? `${cycles} ciclos por ${cyclePeriod === 'WEEK' ? 'semana' : 'mês'}.` : 'Referência padronizada; horas e dias não alteram o valor.'} loading={calculating} monitoringOnly={monitoringOnly} editing={Boolean(initialAppliance)} error={error}>
             <Button type="submit" disabled={!valid || saving}>{saving ? 'Salvando…' : initialAppliance ? 'Salvar alterações' : 'Adicionar ao WattStatus'}</Button>
           </ApplianceSetupSummary>
           <div className="appliance-mobile-save"><Button type="submit" disabled={!valid || saving}>{saving ? 'Salvando…' : initialAppliance ? 'Salvar alterações' : 'Adicionar ao WattStatus'}</Button></div>

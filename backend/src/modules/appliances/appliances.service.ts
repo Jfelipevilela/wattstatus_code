@@ -9,6 +9,7 @@ import { extractCumulativeKWh, extractReportCumulativeKWh } from "../energy/ener
 import { extractReportDelta } from "../integrations/energy-reading";
 import {
   applianceInputSchema,
+  applianceCreateSchema,
   applianceUpdateSchema,
 } from "./appliances.schema";
 import { logger } from "../../logging/logger";
@@ -115,6 +116,44 @@ export class ApplianceService {
   }
 
   async create(userId: string, input: CalculationInput) {
+    const record = await this.prepareCreate(userId, input);
+    await this.persistCreate(record);
+    return record;
+  }
+
+  async createMany(userId: string, raw: unknown) {
+    const { quantity, ...input } = applianceCreateSchema.parse(raw);
+    // A provider device has a unique import link and cannot represent multiple units.
+    if (quantity > 1 && input.integrationProvider)
+      throw new ApiError(400, "Dispositivos integrados devem ser cadastrados individualmente.");
+    const template = await this.prepareCreate(userId, input);
+    const records = Array.from({ length: quantity }, (_, index) => {
+      const suffix = quantity > 1 ? ` ${index + 1}` : "";
+      const name = input.name.slice(0, 160 - suffix.length).trimEnd() + suffix;
+      applianceInputSchema.parse({ ...input, name });
+      return { ...structuredClone(template), id: randomUUID(), name };
+    });
+    const attempted: ApplianceRecord[] = [];
+    try {
+      for (const record of records) {
+        // Include the current ID: a write can succeed on Mongo before its acknowledgement fails.
+        attempted.push(record);
+        await this.persistCreate(record);
+      }
+    } catch (error) {
+      let cleanupFailed = false;
+      for (const record of attempted.reverse()) {
+        try { await this.db.deleteAppliance(userId, record.id); }
+        catch { cleanupFailed = true; }
+      }
+      if (cleanupFailed)
+        throw new ApiError(500, "Falha ao reverter cadastro.", "APPLIANCE_BATCH_ROLLBACK_FAILED");
+      throw error;
+    }
+    return records;
+  }
+
+  private async prepareCreate(userId: string, input: CalculationInput) {
     input = applianceInputSchema.parse(input);
     const catalog = input.catalogDeviceId
       ? await this.db.getCatalogDevice(input.catalogDeviceId)
@@ -175,6 +214,10 @@ export class ApplianceService {
       ...(input.integrationProvider && input.integrationDeviceId ? { importKey: `${userId}:${input.integrationProvider}:${input.integrationDeviceId}` } : {}),
     };
 
+    return record;
+  }
+
+  private async persistCreate(record: ApplianceRecord) {
     try {
       await this.db.addAppliance(record);
     } catch (err) {
@@ -188,14 +231,14 @@ export class ApplianceService {
       throw err;
     }
     logger.info(
-      catalog
+      record.catalogDeviceId
         ? "appliance.catalog_created"
-        : input.integrationProvider
+        : record.integrationProvider
           ? "integration.device_added"
           : "appliance.manual_created",
       {
-        method: input.energyProfile?.method,
-        ...(catalog ? { catalogDeviceId: catalog.id } : {}),
+        method: record.energyProfile?.method,
+        ...(record.catalogDeviceId ? { catalogDeviceId: record.catalogDeviceId } : {}),
       },
     );
     return record;

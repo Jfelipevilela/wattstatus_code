@@ -104,6 +104,7 @@ const filter = z.string().trim().min(1).max(120);
 export const catalogQuerySchema = z
   .object({
     search: z.string().trim().max(120).optional(),
+    generic: z.enum(["true", "false"]).transform(value => value === "true").optional(),
     category: catalogIdSchema.optional(),
     subcategory: filter.optional(),
     brand: filter.optional(),

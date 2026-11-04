@@ -43,6 +43,7 @@ export interface CatalogCategory {
   icon: string;
 }
 export interface CatalogQuery {
+  generic?: boolean;
   search?: string;
   category?: string;
   subcategory?: string;
