@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { apiRequest } from "@/lib/api";
+import { Wifi, PlugZap } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { apiRequest, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { DiscoveredDevice } from "./DeviceConfigurationPanel";
@@ -17,9 +19,11 @@ export default function SmartDeviceDiscovery({
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
   const request = useRef<AbortController | null>(null);
   useEffect(() => {
     const controller = new AbortController();
+    setError(null);
     apiRequest<{ hasToken: boolean }>("/api/integrations/smartthings/token", {
       signal: controller.signal,
       skipErrorToast: true,
@@ -35,7 +39,7 @@ export default function SmartDeviceDiscovery({
       controller.abort();
       request.current?.abort();
     };
-  }, []);
+  }, [retry]);
   const discover = async () => {
     if (loading || selected) return;
     const controller = new AbortController();
@@ -51,11 +55,11 @@ export default function SmartDeviceDiscovery({
         setDevices(devices);
         setLoaded(true);
       }
-    } catch {
+    } catch (failure) {
       if (!controller.signal.aborted)
-        setError(
-          "Não foi possível consultar SmartThings. Verifique a conexão ou tente novamente.",
-        );
+        setError(failure instanceof ApiError && [401, 403].includes(failure.status)
+          ? "A autorização SmartThings precisa ser verificada. Abra a integração para reconectar sua conta."
+          : "Não foi possível consultar SmartThings. Verifique a conexão ou tente novamente.");
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
@@ -122,8 +126,10 @@ export default function SmartDeviceDiscovery({
   };
   return (
     <section className="flex flex-col gap-4" aria-label="Dispositivos inteligentes">
-      <Card className="flex flex-col gap-4 rounded-xl p-6 shadow-none">
-        <h2 className="font-semibold">Samsung SmartThings</h2>
+      <Card className="appliance-smart-connection flex flex-col gap-4 shadow-none">
+        <Wifi className="size-6 text-primary" aria-hidden="true" />
+        <h2 className="text-2xl font-semibold">Seus dispositivos, conectados</h2>
+        <p className="text-sm text-muted-foreground">Encontre os aparelhos autorizados na sua conta Samsung SmartThings.</p>
         <p className="text-sm text-muted-foreground">
           {configured === null
             ? "Verificando conexão…"
@@ -132,10 +138,9 @@ export default function SmartDeviceDiscovery({
               : "Conta não conectada."}
         </p>
         <p className="text-xs text-muted-foreground">
-          Nenhum comando será enviado. Não fazemos associação automática com
-          modelos da biblioteca.
+          A conexão permite consultar dispositivos. A medição de energia depende dos recursos de cada aparelho.
         </p>
-        {configured ? (
+        {configured === null ? <Skeleton className="h-12 w-full motion-reduce:animate-none" /> : configured ? (
           <Button
             className="min-h-11"
             disabled={loading || Boolean(selected)}
@@ -149,11 +154,8 @@ export default function SmartDeviceDiscovery({
           </Button>
         )}
       </Card>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      {error && <div role="alert" className="appliance-origin flex flex-col gap-3"><p className="text-sm text-destructive">{error}</p><div className="flex flex-wrap gap-3"><Button type="button" variant="outline" onClick={() => configured === null ? setRetry(value => value + 1) : void discover()} disabled={loading}>Tentar novamente</Button><Button asChild variant="link"><Link to="/integracoes/smartthings">Verificar conexão</Link></Button></div></div>}
+      {loading && <div role="status" aria-label="Buscando dispositivos"><Skeleton className="h-24 w-full motion-reduce:animate-none" /></div>}
       <div role="status" aria-live="polite">
         {loaded && `${devices.length} dispositivo(s) encontrado(s).`}
       </div>
@@ -164,7 +166,8 @@ export default function SmartDeviceDiscovery({
       )}
       <div className="grid gap-3 sm:grid-cols-2">
         {devices.map((device) => (
-          <Card key={device.id} className="min-w-0 space-y-3 p-4">
+          <Card key={device.id} className="appliance-smart-device min-w-0">
+            <PlugZap className="size-5 text-primary" aria-hidden="true" />
             <h3 className="break-words font-medium">{device.name}</h3>
             <p className="text-sm text-muted-foreground">
               {device.brand} {device.model}

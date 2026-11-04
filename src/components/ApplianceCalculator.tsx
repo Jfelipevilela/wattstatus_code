@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,10 +21,13 @@ const schema = z
     name: z
       .string()
       .trim()
-      .min(2, "Informe um nome com pelo menos 2 caracteres."),
+      .min(2, "Informe um nome com pelo menos 2 caracteres.")
+      .max(160, "Use no máximo 160 caracteres."),
     power: z
       .number({ invalid_type_error: "Informe a potência." })
-      .positive("A potência deve ser maior que zero."),
+      .finite()
+      .positive("A potência deve ser maior que zero.")
+      .max(100000, "A potência máxima é 100.000 W."),
     hours: z
       .number({ invalid_type_error: "Informe as horas." })
       .int()
@@ -76,6 +79,7 @@ interface Props {
   onBusyChange?: (busy: boolean) => void;
   draft?: ManualApplianceDraft;
   onDraftChange?: (draft: ManualApplianceDraft) => void;
+  placementFields?: ReactNode;
 }
 export default function ApplianceCalculator({
   onAddAppliance,
@@ -84,6 +88,7 @@ export default function ApplianceCalculator({
   onBusyChange,
   draft,
   onDraftChange,
+  placementFields,
 }: Props) {
   const { token } = useAuth();
   const { preferences, updatePreferences } = useUserPreferences();
@@ -128,6 +133,26 @@ export default function ApplianceCalculator({
   const values = form.watch();
   useEffect(() => { onDraftChange?.(values); }, [onDraftChange, values]);
   const signature = JSON.stringify(values);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  useEffect(() => {
+    const parsed = schema.safeParse(JSON.parse(signature));
+    if (!parsed.success) { setResult(null); setPreviewLoading(false); setPreviewError(null); return; }
+    const controller = new AbortController();
+    setPreviewLoading(true); setPreviewError(null);
+    const timer = setTimeout(() => {
+      const value = parsed.data;
+      apiRequest<{ result: { consumptionKWh: number; cost: number } }>('/api/calculations/appliance', {
+        method: 'POST', signal: controller.signal, skipErrorToast: true,
+        body: JSON.stringify({ name: value.name, power: value.power, usageHours: value.hours + value.minutes / 60, days: value.days, tariff: value.tariff, tariffValue: value.tariffValue }),
+      }, token || undefined).then(response => {
+        if (!controller.signal.aborted) setResult({ ...response.result, signature });
+      }).catch(failure => {
+        if (!controller.signal.aborted) { setResult(null); setPreviewError(failure instanceof Error ? failure.message : 'Não foi possível calcular a prévia.'); }
+      }).finally(() => { if (!controller.signal.aborted) setPreviewLoading(false); });
+    }, 500);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [signature, token]);
   const selectClass =
     "flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const run = async (values: Values, simulate: boolean) => {
@@ -209,13 +234,14 @@ export default function ApplianceCalculator({
     "aria-describedby": `${id}-${name}-error${name === "power" ? ` ${id}-power-help` : ""}`,
   });
   return <Card className="appliance-flow-theme appliance-setup min-w-0">
-    <CardHeader className="pb-6"><CardTitle className="text-xl">{initialAppliance ? 'Dados do aparelho' : 'Cadastre com os dados da etiqueta'}</CardTitle><p className="mt-2 text-sm text-muted-foreground">Dê um nome ao aparelho e conte como ele faz parte da sua rotina.</p></CardHeader>
+    <CardHeader className="pb-6"><CardTitle className="text-2xl">{initialAppliance ? 'Dados do aparelho' : 'Cadastre com os dados da etiqueta'}</CardTitle><p className="mt-2 text-sm text-muted-foreground">Dê um nome ao aparelho e conte como ele faz parte da sua rotina.</p></CardHeader>
     <CardContent>
       <form noValidate onSubmit={form.handleSubmit(values => run(values,false))}>
         <fieldset disabled={action !== null} className="appliance-setup-layout min-w-0">
           <div className="appliance-setup-fields">
             <section className="appliance-field-section"><h3>Identifique o aparelho</h3>
               <div className="flex flex-col gap-2"><Label htmlFor={`${id}-name`}>Nome do aparelho</Label><Input {...form.register('name')} {...accessibility('name')} placeholder="Ex.: Geladeira da cozinha" maxLength={160} />{fieldError('name')}</div>
+              {placementFields}
               <div className="flex flex-col gap-2"><Label htmlFor={`${id}-power`}>Potência (W)</Label><Input {...form.register('power',{valueAsNumber:true})} {...accessibility('power')} type="number" inputMode="decimal" min="0" step="any" placeholder="Ex.: 150" />
                 <p id={`${id}-power-help`} className="text-xs text-muted-foreground">Use os watts da etiqueta ou do manual. Potência (W) é diferente de consumo (kWh).</p>{fieldError('power')}</div>
               {!initialAppliance && <details className="appliance-origin"><summary>Precisa de um exemplo para começar?</summary><div><Label htmlFor={`${id}-model`}>Preencher com um aparelho comum</Label><select id={`${id}-model`} className={selectClass} defaultValue="" onChange={event => {
@@ -233,11 +259,12 @@ export default function ApplianceCalculator({
             </div><RegionalTariffHint onApply={applyRegionalTariff} /><p className="text-xs text-muted-foreground">Referências por estado, sem atualização em tempo real. Sua conta considera distribuidora, impostos e bandeiras.</p></section>
             {initialAppliance?.measuredConsumptionKWh > 0 && <p className="text-sm text-muted-foreground">A simulação usa potência e tempo de uso. A leitura importada do dispositivo será preservada ao salvar.</p>}
           </div>
-          <ApplianceSetupSummary name={values.name || ''} kind="Potência × horas por dia × dias no mês." result={result?.signature === signature ? result : null} loading={action === 'simulate'} editing={Boolean(initialAppliance)} error={error}>
+          <ApplianceSetupSummary name={values.name || ''} kind="Potência × horas por dia × dias no mês." result={!previewLoading && result?.signature === signature ? result : null} loading={previewLoading || action === 'simulate'} editing={Boolean(initialAppliance)} error={error || previewError} tariff={Number(values.tariffValue)} assumptions={`${values.hours || 0} h e ${values.minutes || 0} min por dia, ${values.days || 0} dias no mês.`} source="Dados informados por você">
             <Button type="submit">{action === 'save' ? 'Salvando…' : initialAppliance ? 'Salvar alterações' : 'Adicionar aparelho'}</Button>
-            <Button type="button" variant="outline" onClick={form.handleSubmit(values => run(values,true))}>{action === 'simulate' ? 'Calculando…' : 'Simular sem salvar'}</Button>
-            {result?.signature === signature && <p className="text-xs text-muted-foreground">Estimativa para {values.days} dias. Simular não cadastra o aparelho.</p>}
+            <Button type="button" variant="outline" onClick={form.handleSubmit(values => run(values,true))}>{action === 'simulate' ? 'Calculando…' : 'Recalcular estimativa'}</Button>
+            {result?.signature === signature && <p className="text-xs text-muted-foreground">Estimativa para {values.days} dias. A prévia não cadastra o aparelho.</p>}
           </ApplianceSetupSummary>
+          <div className="appliance-mobile-save"><Button type="submit">{action === 'save' ? 'Salvando…' : initialAppliance ? 'Salvar alterações' : 'Adicionar aparelho'}</Button></div>
         </fieldset>
       </form>
     </CardContent>

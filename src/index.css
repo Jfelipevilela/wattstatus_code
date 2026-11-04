@@ -10,88 +10,143 @@
   font-display: swap;
 }
 
-/* Scoped to appliance setup: the rest of the dashboard keeps its own theme. */
+/* Appliance setup shares the Emerald Dark identity, with its own light palette. */
 .appliance-flow-theme {
-  --background: 120 14% 97%; --foreground: 150 18% 12%; --card: 0 0% 100%; --card-foreground: 150 18% 12%;
-  --primary: 153 88% 25%; --primary-foreground: 0 0% 100%; --muted: 135 12% 94%; --muted-foreground: 150 7% 39%;
-  --border: 135 10% 85%; --input: 135 10% 80%; --ring: 153 88% 25%; --secondary: 135 12% 94%; --secondary-foreground: 150 18% 12%;
-  font-family: "WattStatus Manrope", ui-sans-serif, system-ui, sans-serif;
-  color: hsl(var(--foreground));
+  --background: 140 20% 97%; --foreground: 155 32% 12%; --card: 0 0% 100%; --card-foreground: 155 32% 12%;
+  --primary: 155 80% 25%; --primary-foreground: 0 0% 100%; --muted: 145 19% 93%; --muted-foreground: 152 10% 38%;
+  --border: 145 17% 84%; --input: 145 17% 76%; --ring: 155 80% 25%; --secondary: 145 19% 93%; --secondary-foreground: 155 32% 12%;
+  --popover: 0 0% 100%; --popover-foreground: 155 32% 12%; --accent: 145 26% 91%; --accent-foreground: 155 32% 12%;
+  font-family: "WattStatus Manrope", ui-sans-serif, system-ui, sans-serif; color: hsl(var(--foreground));
 }
 .dark .appliance-flow-theme {
-  --background: 0 0% 9.4%; --foreground: 120 10% 95%; --card: 0 0% 12.2%; --card-foreground: 120 10% 95%;
-  --primary: 148 61% 57%; --primary-foreground: 151 72% 10%; --muted: 0 0% 15.3%; --muted-foreground: 130 6% 68%;
-  --border: 0 0% 23%; --input: 0 0% 29%; --ring: 148 61% 57%; --secondary: 0 0% 15.3%; --secondary-foreground: 120 10% 95%;
+  --background: 162 48% 5.3%; --foreground: 105 22% 96%; --card: 159 38% 10.2%; --card-foreground: 105 22% 96%;
+  --primary: 157 71% 57%; --primary-foreground: 159 74% 8%; --muted: 158 40% 14.3%; --muted-foreground: 143 15% 70%;
+  --border: 157 22% 23%; --input: 156 19% 32%; --ring: 157 71% 57%; --secondary: 158 40% 14.3%; --secondary-foreground: 105 22% 96%;
+  --popover: 159 38% 10.2%; --popover-foreground: 105 22% 96%; --accent: 158 40% 18%; --accent-foreground: 105 22% 96%;
+  --destructive: 8 82% 71%;
 }
 .appliance-flow-dialog { max-height: 94dvh; background: hsl(var(--background)); border-radius: 1rem; }
 .appliance-flow-dialog > div[aria-hidden="true"] { display: none; }
-.appliance-flow-dialog > div.relative { padding: 1.5rem; gap: 1rem; }
-.appliance-flow-dialog [aria-label="Selecionar aparelho"] { gap: 1rem; }
+.appliance-flow-dialog > div.relative { padding: 0; gap: 0; scrollbar-width: thin; scroll-padding: 2rem; }
+.appliance-dialog-heading { padding: 2rem 3rem 1.5rem; background: hsl(var(--card)); }
+.appliance-brand { display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; font-size: .875rem; font-weight: 700; color: hsl(var(--primary)); }
+.appliance-brand span { margin-left: .5rem; font-weight: 400; color: hsl(var(--muted-foreground)); }
 .appliance-flow-theme h2,.appliance-flow-theme h3 { text-wrap: balance; }
 .appliance-flow-theme p { text-wrap: pretty; }
-.appliance-flow-theme button { box-shadow: none; border-radius: .5rem; font-weight: 600; transition-duration: 250ms; transition-timing-function: cubic-bezier(.22,1,.36,1); }
+.appliance-flow-theme button { box-shadow: none; border-radius: .5rem; font-weight: 600; transition-duration: 300ms; transition-timing-function: cubic-bezier(.22,1,.36,1); }
 .appliance-flow-theme button:active:not(:disabled) { transform: translateY(1px); }
 .appliance-flow-theme input:not([type="checkbox"]),.appliance-flow-theme select { height: 3rem; border-radius: .5rem; background: hsl(var(--card)); }
 .appliance-flow-theme input[type="checkbox"] { accent-color: hsl(var(--primary)); }
 .appliance-flow-theme :is(button,a,input,select,summary):focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
 .appliance-flow-theme [tabindex="-1"]:focus { outline: none; }
-.appliance-flow-progress { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; font-size: .75rem; color: hsl(var(--muted-foreground)); }
+.appliance-configurator { display: grid; grid-template-columns: 13rem minmax(0,1fr); min-width: 0; }
+.appliance-mobile-save { display: none; }
+.appliance-workspace { min-width: 0; padding: 1.5rem 2rem 2rem; }
+.appliance-flow-progress { display: flex; align-items: center; gap: .75rem; font-size: .75rem; color: hsl(var(--muted-foreground)); margin-bottom: 2rem; }
 .appliance-flow-progress li { display: inline-flex; align-items: center; gap: .5rem; }
-.appliance-flow-progress li > span { width: .5rem; height: .5rem; border-radius: 50%; background: hsl(var(--border)); }
+.appliance-flow-progress li > span { width: .375rem; height: .375rem; border-radius: 50%; background: hsl(var(--border)); }
 .appliance-flow-progress [aria-current="step"] { color: hsl(var(--primary)); font-weight: 600; }
 .appliance-flow-progress [aria-current="step"] > span { background: currentColor; }
-.appliance-mode-switch { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .25rem; padding: .25rem; border: 1px solid hsl(var(--border)); border-radius: .75rem; background: hsl(var(--muted)); }
-.appliance-mode-switch button { display: flex; align-items: center; justify-content: center; gap: .5rem; padding: .75rem; min-height: 3rem; font-size: .875rem; color: hsl(var(--muted-foreground)); }
-.appliance-mode-switch button[aria-pressed="true"] { color: hsl(var(--primary)); background: hsl(var(--card)); }
-.appliance-library-search { display: flex; flex-direction: column; gap: .75rem; }
-.appliance-library-search input[type="search"] { height: 3.5rem; }
+.appliance-mode-switch { display: flex; flex-direction: column; align-items: stretch; gap: .5rem; padding: 1.5rem 1rem; background: hsl(var(--card)); }
+.appliance-nav-title { padding: 0 .75rem .5rem; font-size: .75rem; color: hsl(var(--muted-foreground)); }
+.appliance-mode-switch button { display: flex; align-items: center; gap: .75rem; padding: 1rem .75rem; text-align: left; min-height: 3rem; font-size: .875rem; color: hsl(var(--muted-foreground)); }
+.appliance-mode-switch button:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+.appliance-mode-switch button > span:first-of-type { display: flex; flex-direction: column; gap: .25rem; }
+.appliance-mode-switch strong { font-weight: 600; }
+.appliance-mode-switch small { font-size: .75rem; font-weight: 400; }
+.appliance-mode-switch button[aria-pressed="true"] { color: hsl(var(--primary)); background: hsl(var(--primary)/.1); }
+.appliance-mode-dot { display: none; width: .375rem; height: .375rem; border-radius: 50%; background: currentColor; margin-left: auto; flex-shrink: 0; }
+.appliance-mode-switch button[aria-pressed="true"] .appliance-mode-dot { display: block; }
+.appliance-nav-note { display: flex; flex-direction: column; gap: .75rem; padding: 2rem .75rem 1rem; margin-top: auto; font-size: .75rem; color: hsl(var(--muted-foreground)); }
+.appliance-nav-note svg { color: hsl(var(--primary)); }
+.appliance-nav-note p { color: hsl(var(--foreground)); font-size: .875rem; font-weight: 600; }
+.appliance-library-search { display: flex; flex-direction: column; gap: 1.5rem; }
+.appliance-library-search input[type="search"] { height: 3.5rem; border-color: hsl(var(--input)); font-size: 1rem; }
 .appliance-control { min-width: 0; width: 100%; border: 1px solid hsl(var(--input)); padding: 0 .75rem; font-size: .875rem; }
-.appliance-filter-tools { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.appliance-filter-tools { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.appliance-filter-tools:has(.appliance-active-filters:empty):not(:has(button)) { display: none; }
+.appliance-active-filters { display: flex; flex-wrap: wrap; gap: .5rem; }
+.appliance-active-filters button { display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; background: hsl(var(--muted)); font-size: .75rem; overflow-wrap: anywhere; }
 .appliance-advanced-filters { flex: 1; min-width: 0; font-size: .875rem; }
-.appliance-advanced-filters > summary { display: flex; align-items: center; gap: .5rem; width: fit-content; cursor: pointer; min-height: 2.5rem; }
+.appliance-advanced-filters > summary { display: flex; align-items: center; gap: .5rem; width: fit-content; cursor: pointer; min-height: 2.75rem; }
 .appliance-advanced-filters[open] > summary { color: hsl(var(--primary)); }
-.appliance-all-filters { background: hsl(var(--muted)); border-radius: .5rem; padding: 0 .75rem; }
-.appliance-all-filters[open] { padding-bottom: 1rem; }
-.appliance-filter-tools:empty { display: none; }
+.appliance-all-filters { border-radius: .5rem; }
+.appliance-all-filters[open] { padding: 1rem; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); }
 .appliance-count { min-width: 1.5rem; text-align: center; border-radius: .5rem; background: hsl(var(--muted)); font-size: .75rem; }
-.appliance-device-card { display: flex; min-width: 0; flex-direction: column; gap: 1rem; border: 1px solid hsl(var(--border)); border-radius: .75rem; padding: 1rem; background: hsl(var(--card)); }
-.appliance-device-card:focus-within { border-color: hsl(var(--primary)); }
-.appliance-device-icon { display: inline-flex; align-items: center; justify-content: center; width: 3rem; height: 3rem; flex-shrink: 0; border-radius: .75rem; color: hsl(var(--primary)); background: hsl(var(--primary)/.1); }
-.appliance-source-tag { max-width: 75%; font-size: .75rem; color: hsl(var(--muted-foreground)); }
-.appliance-device-metric { font-size: .875rem; line-height: 1.5; padding: .75rem; background: hsl(var(--muted)); border-radius: .5rem; }
+.appliance-filter-popover { width: min(22rem,calc(100vw - 2rem)); background: hsl(var(--popover)); }
+.appliance-results { display: flex; flex-direction: column; gap: .75rem; }
+.appliance-device-card { display: grid; min-width: 0; grid-template-columns: 3rem minmax(0,1fr) auto; align-items: center; column-gap: 1rem; row-gap: .5rem; border: 1px solid hsl(var(--border)); border-radius: .75rem; padding: 1rem; background: hsl(var(--card)); }
+.appliance-device-card:hover,.appliance-device-card:focus-within { border-color: hsl(var(--primary)/.65); }
+.appliance-device-leading { display: contents; }
+.appliance-device-icon { display: inline-flex; grid-column: 1; grid-row: 1 / 3; align-items: center; justify-content: center; width: 3rem; height: 3rem; border-radius: .75rem; color: hsl(var(--primary)); background: hsl(var(--primary)/.08); }
+.appliance-device-identity { grid-column: 2; grid-row: 1 / 3; }
+.appliance-source-tag { grid-column: 2; grid-row: 3; font-size: .75rem; color: hsl(var(--muted-foreground)); }
+.appliance-device-metric { grid-column: 3; grid-row: 1; text-align: right; }
+.appliance-device-metric > p:first-child { font-size: 1rem; line-height: 1.5rem; }
+.appliance-result-select { grid-column: 3; grid-row: 2 / 4; min-height: 2.75rem; }
+.appliance-result-detail { grid-column: 2 / -1; grid-row: 4; }
+.appliance-result-detail > summary { min-height: 2rem; padding: .25rem 0; }
 .appliance-small-detail { font-size: .75rem; color: hsl(var(--muted-foreground)); }
-.appliance-small-detail > summary { cursor: pointer; min-height: 2rem; padding: .25rem 0; }
+.appliance-small-detail > summary { cursor: pointer; min-height: 2.75rem; padding: .75rem 0; }
 .appliance-small-detail[open] > :not(summary) { margin-top: .5rem; line-height: 1.6; }
-.appliance-empty { display: flex; min-height: 12rem; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; border-radius: .75rem; background: hsl(var(--muted)); padding: 2rem; text-align: center; }
+.appliance-empty { display: flex; min-height: 16rem; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; border-radius: .75rem; background: hsl(var(--card)); padding: 2rem; text-align: center; }
 .appliance-library-footer { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: .5rem; padding: 1rem 0; }
 .appliance-setup { background: transparent; border: 0; box-shadow: none; }
 .appliance-setup > :is(header,div) { padding-left: 0; padding-right: 0; }
-.appliance-setup-layout { display: grid; min-width: 0; grid-template-columns: minmax(0,1fr) 19rem; align-items: start; gap: 2rem; }
+.appliance-setup-layout { display: grid; min-width: 0; grid-template-columns: minmax(0,1fr) 17rem; align-items: start; gap: 1.5rem; }
 .appliance-setup-fields { display: flex; min-width: 0; flex-direction: column; gap: 1.5rem; }
-.appliance-field-section { display: flex; min-width: 0; flex-direction: column; gap: 1rem; }
-.appliance-field-section > h3 { font-size: 1rem; font-weight: 600; }
+.appliance-field-section { display: flex; min-width: 0; flex-direction: column; gap: 1rem; padding: 1.5rem; border-radius: .75rem; background: hsl(var(--card)); }
+.appliance-field-section > h3 { font-size: 1rem; font-weight: 600; margin-bottom: .5rem; }
 .appliance-origin { border: 1px solid hsl(var(--border)); border-radius: .75rem; padding: 1rem; }
-.appliance-origin > summary { cursor: pointer; font-size: .875rem; font-weight: 600; }
+.appliance-origin > summary { cursor: pointer; font-size: .875rem; font-weight: 600; min-height: 2rem; }
 .appliance-origin > div { display: flex; flex-direction: column; gap: .75rem; padding-top: 1rem; }
-.appliance-selected-product { display: flex; flex-direction: column; gap: .5rem; border-radius: .75rem; background: hsl(var(--muted)); padding: 1rem; }
-.appliance-setup-summary { position: sticky; top: 0; min-width: 0; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: .75rem; overflow: hidden; }
-.appliance-estimate { padding: 1.5rem; background: hsl(var(--primary)/.1); color: hsl(var(--foreground)); }
+.appliance-selected-product { display: flex; flex-direction: column; gap: .5rem; padding: 0 0 .5rem; }
+.appliance-selected-product > p:first-child { color: hsl(var(--primary)); }
+.appliance-setup-summary { position: sticky; top: 1rem; min-width: 0; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: .75rem; overflow: hidden; }
+.appliance-estimate { padding: 1.5rem; background: hsl(var(--primary)/.08); color: hsl(var(--foreground)); }
 .appliance-estimate > div:first-child { color: hsl(var(--primary)); }
-.appliance-setup-summary button { width: 100%; min-height: 3rem; }
+.appliance-estimate-basis { display: flex; flex-direction: column; gap: .5rem; margin-top: 1.5rem; font-size: .75rem; color: hsl(var(--muted-foreground)); }
+.appliance-setup-summary button { width: 100%; min-height: 3rem; white-space: normal; }
 .appliance-setup-summary button[type="submit"] { font-size: 1rem; }
-.appliance-success { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; padding: 3rem 1rem; text-align: center; }
+.appliance-success { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; padding: 4rem 1.5rem; text-align: center; }
 .appliance-success-icon { display: flex; align-items: center; justify-content: center; width: 4rem; height: 4rem; border-radius: 50%; background: hsl(var(--primary)/.12); color: hsl(var(--primary)); }
 .appliance-success button { flex: 1; min-height: 3rem; }
+.appliance-success-energy { display: flex; flex-direction: column; gap: .5rem; padding: 1.5rem 2rem; border-radius: .75rem; background: hsl(var(--primary)/.08); }
+.appliance-smart-connection { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); padding: 2rem; border-radius: .75rem; }
+.appliance-smart-device { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: .75rem; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+@media(min-width: 768px) { .appliance-configurator:not(:has(>nav)) { grid-template-columns: minmax(0,1fr); } }
+@media(min-width: 768px) and (max-width: 1100px) { .appliance-configurator { grid-template-columns: 11rem minmax(0,1fr); } .appliance-workspace { padding: 1.5rem; } .appliance-setup-layout { grid-template-columns: minmax(0,1fr); } .appliance-setup-summary { position: static; } }
 @media(max-width: 767px) {
-  .appliance-flow-dialog > div.relative { padding: 1.5rem 1rem; gap: 1rem; }
-  .appliance-mode-switch { grid-template-columns: 1fr 1fr 1fr; }
-  .appliance-mode-switch button { font-size: .75rem; padding: .5rem; gap: .5rem; }
-  .appliance-mode-switch button { flex-direction: column; }
+  .appliance-flow-dialog { max-height: 98dvh; border-radius: 1rem 1rem 0 0; }
+  .appliance-dialog-heading { padding: 2rem 1rem 1.5rem; }
+  .appliance-brand span { display: none; }
+  .appliance-configurator { display: flex; flex-direction: column; }
+  .appliance-workspace { padding: 1.5rem 1rem max(1.5rem,env(safe-area-inset-bottom)); }
+  .appliance-mode-switch { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); padding: .5rem; gap: .25rem; }
+  .appliance-nav-title,.appliance-nav-note,.appliance-mode-switch small,.appliance-mode-dot { display: none !important; }
+  .appliance-mode-switch button { flex-direction: column; font-size: .75rem; padding: .75rem .25rem; gap: .5rem; text-align: center; }
   .appliance-setup-layout { grid-template-columns: minmax(0,1fr); gap: 1.5rem; }
   .appliance-setup-summary { position: static; }
-  .appliance-flow-progress { gap: .5rem; }
+  .appliance-field-section { padding: 1rem; }
+  .appliance-setup-summary button[type="submit"] { display: none; }
+  .appliance-mobile-save { display: flex; position: sticky; bottom: 0; padding: .75rem 0 max(.75rem,env(safe-area-inset-bottom)); background: hsl(var(--background)); }
+  .appliance-mobile-save button { min-height: 3rem; width: 100%; }
+  .appliance-dialog-heading { padding-bottom: 1rem; }
+  .appliance-workspace { padding-top: 1rem; }
+  .appliance-flow-dialog [aria-label="Selecionar aparelho"] { gap: .75rem; }
+  .appliance-flow-progress { margin-bottom: 1rem; }
+  .appliance-library-search { gap: 1rem; }
+
+  .appliance-flow-progress { gap: .5rem; margin-bottom: 1.5rem; }
   .appliance-flow-progress li { gap: .25rem; }
   .appliance-filter-tools { flex-wrap: wrap; }
+  .appliance-device-card { grid-template-columns: 2.5rem minmax(0,1fr); gap: .75rem; }
+  .appliance-device-icon { width: 2.5rem; height: 2.5rem; grid-row: 1; }
+  .appliance-device-identity { grid-row: 1; }
+  .appliance-source-tag { grid-column: 2; grid-row: 2; }
+  .appliance-device-metric { grid-column: 2; grid-row: 3; text-align: left; }
+  .appliance-result-select { grid-column: 1 / -1; grid-row: 4; width: 100%; }
+  .appliance-result-detail { grid-row: 5; }
 }
 @media(prefers-reduced-motion:reduce) {
   .appliance-flow-theme *, .appliance-flow-theme *::before, .appliance-flow-theme *::after { animation: none !important; transition: none !important; }

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { catalogPresentation } from "@/lib/catalog-presentation";
 import CatalogReferenceDetails from "./CatalogReferenceDetails";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,7 @@ interface Props {
   onBusyChange?: (busy: boolean) => void;
   draft?: DeviceConfigurationDraft;
   onDraftChange?: (draft: DeviceConfigurationDraft) => void;
+  placementFields?: ReactNode;
 }
 export default function DeviceConfigurationPanel({
   device: suppliedDevice,
@@ -59,6 +60,7 @@ export default function DeviceConfigurationPanel({
   onBusyChange,
   draft,
   onDraftChange,
+  placementFields,
 }: Props) {
   const { preferences, updatePreferences } = useUserPreferences();
   const [matchedDevice, setMatchedDevice] = useState<CatalogDevice | undefined>(draft?.matchedDevice);
@@ -271,7 +273,7 @@ export default function DeviceConfigurationPanel({
     change: (value: string) => void,
     props: React.InputHTMLAttributes<HTMLInputElement> = {},
   ) => (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <Label htmlFor={`${id}-${key}`}>{label}</Label>
       <Input
         id={`${id}-${key}`}
@@ -290,15 +292,16 @@ export default function DeviceConfigurationPanel({
       : { integrationProvider: "smartthings" });
   const referenceSource = referenceDevice?.source || initialAppliance?.source;
   return <Card className="appliance-flow-theme appliance-setup min-w-0">
-    <CardHeader className="pb-6"><CardTitle className="text-xl">Ajuste o uso à sua rotina</CardTitle><p className="mt-2 text-sm text-muted-foreground">Confira o aparelho e preencha somente o que muda na sua casa.</p></CardHeader>
+    <CardHeader className="pb-6"><CardTitle className="text-2xl">Ajuste o uso à sua rotina</CardTitle><p className="mt-2 text-sm text-muted-foreground">Confira o aparelho e preencha somente o que muda na sua casa.</p></CardHeader>
     <CardContent>
       <form onSubmit={save}>
         <fieldset disabled={saving} className="appliance-setup-layout min-w-0">
           <div className="appliance-setup-fields">
             <div className="appliance-selected-product"><p className="text-xs text-muted-foreground">Modelo selecionado</p><h3 className="break-words text-lg font-semibold">{description?.title || integration?.name || initialAppliance?.name}</h3>
-              <p className="text-xs text-muted-foreground">{device?.model ? `Modelo: ${device.model} · ` : ''}{applianceSourceLabel(source)}</p>
+              <p className="text-xs text-muted-foreground">{device?.brand ? `${device.brand} · ` : ''}{device?.model ? `Modelo: ${device.model} · ` : ''}{applianceSourceLabel(source)}</p>
             </div>
             {integration && <section className="appliance-field-section"><h3>Dispositivo conectado</h3><p className="text-xs text-muted-foreground">Samsung SmartThings. Nenhum modelo é associado automaticamente.</p>
+              {integration.counterKWh === undefined && !integration.energyInterval && <p role="status" className="text-sm text-muted-foreground">Este dispositivo não forneceu uma medição de energia compatível. Para estimar o consumo, informe os dados da etiqueta e sua rotina de uso.</p>}
               {integration.power !== undefined && <p className="text-sm">Potência atual: {formatNumber(integration.power)} W (não é energia acumulada).</p>}
               {matchError && <p role="status" className="text-sm">Não foi possível procurar modelos. Você pode continuar sem associação.</p>}
               {matches.length > 0 && <div className="flex flex-col gap-2"><Label htmlFor={`${id}-match`}>Possíveis modelos: confira modelo, tensão e região</Label><select id={`${id}-match`} className="appliance-control" value={matchedDevice?.id || ''} onChange={event => {
@@ -311,7 +314,7 @@ export default function DeviceConfigurationPanel({
             {(integration?.counterKWh !== undefined || decision.method === 'LIVE_MEASUREMENT' || initialAppliance?.monitoringOnly) && <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={monitoringOnly} onChange={event => setMonitoringOnly(event.target.checked)} className="mt-1" />Usar somente monitoramento real, sem estimativa mensal</label>}
             <section className="appliance-field-section"><h3>Identifique o aparelho</h3>
               {field('name','Nome do aparelho',name,setName,{maxLength:160,placeholder:'Ex.: Ar-condicionado da sala'})}
-              {field('room','Ambiente (opcional)',room,setRoom,{required:false,maxLength:80,placeholder:'Ex.: Sala do RH'})}
+              {placementFields || field('room','Ambiente (opcional)',room,setRoom,{required:false,maxLength:80,placeholder:'Ex.: Sala do RH'})}
             </section>
             {!monitoringOnly && <section className="appliance-field-section"><h3>Uso e consumo</h3>
               {canCustomize && <div className="flex flex-col gap-2"><Label htmlFor={`${id}-estimate`}>Como estimar o consumo</Label><select id={`${id}-estimate`} className="appliance-control" value={estimateByUsage ? 'USAGE' : 'REFERENCE'} onChange={event => {
@@ -355,9 +358,10 @@ export default function DeviceConfigurationPanel({
               <p className="text-xs text-muted-foreground">Ajustes técnicos valem somente para o seu aparelho. A biblioteca e sua referência original permanecem preservadas.</p>
             </div></details>
           </div>
-          <ApplianceSetupSummary name={name} kind={monitoringOnly ? 'Acompanhe os intervalos medidos no histórico.' : profile.method === 'REFERENCE_PERIOD' ? 'Referência de ensaio, convertida para o mês.' : profile.method === 'PER_CYCLE' ? 'Energia por ciclo × frequência de uso.' : 'Potência × horas × dias, incluindo standby quando habilitado.'} result={!calculating && result?.signature === signature ? result : null} loading={calculating} monitoringOnly={monitoringOnly} editing={Boolean(initialAppliance)} error={error}>
+          <ApplianceSetupSummary name={name} kind={monitoringOnly ? 'Acompanhe os intervalos medidos no histórico.' : profile.method === 'REFERENCE_PERIOD' ? 'Referência de ensaio, convertida para o mês.' : profile.method === 'PER_CYCLE' ? 'Energia por ciclo × frequência de uso.' : 'Potência × horas × dias, incluindo standby quando habilitado.'} result={!calculating && result?.signature === signature ? result : null} tariff={Number(rate)} source={device ? `${applianceSourceLabel(source)} · ${device.region}` : 'Dispositivo SmartThings'} assumptions={profile.method === 'POWER_TIME' ? `${formatNumber(Number(power))} W, ${hours} ${timeUnit === 'MINUTES' ? 'min' : 'h'} por dia, ${days} dias no mês.${standbyEnabled ? ' Inclui standby.' : ''}` : profile.method === 'PER_CYCLE' ? `${cycles} ciclos por ${cyclePeriod === 'WEEK' ? 'semana' : 'mês'}.` : 'Referência padronizada; horas e dias não alteram o valor.'} loading={calculating} monitoringOnly={monitoringOnly} editing={Boolean(initialAppliance)} error={error}>
             <Button type="submit" disabled={!valid || saving}>{saving ? 'Salvando…' : initialAppliance ? 'Salvar alterações' : 'Adicionar ao WattStatus'}</Button>
           </ApplianceSetupSummary>
+          <div className="appliance-mobile-save"><Button type="submit" disabled={!valid || saving}>{saving ? 'Salvando…' : initialAppliance ? 'Salvar alterações' : 'Adicionar ao WattStatus'}</Button></div>
         </fieldset>
       </form>
     </CardContent>

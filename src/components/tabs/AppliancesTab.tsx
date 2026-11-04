@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import ApplianceCard from "@/components/ApplianceCard";
+import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import AddApplianceFlow from "@/components/AddApplianceFlow";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,6 +76,13 @@ export default function AppliancesTab({
   const { user } = useAuth();
   const [adding, setAdding] = useState(initialAddOpen);
   const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const changeAdding = (open: boolean) => {
+    if (busy) return;
+    if (!open && dirty) setConfirmClose(true);
+    else { setAdding(open); if (!open) setDirty(false); }
+  };
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
   const [search, setSearch] = useState("");
   const [source, setSource] = useState<(typeof SOURCES)[number]["value"]>("all");
@@ -126,15 +134,25 @@ export default function AppliancesTab({
   ].filter((segment) => segment.cost > 0);
 
   const addDialog = (
-    <Dialog open={adding} onOpenChange={(open) => !busy && setAdding(open)}>
-      <DialogContent className="appliance-flow-theme appliance-flow-dialog sm:max-w-6xl">
-        <DialogHeader>
+    <>
+    <Dialog open={adding} onOpenChange={changeAdding}>
+      <DialogContent className="appliance-flow-theme appliance-flow-dialog sm:max-w-6xl" onPointerDownOutside={event => event.preventDefault()} onOpenAutoFocus={event => { const input = document.querySelector<HTMLInputElement>('.appliance-flow-dialog input[type="search"]'); if (input && window.matchMedia("(min-width: 768px)").matches) { event.preventDefault(); input.focus(); } }}>
+        <DialogHeader className="appliance-dialog-heading">
+          <p className="appliance-brand"><PlugZap className="size-4" aria-hidden="true" />WattStatus<span>Configuração de aparelhos</span></p>
           <DialogTitle className="text-2xl font-semibold">Adicionar aparelho</DialogTitle>
           <DialogDescription>Encontre o modelo, ajuste seu uso e acompanhe o consumo.</DialogDescription>
         </DialogHeader>
-        <AddApplianceFlow key={user?.id ?? "no-session"} onAddAppliance={onAddAppliance} onSaved={() => setAdding(false)} onBusyChange={setBusy} />
+        <AddApplianceFlow key={user?.id ?? "no-session"} onAddAppliance={onAddAppliance} onSaved={() => setAdding(false)} onBusyChange={setBusy} onDirtyChange={setDirty} />
       </DialogContent>
     </Dialog>
+    <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+      <AlertDialogContent className="appliance-flow-theme">
+        <AlertDialogTitle>Descartar este cadastro?</AlertDialogTitle>
+        <AlertDialogDescription>O aparelho ainda não foi salvo. Continue configurando para manter os dados preenchidos.</AlertDialogDescription>
+        <AlertDialogFooter><AlertDialogCancel>Continuar cadastro</AlertDialogCancel><AlertDialogAction onClick={() => { setDirty(false); setAdding(false); }}>Descartar e fechar</AlertDialogAction></AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 
   if (appliances.length === 0)
