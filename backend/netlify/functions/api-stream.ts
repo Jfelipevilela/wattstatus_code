@@ -46,4 +46,5 @@ export default async (request: Request, context: Context) => {
 };
 
 // A function with a path is routed before the /api/* rewrite in netlify.toml.
-export const config: Config = { path: [STREAM_PATH, "/api/properties/:id/power/stream"] };
+// Literal values only: Netlify reads this config statically while bundling.
+export const config: Config = { path: ["/api/ai/chat/stream", "/api/properties/:id/power/stream"] };
