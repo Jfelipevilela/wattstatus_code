@@ -41,7 +41,7 @@ export function AIInsights({ propertyId, title = "Análises do WattStatus AI" }:
         <h2 id="ai-insights-title" className="flex items-center gap-2 text-sm font-semibold">
           <Sparkles className="h-4 w-4 text-primary" aria-hidden /> {title}
         </h2>
-        <button type="button" onClick={() => openAssistant({ message: "Analisar minha casa", context: { propertyId: property.id } })} className="text-xs font-medium text-primary hover:underline">
+        <button type="button" onClick={() => openAssistant({ message: "Analisar meu imóvel", context: { propertyId: property.id } })} className="text-xs font-medium text-primary hover:underline">
           Perguntar à IA
         </button>
       </div>

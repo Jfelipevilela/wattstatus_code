@@ -68,7 +68,7 @@ export function PropertyForm({ initial, submitting, submitLabel, onSubmit, onCan
     >
       <fieldset>
         <legend className="mb-2 text-sm font-medium">Tipo</legend>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {(Object.keys(PROPERTY_TYPES) as PropertyType[]).map((value) => {
             const Icon = PROPERTY_ICONS[value];
             return (

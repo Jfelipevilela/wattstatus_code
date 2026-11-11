@@ -37,6 +37,14 @@ export const env = {
   lgClientId: process.env.LG_CLIENT_ID || "",
   lgClientSecret: process.env.LG_CLIENT_SECRET || "",
   lgRefreshToken: process.env.LG_REFRESH_TOKEN || "",
+  // Tuya Cloud project (Access ID/Secret from iot.tuya.com). Region "us" = Western America.
+  tuyaAccessId: process.env.TUYA_ACCESS_ID || "",
+  tuyaAccessSecret: process.env.TUYA_ACCESS_SECRET || "",
+  tuyaRegion: process.env.TUYA_REGION || "us",
+  // Proof of concept only: links ONE WattStatus user to ONE Tuya uid linked in the
+  // Tuya console. Never accept a uid from the client: it would expose other accounts.
+  tuyaPocUserId: process.env.TUYA_POC_USER_ID || "",
+  tuyaPocUid: process.env.TUYA_POC_UID || "",
   databaseUrl:
     process.env.DATABASE_URL || "postgres://user:password@localhost:5432/wattstatus",
   smartThingsTokenSecret:

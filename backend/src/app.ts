@@ -1,7 +1,9 @@
+import { GroupOffService } from "./modules/appliances/group-off.service";
+import { userProviderResolver } from "./modules/integrations/user-provider";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import { createAuthenticate } from "./middleware/auth-middleware";
+import { createAuthenticate, type AuthenticatedRequest } from "./middleware/auth-middleware";
 import { errorHandler } from "./middleware/error-handler";
 import { requestLogging } from "./middleware/request-logging";
 import { ApplianceService } from "./modules/appliances/appliances.service";
@@ -10,6 +12,7 @@ import { createCalculationRouter } from "./modules/calculations/calculation.rout
 import { AuthService } from "./modules/auth/auth.service";
 import { createAuthRouter } from "./modules/auth/auth.routes";
 import { IntegrationManager } from "./modules/integrations/integration-manager";
+import { createTuyaRouter } from "./modules/integrations/tuya.routes";
 import { createIntegrationRouter } from "./modules/integrations/integration.routes";
 import { SmartThingsIntegration } from "./modules/integrations/providers/smartthings";
 import { createUserSettingsRouter } from "./modules/user-settings/user-settings.routes";
@@ -74,7 +77,17 @@ export const createApp = ({ db, integrationManager }: AppDependencies) => {
   );
   app.use("/api/calculations", authenticate, createCalculationRouter());
   app.use("/api/simulations", authenticate, createSimulationRouter(new SimulationService(db)));
-  app.use("/api/properties", authenticate, createPropertyRouter(propertyService));
+  const groupOff = new GroupOffService(propertyService, db, userProviderResolver(db));
+  const groupOffLimiter = createRequestLimiter(db, "group-off", 2, 60000,
+    req => (req as AuthenticatedRequest).userId!);
+  app.use("/api/properties", authenticate, createPropertyRouter(propertyService, groupOff, groupOffLimiter, createRequestLimiter(db, "group-power-preview", 30, 60000, req => (req as AuthenticatedRequest).userId!)));
+  app.use(
+    "/api/integrations/tuya",
+    authenticate,
+    createTuyaRouter(db, {
+      limiter: createRequestLimiter(db, "tuya", 90, 60000, req => (req as AuthenticatedRequest).userId!),
+    })
+  );
   app.use(
     "/api/integrations",
     authenticate,

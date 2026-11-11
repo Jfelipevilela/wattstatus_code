@@ -71,6 +71,7 @@ const menuItems: NavItem[] = [
 const APP_BRAND_COLORS: Record<string, string> = {
   smartthings: "#15BFFF",
   "lg-thinq": "#A50034",
+  tuya: "#FF4800",
 };
 
 const themeOptions = [
@@ -227,7 +228,7 @@ export function AppSidebar() {
                   </div>
                   <p className="text-sm font-semibold text-slate-900 dark:text-white">Conecte seus aparelhos</p>
                   <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-white/50">
-                    Acompanhe o consumo em tempo real da sua casa inteligente.
+                    Acompanhe o consumo em tempo real do seu imóvel inteligente.
                   </p>
                   <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-energy-green-light">
                     Conectar agora

@@ -117,7 +117,7 @@ export default function Onboarding() {
 
             {step === 0 && <section className="rounded-2xl border bg-card p-6 sm:p-10">
               <Home className="mb-5 h-9 w-9 text-primary" aria-hidden="true" />
-              <h1 className="max-w-xl text-3xl font-bold tracking-tight sm:text-4xl">Vamos entender o consumo de energia da sua casa?</h1>
+              <h1 className="max-w-xl text-3xl font-bold tracking-tight sm:text-4xl">Vamos entender o consumo de energia do seu imóvel?</h1>
               <p className="mt-4 max-w-xl leading-relaxed text-muted-foreground">Configure um imóvel, informe sua tarifa e adicione um aparelho. Você verá sua primeira estimativa; pode sair e voltar quando quiser.</p>
               <div className="mt-8 flex flex-wrap gap-3"><button className={primary} disabled={busy} onClick={() => void run(() => persist(1))}>Começar <ArrowRight size={17} /></button>
                 <button className={secondary} disabled={busy} onClick={later}>Explorar o sistema</button></div>

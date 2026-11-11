@@ -41,6 +41,7 @@ import { SiLg, SiSmartthings } from "react-icons/si";
 import type { IconType } from "react-icons";
 import { useApps } from "@/hooks/useApps";
 import { useSmartThingsToken } from "@/hooks/useSmartThingsToken";
+import { useTuyaStatus } from "@/hooks/useTuyaStatus";
 import { AvailableAppId } from "@/types/apps";
 import { cn } from "@/lib/utils";
 
@@ -56,7 +57,7 @@ interface CatalogEntry {
   id: AvailableAppId;
   vendor: string;
   description: string;
-  icon: IconType;
+  icon: IconType | React.ComponentType<{ className?: string }>;
   brand: string;
   url: string;
   soon: boolean;
@@ -88,6 +89,19 @@ const CATALOG: Record<AvailableAppId, Omit<CatalogEntry, "id" | "url">> = {
     features: [
       { icon: Activity, label: "Status em tempo real" },
       { icon: Bell, label: "Alertas de uso" },
+    ],
+  },
+  tuya: {
+    vendor: "Tuya",
+    description:
+      "Dispositivos Tuya no Smart Life ou Tuya Smart: estado ligado/desligado quando disponível, potência e consumo quando há medição e liga/desliga com chave (switch). Cor, temperatura e modo ainda não são controlados aqui.",
+    icon: PlugZap,
+    brand: "#FF4800",
+    soon: false,
+    features: [
+      { icon: Gauge, label: "Consumo quando medido" },
+      { icon: Power, label: "Liga/desliga com chave" },
+      { icon: Activity, label: "Potência quando medida" },
     ],
   },
 };
@@ -155,6 +169,7 @@ const Apps = () => {
   const navigate = useNavigate();
   const { available, addApp, removeApp, isActive } = useApps();
   const smartthings = useSmartThingsToken();
+  const tuya = useTuyaStatus();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
@@ -167,11 +182,14 @@ const Apps = () => {
         if (meta.soon) status = "soon";
         else if (app.id === "smartthings") {
           status = smartthings.checking ? "checking" : smartthings.hasToken ? "connected" : "disconnected";
+        } else if (app.id === "tuya") {
+          status = tuya.checking ? "checking" : tuya.linked ? "connected" : "disconnected";
         }
         return { ...meta, id: app.id, name: app.name, url: app.url, status, pinned: isActive(app.id) };
       }),
-    [available, isActive, smartthings.checking, smartthings.hasToken]
+    [available, isActive, smartthings.checking, smartthings.hasToken, tuya.checking, tuya.linked]
   );
+  const checkingAny = smartthings.checking || tuya.checking;
 
   const counts = {
     connected: entries.filter((e) => e.status === "connected").length,
@@ -216,7 +234,7 @@ const Apps = () => {
               <div className="max-w-xl space-y-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-energy-green-light/15 px-2.5 py-1 text-xs font-semibold text-energy-700 dark:text-energy-green-light">
                   <Sparkles className="size-3.5" />
-                  Casa inteligente
+                  Imóvel inteligente
                 </span>
                 <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
                   Conecte seus aparelhos ao WattStatus
@@ -226,7 +244,7 @@ const Apps = () => {
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-3 lg:w-[420px]">
-                <StatCard label="Conectadas" value={smartthings.checking ? "–" : counts.connected} icon={Check} />
+                <StatCard label="Conectadas" value={checkingAny ? "–" : counts.connected} icon={Check} />
                 <StatCard label="No menu" value={counts.pinned} icon={PlugZap} />
                 <StatCard label="Disponíveis" value={counts.available} icon={Activity} />
               </div>
@@ -336,6 +354,12 @@ const Apps = () => {
                         {smartthings.method === "oauth" ? "Conectado com conta Samsung" : "Conectado com token pessoal"}
                       </p>
                     )}
+                    {app.id === "tuya" && app.status === "connected" && (
+                      <p className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <ShieldCheck className="size-3.5 text-energy-green-light" />
+                        Conta Smart Life ou Tuya Smart vinculada no servidor
+                      </p>
+                    )}
 
                     <div className="mt-auto pt-5">
                       {app.soon ? (
@@ -353,17 +377,19 @@ const Apps = () => {
                               <ArrowUpRight className="size-4" />
                             </Link>
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            aria-label={`Desconectar ${app.name}`}
-                            title="Desconectar"
-                            disabled={smartthings.revoking}
-                            onClick={() => setConfirmDisconnect(true)}
-                            className="text-red-600 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400"
-                          >
-                            {smartthings.revoking ? <Loader2 className="size-4 animate-spin" /> : <Unplug className="size-4" />}
-                          </Button>
+                          {app.id === "smartthings" && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              aria-label={`Desconectar ${app.name}`}
+                              title="Desconectar"
+                              disabled={smartthings.revoking}
+                              onClick={() => setConfirmDisconnect(true)}
+                              className="text-red-600 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400"
+                            >
+                              {smartthings.revoking ? <Loader2 className="size-4 animate-spin" /> : <Unplug className="size-4" />}
+                            </Button>
+                          )}
                         </div>
                       ) : (
                         <Button
@@ -376,7 +402,7 @@ const Apps = () => {
                           ) : (
                             <LogIn className="size-4" />
                           )}
-                          {smartthings.oauthAvailable ? `Entrar com ${app.vendor}` : "Conectar"}
+                          {app.id === "smartthings" && smartthings.oauthAvailable ? `Entrar com ${app.vendor}` : "Conectar"}
                         </Button>
                       )}
                     </div>

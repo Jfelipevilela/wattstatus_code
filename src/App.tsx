@@ -31,6 +31,7 @@ const SmartThings = lazy(() => import("./pages/SmartThings"));
 const SmartThingsCallback = lazy(() => import("./pages/SmartThingsCallback"));
 const Properties = lazy(() => import("./pages/Properties"));
 const PropertyDetail = lazy(() => import("./pages/PropertyDetail"));
+const Tuya = lazy(() => import("./pages/Tuya"));
 const RoomDetails = lazy(() => import("./pages/RoomDetails"));
 const Apps = lazy(() => import("./pages/Apps"));
 const AIPreferences = lazy(() => import("./pages/AIPreferences"));
@@ -143,6 +144,7 @@ const App = () => (
                       </ProtectedRoute>
                     }
                   />
+                  <Route path="/integracoes/tuya" element={<ProtectedRoute><Tuya /></ProtectedRoute>} />
                   <Route path="/imoveis" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
                   <Route path="/imoveis/:id" element={<ProtectedRoute><PropertyDetail /></ProtectedRoute>} />
                   <Route path="/imoveis/:id/ambientes/:roomId" element={<ProtectedRoute><RoomDetails /></ProtectedRoute>} />

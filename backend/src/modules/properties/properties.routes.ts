@@ -1,4 +1,4 @@
-import { Router, type NextFunction, type Response } from "express";
+import { Router, type NextFunction, type Response, type RequestHandler } from "express";
 import { z } from "zod";
 import { AuthenticatedRequest } from "../../middleware/auth-middleware";
 import { ApiError } from "../../middleware/error-handler";
@@ -15,6 +15,7 @@ import {
   roomInputSchema,
   roomUpdateSchema,
 } from "./properties.schema";
+import { groupPowerSchema, groupOffSchema, type GroupOffService } from "../appliances/group-off.service";
 import { PropertyService } from "./properties.service";
 
 const id = z.string().uuid();
@@ -46,8 +47,62 @@ const range = (query: unknown) => {
   return { start, end, roomId: parsed.roomId, format: parsed.format };
 };
 
-export const createPropertyRouter = (service: PropertyService) => {
+export const createPropertyRouter = (
+  service: PropertyService,
+  groupOff?: GroupOffService,
+  offLimiter?: RequestHandler,
+  previewLimiter?: RequestHandler,
+) => {
   const router = Router();
+
+  if (groupOff) router.post("/:id/power-off", offLimiter ?? ((_req, _res, next) => next()), route(async (req, res) => {
+    const expectedUser = req.header("x-wattstatus-user");
+    if (expectedUser && expectedUser !== req.userId) throw new ApiError(409, "A sessão mudou. Reabra a confirmação.");
+    res.json(await groupOff.run(req.userId, req.params.id, groupOffSchema.parse(req.body)));
+  }));
+
+  if (groupOff) for (const preview of [false, true]) {
+    router.post(preview ? "/:id/power/preview" : "/:id/power", (preview ? previewLimiter : offLimiter) ?? ((_req, _res, next) => next()), route(async (req, res) => {
+      const expectedUser = req.header("x-wattstatus-user");
+      if (expectedUser && expectedUser !== req.userId) throw new ApiError(409, "A sessão mudou. Reabra a confirmação.");
+      const { action, scope } = groupPowerSchema.parse(req.body);
+      const result = await groupOff.run(req.userId, req.params.id, scope, action, preview);
+      res.json(preview ? { controllableCount: result.controllableCount, total: result.results.length } : result);
+    }));
+  }
+
+  // Same batch as /power, with live progress as server-sent events: the
+  // queue state of every appliance, then the final result.
+  if (groupOff) router.post("/:id/power/stream", offLimiter ?? ((_req, _res, next) => next()), async (req, res, next) => {
+    let started = false;
+    try {
+      const userId = (req as typeof req & { userId?: string }).userId;
+      if (!userId) throw new ApiError(401, "Não autenticado");
+      const expectedUser = req.header("x-wattstatus-user");
+      if (expectedUser && expectedUser !== userId) throw new ApiError(409, "A sessão mudou. Reabra a confirmação.");
+      const { action, scope } = groupPowerSchema.parse(req.body);
+      // The stream opens on the first event, after ownership and scope checks:
+      // a foreign or invalid request still gets a plain JSON error.
+      const send = (event: string, data: unknown) => {
+        if (!started) {
+          res.status(200).set({ "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" });
+          res.flushHeaders?.();
+          started = true;
+        }
+        if (!res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+      const result = await groupOff.run(userId, req.params.id, scope, action, false, (event) => send(event.type, event));
+      send("done", result);
+      res.end();
+    } catch (error) {
+      if (!started) return next(error);
+      const status = error instanceof ApiError ? error.status : 500;
+      if (!res.writableEnded) {
+        res.write(`event: error\ndata: ${JSON.stringify({ status, error: status === 500 ? "Não foi possível concluir o controle." : (error as Error).message })}\n\n`);
+        res.end();
+      }
+    }
+  });
 
   router.get("/", route(async (req, res) => {
     res.json({ properties: await service.listWithStats(req.userId, req.query.archived === "1") });

@@ -144,7 +144,7 @@ export function ConnectSmartThings({
           <SiSmartthings className="h-6 w-6" aria-hidden="true" />
         </span>
         <h1 id="connect-title" className="relative mt-5 text-3xl font-bold tracking-tight">
-          Conecte sua casa ao WattStatus
+          Conecte seu imóvel ao WattStatus
         </h1>
         <p className="relative mt-2 max-w-md text-white/70">
           Controle aparelhos SmartThings e veja potência e consumo reais ao lado das suas estimativas.

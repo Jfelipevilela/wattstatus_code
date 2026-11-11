@@ -186,7 +186,7 @@ const estimatedLimitation = (snapshot: PropertySnapshot) => {
   const source = measuredSource(snapshot);
   if (source === "unavailable") return "Valores estimados pela potência e horas de uso cadastradas; nenhum aparelho deste imóvel tem medição real neste mês.";
   if (source === "measured_partial") {
-    return `Só ${snapshot.totals.measuredApplianceCount} de ${snapshot.totals.applianceCount} aparelhos têm medição; o total medido não representa a casa inteira.`;
+    return `Só ${snapshot.totals.measuredApplianceCount} de ${snapshot.totals.applianceCount} aparelhos têm medição; o total medido não representa o imóvel inteiro.`;
   }
   return null;
 };
@@ -267,8 +267,8 @@ export const handleIntent = (
       const top = snapshot.appliances[0];
       draft.message = top && top.estimatedCost > 0
         ? `Olá! Posso analisar o consumo de "${safeName(snapshot.property.name)}", achar oportunidades de economia ou simular mudanças na rotina. Hoje o maior custo estimado é ${safeName(top.name)}, com ${brl(money(top.estimatedCost))} por mês. O que você quer descobrir?`
-        : "Olá! Posso analisar o consumo da sua casa, identificar oportunidades de economia ou simular mudanças na sua rotina. O que você gostaria de descobrir?";
-      draft.suggestions.push("Analisar minha casa", "Onde posso economizar?", "Prever a conta deste mês", "Comparar ambientes");
+        : "Olá! Posso analisar o consumo do seu imóvel, identificar oportunidades de economia ou simular mudanças na sua rotina. O que você gostaria de descobrir?";
+      draft.suggestions.push("Analisar meu imóvel", "Onde posso economizar?", "Prever a conta deste mês", "Comparar ambientes");
       return draft;
     }
     case "property_summary": {

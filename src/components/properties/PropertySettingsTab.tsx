@@ -68,10 +68,22 @@ export function PropertySettingsTab({ property, properties, floors, rooms, appli
             {floors.map((floor) => {
               const count = rooms.filter((room) => room.floorId === floor.id).length;
               return (
-                <li key={floor.id} className="flex items-center justify-between rounded-2xl bg-muted/60 px-3 py-2 text-sm">
+                <li key={floor.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/60 px-3 py-2 text-sm">
                   <span>
                     {floor.name} <span className="text-xs text-muted-foreground">· {count} ambientes</span>
                   </span>
+                  <form className="flex w-full flex-col gap-2" onSubmit={event => {
+                    event.preventDefault();
+                    const block = String(new FormData(event.currentTarget).get("block") ?? "").trim();
+                    layout.updateFloor.mutate({ id: floor.id, block: block || null }, {
+                      onSuccess: () => toast({ title: "Bloco/local atualizado" }),
+                      onError: err => notifyError(err, { title: "Erro ao salvar bloco/local" }),
+                    });
+                  }}>
+                    <label htmlFor={`block-${floor.id}`}>Bloco/local de {floor.name}</label>
+                    <Input id={`block-${floor.id}`} name="block" defaultValue={floor.block ?? ""} maxLength={80} placeholder="Opcional, ex.: Bloco A" />
+                    <Button type="submit" variant="outline" size="sm" disabled={layout.updateFloor.isPending}>Salvar bloco/local</Button>
+                  </form>
                   {floors.length > 1 && count === 0 && (
                     <button
                       type="button"

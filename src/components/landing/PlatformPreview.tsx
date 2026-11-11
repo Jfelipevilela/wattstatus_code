@@ -41,7 +41,7 @@ const VIEWS = [
     src: "/landing/app-ai.webp",
     alt: "Painel do WattStatus AI aberto sobre a Visão geral, com sugestões de perguntas sobre o consumo.",
     title: "Pergunte sobre o seu consumo",
-    points: ["Atalhos para analisar a casa, comparar ambientes e prever a conta", "Respostas sobre o imóvel selecionado", "A IA não altera aparelhos"],
+    points: ["Atalhos para analisar o imóvel, comparar ambientes e prever a conta", "Respostas sobre o imóvel selecionado", "A IA não altera aparelhos"],
   },
 ] as const;
 type ViewId = (typeof VIEWS)[number]["id"];

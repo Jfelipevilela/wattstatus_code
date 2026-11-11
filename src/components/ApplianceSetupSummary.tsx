@@ -25,7 +25,7 @@ export default function ApplianceSetupSummary({ name, kind, result, loading, mon
   return <aside className="appliance-setup-summary" aria-label="Resumo antes de confirmar">
     <div className={`appliance-estimate${!loading && !result && !monitoringOnly ? ' appliance-estimate-pending' : ''}`} role="status" aria-live="polite">
       <div className="flex items-center justify-between gap-4"><p className="text-sm font-medium">{monitoringOnly ? "Monitoramento real" : "Estimativa mensal"}</p><Leaf className="size-5" aria-hidden="true" /></div>
-      {monitoringOnly ? <><p className="mt-4 text-2xl font-semibold">Sem estimativa mensal</p><p className="mt-2 text-sm">As medições ficam no histórico SmartThings. Contador acumulado não é consumo do mês.</p></>
+      {monitoringOnly ? <><p className="mt-4 text-2xl font-semibold">Sem estimativa mensal</p><p className="mt-2 text-sm">As medições ficam no histórico de medições. Contador acumulado não é consumo do mês.</p></>
         : loading ? <div className="mt-4 flex flex-col gap-3"><Skeleton className="h-8 w-40 motion-reduce:animate-none" /><p className="text-sm">Calculando estimativa…</p></div>
           : result ? <><p className="mt-4 text-3xl font-semibold tabular-nums">{formatCurrency(result.cost)}<span className="ml-1 text-sm font-medium">/mês</span></p>
             <p className="mt-2 text-base tabular-nums">{formatNumber(result.consumptionKWh)} kWh/mês{quantity > 1 && ' por unidade'}</p>

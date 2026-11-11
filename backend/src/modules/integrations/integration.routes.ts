@@ -1,3 +1,5 @@
+import { userProviderResolver } from "./user-provider";
+import { LgThinQIntegration, lgCredentialsSchema } from "./providers/lg-thinq";
 import { Router } from "express";
 import { createHash } from "crypto";
 import { ApiError } from "../../middleware/error-handler";
@@ -130,7 +132,7 @@ export const createIntegrationRouter = (
       const token = await db.getIntegrationToken(req.userId, req.params.provider);
       res.json({
         hasToken: Boolean(token),
-        method: token ? parseStoredToken(token).kind : null,
+        method: token ? (req.params.provider === "lg-thinq" ? "thinq-connect" : parseStoredToken(token).kind) : null,
         oauthAvailable: req.params.provider === "smartthings" && isOAuthConfigured(),
       });
     } catch (err) {
@@ -141,6 +143,15 @@ export const createIntegrationRouter = (
   router.post("/:provider/token", async (req: AuthenticatedRequest, res, next) => {
     try {
       if (!req.userId) throw new ApiError(401, "Não autenticado");
+      if (req.params.provider === "lg-thinq") {
+        const input = z.object({ credentials: lgCredentialsSchema.nullable() }).strict().parse(req.body);
+        if (input.credentials) {
+          await new LgThinQIntegration(input.credentials).listDevices();
+          await db.saveIntegrationToken(req.userId, "lg-thinq", JSON.stringify(input.credentials));
+        } else await db.deleteIntegrationToken(req.userId, "lg-thinq");
+        res.json({ provider: "lg-thinq", configured: Boolean(input.credentials) });
+        return;
+      }
       const integration = manager.get(req.params.provider);
       if (!integration || integration.id !== "smartthings") {
         throw new ApiError(404, "Integração não encontrada");
@@ -203,6 +214,13 @@ export const createIntegrationRouter = (
 
   router.get("/:provider/devices", async (req: AuthenticatedRequest, res, next) => {
     try {
+      if (req.params.provider === "lg-thinq") {
+        if (!req.userId) throw new ApiError(401, "Não autenticado");
+        const integration = await userProviderResolver(db)(req.userId, "lg-thinq");
+        if (!integration) throw new ApiError(400, "LG ThinQ não configurado.");
+        res.json({ provider: integration.id, devices: await integration.listDevices() });
+        return;
+      }
       const configured = await ensureIntegrationConfigured(req, req.params.provider);
       const devices = await listDevices(req.userId!, configured, true);
       res.json({ provider: configured.integration.id, devices });

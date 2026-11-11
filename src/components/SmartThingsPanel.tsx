@@ -291,7 +291,7 @@ export default function SmartThingsPanel({
       <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm font-medium text-muted-foreground">Samsung SmartThings</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Sua casa conectada</h1>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Seu imóvel conectado</h1>
           <p className="mt-2 text-muted-foreground">
             {fetchedAt
               ? `Atualizado às ${fetchedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · atualiza a cada minuto`

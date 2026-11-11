@@ -1,1 +1,1 @@
-export type AvailableAppId = "smartthings" | "lg-thinq";
+export type AvailableAppId = "smartthings" | "lg-thinq" | "tuya";

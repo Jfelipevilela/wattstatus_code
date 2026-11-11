@@ -102,7 +102,7 @@ export interface IntegrationUsageHistory {
   applianceName?: string | null;
 }
 
-export type PropertyType = "house" | "apartment" | "commercial" | "other";
+export type PropertyType = "house" | "building" | "apartment" | "commercial" | "other";
 
 export interface PropertyRecord {
   id: string;
@@ -129,6 +129,7 @@ export interface PropertyRecord {
 }
 
 export interface FloorRecord {
+  block?: string | null;
   id: string;
   userId: string;
   propertyId: string;

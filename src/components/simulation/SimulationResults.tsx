@@ -45,7 +45,7 @@ export default function SimulationResults({ result, scenario }: { result: Simula
                 <p className="mt-2">{draft ? simulationUsageSummary(draft) : "Perfil energético preservado na fonte."}</p>
                 <p className="mt-1 text-muted-foreground">{item.method === "POWER_TIME" ? "Potência em watts × horas por dia × dias no mês ÷ 1.000. O motor inclui standby, quando habilitado, nas horas restantes dos dias informados."
                   : item.method === "PER_CYCLE" ? "Energia por ciclo × ciclos no mês. A frequência semanal usa 52 ÷ 12 semanas por mês. Um ciclo é um programa completo de funcionamento."
-                    : "Consumo da referência de ensaio convertido para um mês pelo motor existente, sem multiplicação por horas ou dias. É uma média padrão, não uma medição da sua casa."}</p>
+                    : "Consumo da referência de ensaio convertido para um mês pelo motor existente, sem multiplicação por horas ou dias. É uma média padrão, não uma medição do seu imóvel."}</p>
                 <p className="mt-1 text-muted-foreground">O consumo unitário é multiplicado pela quantidade; o custo usa {formatCurrency(scenario.tariffPerKwh)}/kWh. Os totais usam valores sem arredondamento intermediário.</p>
               </details>
             </> : <p className="mt-2 text-sm text-muted-foreground">{item.reason || "Dados insuficientes. Edite o uso e informe a potência da etiqueta quando disponível."}</p>}

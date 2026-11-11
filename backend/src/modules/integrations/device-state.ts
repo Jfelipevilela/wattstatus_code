@@ -190,3 +190,9 @@ export const validateCommand = (
       return "Comando não permitido";
   }
 };
+
+// Power verification must inspect the same component that received the command.
+export const readComponentSwitch = (raw: unknown, component = "main"): DeviceState["switch"] => {
+  const value = attribute(record(record(record(raw)?.components)?.[component]), "switch", "switch")?.value;
+  return value === "on" || value === "off" ? value : null;
+};

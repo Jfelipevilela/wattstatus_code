@@ -1,3 +1,4 @@
+import { GroupOffControl } from "@/components/properties/GroupOffControl";
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Crown, Plug, Radio } from "lucide-react";
@@ -80,6 +81,7 @@ export default function RoomDetails() {
             </section>
           ) : (
             <>
+              <GroupOffControl propertyId={id} propertyName={property.name} room={room} />
               <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="navigation" aria-label="Outros ambientes">
                 {layout.rooms.map((item) => (
                   <Link

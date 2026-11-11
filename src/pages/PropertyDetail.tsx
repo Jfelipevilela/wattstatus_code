@@ -1,3 +1,5 @@
+import { useAuth } from "@/hooks/useAuth";
+import { GroupOffControl, type BatchResult } from "@/components/properties/GroupOffControl";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Building, Check, ChevronDown, Crown, DoorOpen, Loader2, LayoutTemplate, MapPin, Pencil, Plug, Plus, Radio, Sparkles, X } from "lucide-react";
@@ -58,6 +60,27 @@ const useDesktop = () => {
 
 export default function PropertyDetail() {
   const { id = "" } = useParams();
+  const { user } = useAuth();
+  const [powerSnapshot, setPowerSnapshot] = useState<{ owner: string; property: string; states: Map<string, "on" | "off"> }>({ owner: "", property: "", states: new Map() });
+  const powerStates = powerSnapshot.owner === user?.id && powerSnapshot.property === id ? powerSnapshot.states : new Map<string, "on" | "off">();
+  const clearPower = () => setPowerSnapshot({ owner: "", property: "", states: new Map() });
+  const recordPower = (batch: BatchResult) => {
+    const owner = user?.id ?? "";
+    setPowerSnapshot(previous => {
+      const states = previous.owner === owner && previous.property === id ? new Map(previous.states) : new Map<string, "on" | "off">();
+      for (const item of batch.results) {
+        states.delete(item.applianceId);
+        if (item.outcome === "ligado-confirmado") states.set(item.applianceId, "on");
+        if (item.outcome === "desligado-confirmado") states.set(item.applianceId, "off");
+      }
+      return { owner, property: id, states };
+    });
+  };
+  useEffect(() => {
+    if (!powerSnapshot.states.size) return;
+    const timer = setTimeout(() => setPowerSnapshot(previous => ({ ...previous, states: new Map() })), 60000);
+    return () => clearTimeout(timer);
+  }, [powerSnapshot]);
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const tab = (TABS.find((item) => item.value === params.get("aba"))?.value ?? "planta") as Tab;
@@ -192,6 +215,12 @@ export default function PropertyDetail() {
       <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden /> Analisar consumo deste ambiente
     </button>
     <RoomPanel
+      controls={
+        <div role="group" aria-label={`Aparelhos conectados em ${selectedRoom.name}`} className="flex flex-col gap-2">
+          <span className="text-sm text-muted-foreground">Aparelhos conectados</span>
+          <GroupOffControl propertyId={id} propertyName={property.name} room={selectedRoom} onStart={clearPower} onResult={recordPower} />
+        </div>
+      }
       property={property}
       properties={api.properties}
       room={selectedRoom}
@@ -262,8 +291,8 @@ export default function PropertyDetail() {
             </div>
           ) : (
             <>
-              <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                <div className="flex items-center gap-4">
+              <section className="flex flex-col gap-5 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
+                <div className="flex min-w-0 items-center gap-4 lg:flex-1">
                   <span
                     className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-sm"
                     style={{ background: `${property.color ?? "#00C853"}22`, color: property.color ?? "#00C853" }}
@@ -271,7 +300,7 @@ export default function PropertyDetail() {
                     <Icon className="h-7 w-7" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <h1 className="truncate text-3xl font-bold tracking-tight">{property.name}</h1>
+                    <div className="flex flex-wrap items-center gap-3"><h1 className="truncate text-3xl font-bold tracking-tight">{property.name}</h1><GroupOffControl propertyId={id} propertyName={property.name} floors={layout.floors} rooms={layout.rooms} onStart={clearPower} onResult={recordPower} /><Button variant="ghost" size="sm" className="sm:hidden" onClick={() => openAssistant()} aria-label="Abrir WattStatus AI"><Sparkles aria-hidden="true" /> IA</Button></div>
                     <p className="flex items-center gap-1 text-sm text-muted-foreground">
                       <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
                       {[property.city, property.state].filter(Boolean).join(" · ") || "Local não informado"} · {PROPERTY_TYPES[property.type]}
@@ -279,7 +308,7 @@ export default function PropertyDetail() {
                     </p>
                   </div>
                 </div>
-                <dl className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
+                <dl className="grid shrink-0 grid-cols-2 gap-x-8 gap-y-3 [&_dt]:whitespace-nowrap [&_dt_svg]:shrink-0 sm:grid-cols-[repeat(4,auto)]">
                   <div>
                     <dt className="text-xs text-muted-foreground">Estimado/mês</dt>
                     <dd className="text-2xl font-bold tabular-nums">{formatCurrency(energy.total.estimatedCost)}</dd>
@@ -343,7 +372,7 @@ export default function PropertyDetail() {
                 <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
                   <section
                     aria-label="Planta do imóvel"
-                    className="flex h-[min(78dvh,680px)] min-h-[460px] flex-col overflow-hidden rounded-[28px] border bg-gradient-to-b from-zinc-50 to-zinc-100 shadow-sm dark:from-zinc-900 dark:to-zinc-950"
+                    className="flex h-auto min-h-[460px] flex-col overflow-hidden lg:h-[min(78dvh,680px)] rounded-[28px] border bg-gradient-to-b from-zinc-50 to-zinc-100 shadow-sm dark:from-zinc-900 dark:to-zinc-950"
                   >
                     {layout.floors.length > 1 && (
                       <div role="group" aria-label="Pavimento" className="flex gap-1 overflow-x-auto px-3 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -392,6 +421,18 @@ export default function PropertyDetail() {
                       </div>
                     ) : (
                       <FloorPlanViewer
+                        powerStates={powerStates}
+                        powerToolbar={<GroupOffControl
+                          key={activeFloor?.id ?? "all"}
+                          propertyId={id}
+                          propertyName={property.name}
+                          scopes={[
+                            ...(activeFloor ? [{ key: `floor:${activeFloor.id}`, short: activeFloor.name, label: `Andar atual: ${activeFloor.name}`, scope: { type: "floor" as const, floorId: activeFloor.id } }] : []),
+                            ...(layout.floors.length > 1 || !activeFloor ? [{ key: "property", short: layout.floors.length > 1 ? `Todos os ${layout.floors.length} andares` : "Imóvel inteiro", label: `Imóvel inteiro: ${property.name}${layout.floors.length > 1 ? ` · Todos os ${layout.floors.length} andares` : ""}`, scope: { type: "property" as const } }] : []),
+                          ]}
+                          onStart={clearPower}
+                          onResult={recordPower}
+                        />}
                         rooms={roomsForPlan}
                         appliancesByRoom={appliancesByRoom}
                         energy={energy.byRoom}

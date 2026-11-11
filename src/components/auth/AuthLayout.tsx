@@ -43,7 +43,7 @@ export function AuthLayout({ view, title, subtitle, children, footer }: AuthLayo
             <div className="auth-visual-image" data-house-slot={view}><div className="auth-visual-house" /></div>
             <div className="auth-visual-caption">
               <span>A CASA WATTSTATUS</span>
-              <p>{view === "login" ? "Sua casa, vista com mais clareza." : "Conheça a energia da sua casa."}</p>
+              <p>{view === "login" ? "Seu imóvel, visto com mais clareza." : "Conheça a energia do seu imóvel."}</p>
             </div>
           </aside>
         </div>

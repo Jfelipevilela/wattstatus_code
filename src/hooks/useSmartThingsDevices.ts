@@ -23,7 +23,11 @@ export interface DeviceCommand {
   arguments?: Array<string | number>;
 }
 
-export const useSmartThingsDevices = (enabled: boolean) => {
+export type DeviceProvider = "smartthings" | "tuya";
+
+// Device list, live statuses and optimistic commands for one integration.
+// Every provider exposes the same /overview, /status and /commands contract.
+export const useIntegrationDevices = (provider: DeviceProvider, enabled: boolean) => {
   const { token, user } = useAuth();
   const [items, setItems] = useState<OverviewItem[]>([]);
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
@@ -45,7 +49,7 @@ export const useSmartThingsDevices = (enabled: boolean) => {
     setLoading(true);
     try {
       const data = await apiRequest<{ fetchedAt: string; items: OverviewItem[] }>(
-        `/api/integrations/smartthings/overview${background ? "?cached=1" : ""}`,
+        `/api/integrations/${provider}/overview${background ? "?cached=1" : ""}`,
         { method: "GET", skipErrorToast: true },
         token || undefined,
       );
@@ -59,12 +63,12 @@ export const useSmartThingsDevices = (enabled: boolean) => {
       setFetchedAt(new Date(data.fetchedAt));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar dispositivos SmartThings");
+      setError(err instanceof Error ? err.message : "Erro ao carregar dispositivos");
     } finally {
       inFlight.current = false;
       setLoading(false);
     }
-  }, [enabled, user, token]);
+  }, [enabled, user, token, provider]);
 
   useEffect(() => {
     refresh();
@@ -98,11 +102,11 @@ export const useSmartThingsDevices = (enabled: boolean) => {
   const readDevice = useCallback(
     (deviceId: string) =>
       apiRequest<{ status: DeviceStatus }>(
-        `/api/integrations/smartthings/devices/${deviceId}/status`,
+        `/api/integrations/${provider}/devices/${deviceId}/status`,
         { method: "GET", skipErrorToast: true },
         token || undefined,
       ).then((response) => response.status),
-    [token],
+    [token, provider],
   );
 
   const applyStatus = (deviceId: string, status: DeviceStatus) =>
@@ -138,7 +142,7 @@ export const useSmartThingsDevices = (enabled: boolean) => {
       setPending((prev) => ({ ...prev, [deviceId]: true }));
       try {
         await apiRequest(
-          `/api/integrations/smartthings/devices/${deviceId}/commands`,
+          `/api/integrations/${provider}/devices/${deviceId}/commands`,
           { method: "POST", body: JSON.stringify({ component: "main", ...command }) },
           token || undefined,
         );
@@ -166,8 +170,10 @@ export const useSmartThingsDevices = (enabled: boolean) => {
         setPending((prev) => ({ ...prev, [deviceId]: false }));
       }
     },
-    [items, token, readDevice],
+    [items, token, readDevice, provider],
   );
 
   return { items, fetchedAt, loading, error, pending, refresh: () => refresh(), refreshDevice, sendCommand };
 };
+
+export const useSmartThingsDevices = (enabled: boolean) => useIntegrationDevices("smartthings", enabled);

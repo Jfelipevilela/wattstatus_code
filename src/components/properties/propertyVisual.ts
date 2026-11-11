@@ -3,6 +3,7 @@ import type { PropertyType } from "@/types/property";
 
 export const PROPERTY_ICONS: Record<PropertyType, LucideIcon> = {
   house: Home,
+  building: Building2,
   apartment: Building2,
   commercial: Store,
   other: Warehouse,

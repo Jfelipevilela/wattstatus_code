@@ -10,6 +10,7 @@ import { runStreaming } from "../../src/netlify/streaming-adapter";
 // server-sent event as it is written. Same Express app, so authentication,
 // CSRF, CORS and rate limits are unchanged.
 const STREAM_PATH = "/api/ai/chat/stream";
+const POWER_STREAM = /^\/api\/properties\/[0-9a-f-]{36}\/power\/stream$/i;
 
 let appPromise: Promise<express.Express> | null = null;
 const getApp = () => {
@@ -29,7 +30,7 @@ const getApp = () => {
 
 export default async (request: Request, context: Context) => {
   const path = new URL(request.url).pathname;
-  if (path !== STREAM_PATH) return new Response(JSON.stringify({ error: "Recurso não encontrado" }), { status: 404 });
+  if (path !== STREAM_PATH && !POWER_STREAM.test(path)) return new Response(JSON.stringify({ error: "Recurso não encontrado" }), { status: 404 });
   // Rate limits are keyed by client address; never let requests without one
   // share a fallback bucket (or get a fresh one each time).
   if (!context.ip) return new Response(JSON.stringify({ error: "Serviço temporariamente indisponível." }), {
@@ -45,4 +46,4 @@ export default async (request: Request, context: Context) => {
 };
 
 // A function with a path is routed before the /api/* rewrite in netlify.toml.
-export const config: Config = { path: STREAM_PATH };
+export const config: Config = { path: [STREAM_PATH, "/api/properties/:id/power/stream"] };

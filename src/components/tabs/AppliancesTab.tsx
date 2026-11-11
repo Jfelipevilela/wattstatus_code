@@ -140,7 +140,7 @@ export default function AppliancesTab({
         <DialogHeader className="appliance-dialog-heading">
           <span className="appliance-heading-icon" aria-hidden="true"><PlugZap className="size-5" /></span>
           <DialogTitle className="text-2xl font-bold tracking-tight">Adicionar aparelho</DialogTitle>
-          <DialogDescription className="text-sm">Escolha o modelo, ajuste o uso da sua casa e veja o custo antes de salvar.</DialogDescription>
+          <DialogDescription className="text-sm">Escolha o modelo, ajuste o uso do seu imóvel e veja o custo antes de salvar.</DialogDescription>
         </DialogHeader>
         <AddApplianceFlow key={user?.id ?? "no-session"} onAddAppliance={onAddAppliance} onSaved={() => setAdding(false)} onBusyChange={setBusy} onDirtyChange={setDirty} />
       </DialogContent>
@@ -165,7 +165,7 @@ export default function AppliancesTab({
           <span className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-energy-green-light to-energy-teal text-white shadow-lg">
             <PlugZap className="h-8 w-8" aria-hidden="true" />
           </span>
-          <h1 className="relative mt-6 text-3xl font-bold tracking-tight">Sua casa, aparelho por aparelho</h1>
+          <h1 className="relative mt-6 text-3xl font-bold tracking-tight">Seu imóvel, aparelho por aparelho</h1>
           <p className="relative mx-auto mt-3 max-w-md text-muted-foreground">
             Cadastre o primeiro equipamento e descubra quanto ele pesa na sua conta de luz em segundos.
           </p>

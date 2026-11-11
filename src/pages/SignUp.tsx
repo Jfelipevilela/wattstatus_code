@@ -67,7 +67,7 @@ export default function SignUp() {
 
   if (user && !loading && !justRegistered.current) return <Navigate to="/dashboard" replace />;
   return (
-    <AuthLayout view="signup" title="Comece a entender sua energia." subtitle="Crie sua conta e descubra o consumo da sua casa."
+    <AuthLayout view="signup" title="Comece a entender sua energia." subtitle="Crie sua conta e descubra o consumo do seu imóvel."
       footer={<>Já tem uma conta? <Link to="/login">Entrar</Link></>}>
       <form className="auth-form" onSubmit={submit} noValidate>
         <AuthField id="name" label="Nome completo" icon={User} type="text" autoComplete="name" maxLength={100}

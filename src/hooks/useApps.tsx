@@ -1,5 +1,6 @@
 import React, { createContext, useContext } from "react";
 import { SiSmartthings, SiLg } from "react-icons/si";
+import { PlugZap } from "lucide-react";
 import { useUserPreferences } from "./useUserPreferences";
 import { AvailableAppId } from "@/types/apps";
 
@@ -22,6 +23,12 @@ const AVAILABLE_APPS: Record<AvailableAppId, AppConfig> = {
     name: "LG ThinQ",
     url: "/integracoes/lg-thinq",
     icon: <SiLg />,
+  },
+  tuya: {
+    id: "tuya",
+    name: "Tuya / Smart Life",
+    url: "/integracoes/tuya",
+    icon: <PlugZap />,
   },
 };
 

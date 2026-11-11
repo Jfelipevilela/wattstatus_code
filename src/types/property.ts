@@ -1,6 +1,6 @@
 import { ROOM_PALETTE } from "@/components/floorplan/tokens";
 
-export type PropertyType = "house" | "apartment" | "commercial" | "other";
+export type PropertyType = "house" | "building" | "apartment" | "commercial" | "other";
 
 export interface Property {
   id: string;
@@ -25,6 +25,7 @@ export interface Property {
 }
 
 export interface Floor {
+  block?: string | null;
   id: string;
   propertyId: string;
   name: string;
@@ -53,6 +54,7 @@ export interface Room {
 
 export const PROPERTY_TYPES: Record<PropertyType, string> = {
   house: "Casa",
+  building: "Prédio",
   apartment: "Apartamento",
   commercial: "Comércio",
   other: "Outro",

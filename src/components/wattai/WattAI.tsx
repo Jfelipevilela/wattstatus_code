@@ -87,7 +87,7 @@ export function WattAIProvider({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => openAssistant()}
-              className="fixed bottom-5 right-5 z-40 inline-flex h-11 items-center gap-2 rounded-full border bg-card px-4 text-sm font-medium text-foreground shadow-lg transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className={`${location.pathname.startsWith("/imoveis/") ? "hidden sm:inline-flex" : "inline-flex"} fixed bottom-5 right-5 z-40 h-11 items-center gap-2 rounded-full border bg-card px-4 text-sm font-medium text-foreground shadow-lg transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
               aria-label="Abrir WattStatus AI"
             >
               <Sparkles className="h-4 w-4 text-primary" aria-hidden />

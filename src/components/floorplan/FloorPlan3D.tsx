@@ -313,6 +313,8 @@ function ApplianceBadge({
 interface RoomInfo {
   // Level 1: always visible, short.
   value: string | null;
+  powerLabel?: string;
+  powerOn?: boolean;
   // Level 2: hover preview.
   estimatedKWh: number;
   estimatedCost: number;
@@ -321,7 +323,7 @@ interface RoomInfo {
   measurement: string;
 }
 
-const roomInfo = (bucket: EnergyBucket | undefined, appliances: Appliance[], heat: FloorPlanProps["heat"], heatValue: number | null): RoomInfo => {
+const roomInfo = (bucket: EnergyBucket | undefined, appliances: Appliance[], heat: FloorPlanProps["heat"], heatValue: number | null, knownOn = 0, knownOff = 0): RoomInfo => {
   const metered = appliances.filter((item) => item.integrationProvider).length;
   const measured = bucket && bucket.measuredIntervals > 0;
   const partial = measured && metered < appliances.length;
@@ -341,6 +343,8 @@ const roomInfo = (bucket: EnergyBucket | undefined, appliances: Appliance[], hea
       : null;
   return {
     value,
+    powerLabel: knownOn || knownOff ? (knownOn ? `${knownOn} ${knownOn === 1 ? "ligado" : "ligados"}` : `${knownOff} ${knownOff === 1 ? "desligado" : "desligados"}`) : undefined,
+    powerOn: knownOn > 0,
     estimatedKWh: bucket?.estimatedKWh ?? 0,
     estimatedCost: bucket?.estimatedCost ?? 0,
     estimateAvailable: Boolean(bucket && (bucket.estimatedApplianceCount ?? bucket.applianceCount) > 0),
@@ -494,6 +498,7 @@ function RoomModel({
             )}
           >
             {room.name}
+            {info.powerLabel && <span className="ml-1 inline-flex items-center gap-1 opacity-80"><span aria-hidden="true" className={cn("h-1.5 w-1.5 rounded-full", info.powerOn ? "bg-emerald-500" : "bg-zinc-400")} />{info.powerLabel}</span>}
             {info.value && (!compact || energyMode) && <span className="ml-1 opacity-70">· {info.value}</span>}
           </div>
         </div>
@@ -507,6 +512,7 @@ const WALL_ORDER: WallKind[] = ["exterior", "interior", "front"];
 export default function FloorPlan3D({
   rooms,
   appliancesByRoom,
+  powerStates,
   energy,
   selectedRoomId,
   onSelectRoom,
@@ -674,6 +680,8 @@ export default function FloorPlan3D({
           const value = heat ? metricValue(bucket, heat) : null;
           const intensity = scale ? scale(value) : null;
           const roomAppliances = appliancesByRoom.get(room.id) ?? [];
+          const knownOn = roomAppliances.filter(a => powerStates?.get(a.id) === "on").length;
+          const knownOff = roomAppliances.filter(a => powerStates?.get(a.id) === "off").length;
           return (
             <RoomModel
               key={room.id}
@@ -681,7 +689,7 @@ export default function FloorPlan3D({
               geometries={geometries}
               energyMode={Boolean(heat)}
               heatFill={intensity === null ? null : heatColor(intensity)}
-              info={roomInfo(bucket, roomAppliances, heat, value)}
+              info={roomInfo(bucket, roomAppliances, heat, value, knownOn, knownOff)}
               compact={compact}
               selected={room.id === selectedRoomId}
               dimmed={Boolean(selectedRoomId && selectedRoomId !== room.id)}

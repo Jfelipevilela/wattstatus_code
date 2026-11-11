@@ -7,7 +7,7 @@ import {
   DeviceSummary,
 } from "../types";
 import { getErrorFields, logger } from "../../../logging/logger";
-import { normalizeDeviceState } from "../device-state";
+import { normalizeDeviceState, readComponentSwitch } from "../device-state";
 
 const BASE_URL = "https://api.smartthings.com/v1";
 const safeDeviceId = (deviceId: string) =>
@@ -25,6 +25,7 @@ interface SmartThingsDevice {
   roomId?: string;
   locationId?: string;
   components?: Array<{
+    id?: string;
     capabilities?: Array<{ id: string }>;
   }>;
 }
@@ -55,6 +56,7 @@ export class SmartThingsIntegration implements DeviceIntegration {
     });
     client.interceptors.response.use((response) => response, (error: unknown) => {
       if (!axios.isAxiosError(error)) throw new ApiError(503, "SmartThings indisponível");
+      if (error.code === "ECONNABORTED" || error.code === "ERR_CANCELED") throw new ApiError(503, "Tempo limite de comunicação com SmartThings.", "PROVIDER_TIMEOUT");
       const status = error.response?.status;
       if (status === 401 || status === 403) throw new ApiError(424, "Token SmartThings inválido ou sem permissão");
       if (status === 404) throw new ApiError(404, "Dispositivo SmartThings não encontrado");
@@ -79,19 +81,21 @@ export class SmartThingsIntegration implements DeviceIntegration {
     }
   }
 
-  async listDevices(): Promise<DeviceSummary[]> {
+  async listDevices(signal?: AbortSignal): Promise<DeviceSummary[]> {
     this.ensureConfigured();
     const startedAt = Date.now();
     logger.info("smartthings.devices_query_started");
     try {
-      const { data } = await this.client.get<{ items: SmartThingsDevice[] }>("/devices");
-      const rooms = await this.loadRoomNames(data.items || []);
+      const { data } = await this.client.get<{ items: SmartThingsDevice[] }>("/devices", { signal });
+      const rooms = await this.loadRoomNames(data.items || [], signal);
       const devices = (data.items || []).map((item) => ({
         id: item.deviceId,
         name: item.label || item.name,
         brand: item.manufacturerName || "Samsung",
         model: item.modelName,
         room: item.roomName || (item.roomId ? rooms.get(item.roomId) : undefined),
+        powerOffCommands: item.components?.filter(c => c.id && c.capabilities?.some(cap => cap.id === "switch"))
+          .map(c => ({ capability: "switch", command: "off", component: c.id })) ?? [],
         capabilities: item.components?.flatMap(
           (component) => component.capabilities?.map((capability) => capability.id) || []
         ),
@@ -112,14 +116,14 @@ export class SmartThingsIntegration implements DeviceIntegration {
 
   // Devices only carry a roomId; names come from the locations API. Needs the
   // r:locations:* scope, so a failure just leaves the room blank.
-  private async loadRoomNames(items: SmartThingsDevice[]) {
+  private async loadRoomNames(items: SmartThingsDevice[], signal?: AbortSignal) {
     const rooms = new Map<string, string>();
     const locations = [...new Set(items.filter((item) => item.roomId && item.locationId).map((item) => item.locationId!))];
     await Promise.all(
       locations.map(async (locationId) => {
         try {
           const { data } = await this.client.get<{ items?: Array<{ roomId?: string; name?: string }> }>(
-            `/locations/${encodeURIComponent(locationId)}/rooms`
+            `/locations/${encodeURIComponent(locationId)}/rooms`, { signal }
           );
           for (const room of data?.items || []) {
             if (room.roomId && room.name) rooms.set(room.roomId, room.name);
@@ -132,17 +136,17 @@ export class SmartThingsIntegration implements DeviceIntegration {
     return rooms;
   }
 
-  async getDeviceStatus(deviceId: string): Promise<DeviceStatus> {
+  async getDeviceStatus(deviceId: string, signal?: AbortSignal): Promise<DeviceStatus> {
     this.ensureConfigured();
     const startedAt = Date.now();
     const logDeviceId = safeDeviceId(deviceId);
     logger.info("smartthings.device_status_query_started", { deviceId: logDeviceId });
     try {
       const [{ data }, health] = await Promise.all([
-        this.client.get(`/devices/${deviceId}/status`),
+        this.client.get(`/devices/${encodeURIComponent(deviceId)}/status`, { signal }),
         // Health is best effort: a failure here must not hide the readings.
         this.client
-          .get<{ state?: string }>(`/devices/${deviceId}/health`)
+          .get<{ state?: string }>(`/devices/${encodeURIComponent(deviceId)}/health`, { signal })
           .then((response) => response?.data?.state)
           .catch(() => undefined),
       ]);
@@ -185,15 +189,28 @@ export class SmartThingsIntegration implements DeviceIntegration {
 
   // Scheduled collection only needs the raw status: one request per reading,
   // no device list, no health call, no room names.
-  async getDeviceReading(deviceId: string): Promise<{ raw: unknown }> {
+  async getDeviceReading(deviceId: string, signal?: AbortSignal): Promise<{ raw: unknown }> {
     this.ensureConfigured();
-    const { data } = await this.client.get(`/devices/${deviceId}/status`);
+    const { data } = await this.client.get(`/devices/${encodeURIComponent(deviceId)}/status`, { signal });
     return { raw: data };
+  }
+
+  async getPowerOffCommands(device: DeviceSummary): Promise<DeviceCommand[]> {
+    return device.powerOffCommands ?? [];
+  }
+
+  async getPowerOnCommands(device: DeviceSummary): Promise<DeviceCommand[]> {
+    return (device.powerOffCommands ?? []).map(command => ({ ...command, command: "on" }));
+  }
+
+  readPowerState(status: DeviceStatus, command: DeviceCommand) {
+    return readComponentSwitch(status.raw, command.component ?? "main");
   }
 
   async executeCommand(
     deviceId: string,
-    command: DeviceCommand
+    command: DeviceCommand,
+    signal?: AbortSignal
   ): Promise<{ ok: boolean; raw?: unknown }> {
     this.ensureConfigured();
     const startedAt = Date.now();
@@ -216,15 +233,18 @@ export class SmartThingsIntegration implements DeviceIntegration {
 
     try {
       const { data } = await this.client.post(
-        `/devices/${deviceId}/commands`,
-        payload
+        `/devices/${encodeURIComponent(deviceId)}/commands`,
+        payload, { signal }
       );
       logger.info("smartthings.device_command_succeeded", {
         deviceId: logDeviceId,
         command: logCommand,
         durationMs: Date.now() - startedAt,
       });
-      return { ok: true, raw: data };
+      const results = data?.results;
+      const rejected = Array.isArray(results) && results.some((r: { status?: string }) =>
+        r.status && !["ACCEPTED", "COMPLETED"].includes(r.status));
+      return { ok: !rejected, raw: data };
     } catch (error) {
       logger.error("smartthings.device_command_failed", {
         deviceId: logDeviceId,

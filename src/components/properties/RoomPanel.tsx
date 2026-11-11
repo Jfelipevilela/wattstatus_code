@@ -1,3 +1,4 @@
+import type React from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Plus, Radio, X } from "lucide-react";
 import type { Appliance } from "@/hooks/useAppliances";
@@ -35,6 +36,8 @@ interface Props {
   onChangeType?: (type: string) => void;
   // Estimated cost of the whole property, for the room's share.
   propertyCost?: number;
+  // Power controls for the room, shown right under the header.
+  controls?: React.ReactNode;
 }
 
 export function RoomPanel({
@@ -54,6 +57,7 @@ export function RoomPanel({
   floorName,
   onChangeType,
   propertyCost = 0,
+  controls,
 }: Props) {
   const share = propertyCost > 0 ? ((bucket?.estimatedCost ?? 0) / propertyCost) * 100 : null;
   const ranked = [...appliances]
@@ -91,6 +95,7 @@ export function RoomPanel({
         )}
       </header>
       <div className="flex-1 space-y-5 overflow-y-auto p-5">
+        {controls}
         {onChangeType && (
           <label className="flex items-center justify-between gap-3 text-sm">
             <span className="text-muted-foreground">Tipo do ambiente</span>

@@ -374,3 +374,16 @@ test('mutations without a CSRF token are refused before reaching the routes', as
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('building type persists, defaults remain house and invalid types are rejected', async () => {
+  const { propertyInputSchema, propertyUpdateSchema } = require('../dist/modules/properties/properties.schema');
+  assert.equal(propertyInputSchema.parse({ name: 'Legado' }).type, 'house');
+  assert.equal(propertyInputSchema.safeParse({ name: 'X', type: 'skyscraper' }).success, false);
+  assert.equal(propertyUpdateSchema.safeParse({ type: { $ne: null } }).success, false);
+  const service = new PropertyService(createRepo());
+  const building = await service.create('a', propertyInputSchema.parse({ name: 'Edifício', type: 'building' }));
+  assert.equal((await service.get('a', building.id)).type, 'building');
+  await service.update('a', building.id, propertyUpdateSchema.parse({ type: 'house' }));
+  assert.equal((await service.get('a', building.id)).type, 'house');
+  await assert.rejects(service.update('b', building.id, { type: 'building' }), err => err.status === 404);
+});

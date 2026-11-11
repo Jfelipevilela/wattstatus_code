@@ -1,5 +1,6 @@
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
-import { Box, Flame, Home, Loader2, Maximize2, Minimize2, Square } from "lucide-react";
+import { Box, Flame, Home, Info, Loader2, Maximize2, Minimize2, Square } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { notifyError } from "@/lib/error-toast";
 import { FloorPlan2D, type FloorPlanProps } from "./FloorPlan2D";
@@ -26,14 +27,16 @@ class SceneBoundary extends Component<{ onError: () => void; children: ReactNode
 interface Props extends Omit<FloorPlanProps, "heat"> {
   heat: HeatMetric | null;
   onHeatChange: (metric: HeatMetric | null) => void;
+  powerToolbar?: ReactNode;
   toolbar?: ReactNode;
   // Extra controls shown only on the 2D plan, such as adding a room.
   toolbar2D?: ReactNode;
 }
 
-export function FloorPlanViewer({ heat, onHeatChange, toolbar, toolbar2D, editing, ...plan }: Props) {
+export function FloorPlanViewer({ heat, onHeatChange, toolbar, toolbar2D, powerToolbar, editing, ...plan }: Props) {
   const viewerRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [powerInfoOpen, setPowerInfoOpen] = useState(false);
   const [webgl] = useState(supportsWebGL);
   const [view, setView] = useState<"2d" | "3d">(() => {
     try {
@@ -59,6 +62,13 @@ export function FloorPlanViewer({ heat, onHeatChange, toolbar, toolbar2D, editin
     return () => document.removeEventListener("fullscreenchange", syncFullscreen);
   }, []);
 
+  const selectRoom = async (roomId: string | null) => {
+    if (roomId && document.fullscreenElement === viewerRef.current) {
+      try { await document.exitFullscreen(); }
+      catch (error) { notifyError(error, { title: "Não foi possível abrir o painel do ambiente" }); return; }
+    }
+    plan.onSelectRoom(roomId);
+  };
   const toggleFullscreen = async () => {
     try {
       if (document.fullscreenElement === viewerRef.current) {
@@ -80,7 +90,7 @@ export function FloorPlanViewer({ heat, onHeatChange, toolbar, toolbar2D, editin
   return (
     <div
       ref={viewerRef}
-      className="flex h-full flex-col bg-background"
+      className="flex h-full min-h-0 flex-col overflow-y-auto bg-background"
       style={fullscreen ? { width: "100vw", height: "100vh" } : undefined}
     >
       <div className="flex flex-wrap items-center gap-2 p-3">
@@ -112,6 +122,15 @@ export function FloorPlanViewer({ heat, onHeatChange, toolbar, toolbar2D, editin
             <span className="hidden sm:inline">Energia medida</span>
           </button>
         </div>
+        {powerToolbar && !editing && (
+          <div
+            role="group"
+            aria-label="Controlar aparelhos por andar ou imóvel"
+            className="order-last -mx-3 w-[calc(100%+1.5rem)] overflow-x-auto px-3 [scrollbar-width:none] xl:order-none xl:mx-0 xl:w-auto xl:px-0 [&::-webkit-scrollbar]:hidden"
+          >
+            <div className="w-max">{powerToolbar}</div>
+          </div>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {!use3D && toolbar2D}
           {toolbar}
@@ -129,6 +148,9 @@ export function FloorPlanViewer({ heat, onHeatChange, toolbar, toolbar2D, editin
         </div>
       </div>
 
+      {use3D && !editing && <div aria-label="Selecionar ambiente na planta 3D" className="flex shrink-0 gap-2 overflow-x-auto px-3 pb-2 lg:hidden">
+        {plan.rooms.map(room => <button key={room.id} type="button" className={cn(segment(room.id === plan.selectedRoomId), "h-10 border bg-card shadow-sm", room.id === plan.selectedRoomId && "border-transparent")} aria-pressed={room.id === plan.selectedRoomId} onClick={() => void selectRoom(room.id)}>{room.name}</button>)}
+      </div>}
       {(!webgl || failed) && view === "3d" && (
         <p role="status" className="mx-3 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
           {failed ? "O 3D parou de responder neste dispositivo." : "Seu navegador não oferece WebGL."} Mostrando a planta 2D, com as
@@ -146,16 +168,30 @@ export function FloorPlanViewer({ heat, onHeatChange, toolbar, toolbar2D, editin
                 </div>
               }
             >
-              <FloorPlan3D {...plan} heat={heat} onContextLost={() => setFailed(true)} />
+              <FloorPlan3D {...plan} onSelectRoom={roomId => void selectRoom(roomId)} heat={heat} onContextLost={() => setFailed(true)} />
             </Suspense>
           </SceneBoundary>
         ) : (
           <div className="absolute inset-0 p-3">
-            <FloorPlan2D {...plan} heat={heat} editing={editing} />
+            <FloorPlan2D {...plan} onSelectRoom={roomId => void selectRoom(roomId)} heat={heat} editing={editing} />
           </div>
         )}
       </div>
 
+      {powerToolbar && !editing && (
+        <div className="flex shrink-0 items-center justify-end px-3 py-1">
+          <Tooltip open={powerInfoOpen} onOpenChange={setPowerInfoOpen}>
+            <TooltipTrigger asChild>
+              <button type="button" onClick={() => setPowerInfoOpen(open => !open)} aria-label="Sobre o estado dos aparelhos na planta" className="flex min-h-10 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-8">
+                <Info aria-hidden="true" className="size-4" /> Estado dos aparelhos
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              Estado após o último comando, por até 1 minuto: verde ligado, cinza desligado. Sem indicador: desconhecido. Não há atualização em tempo real.
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
       {heat && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t px-4 py-3 text-xs text-muted-foreground" aria-label="Legenda do mapa de consumo">
           <span className="font-medium text-foreground">

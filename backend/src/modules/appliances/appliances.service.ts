@@ -1,3 +1,4 @@
+import { userProviderResolver } from "../integrations/user-provider";
 import { randomUUID } from "crypto";
 import { ApiError } from "../../middleware/error-handler";
 import { MongoDatabase } from "../../storage/mongo-db";
@@ -42,6 +43,33 @@ export class ApplianceService {
       if (input.measuredConsumptionKWh !== undefined)
         throw new ApiError(400, "Medição exige uma integração autorizada.");
       return {};
+    }
+    if (input.integrationProvider === "lg-thinq" && input.integrationDeviceId) {
+      const provider = await userProviderResolver(this.db)(userId, "lg-thinq");
+      if (!provider) throw new ApiError(400, "Conecte sua conta LG ThinQ antes de importar.");
+      if (!(await provider.listDevices()).some(d => d.id === input.integrationDeviceId)) throw new ApiError(404, "Dispositivo não encontrado.");
+      return {}; // LG linking does not invent an energy measurement.
+    }
+    if (input.integrationProvider === "tuya" && input.integrationDeviceId) {
+      // The Tuya link is resolved on the server; the device must belong to that account.
+      const provider = await userProviderResolver(this.db)(userId, "tuya");
+      if (!provider) throw new ApiError(400, "Vincule sua conta Tuya / Smart Life antes de importar.");
+      if (!(await provider.listDevices()).some(d => d.id === input.integrationDeviceId)) throw new ApiError(404, "Dispositivo não encontrado.");
+      const status = await provider.getDeviceStatus(input.integrationDeviceId);
+      if (status.online === false) throw new ApiError(503, "Dispositivo offline. Tente novamente quando estiver conectado.");
+      // Only the device's own counter counts as a measurement; client values are ignored.
+      const counterKWh = extractCumulativeKWh(status.raw);
+      if (counterKWh === null) return {};
+      return {
+        measuredConsumptionKWh: counterKWh,
+        consumptionType: "METERED" as const,
+        measurement: {
+          method: "LIVE_MEASUREMENT" as const,
+          readingType: "cumulative" as const,
+          counterKWh,
+          capturedAt: new Date().toISOString(),
+        },
+      };
     }
     if (
       input.integrationProvider !== "smartthings" ||
@@ -201,7 +229,7 @@ export class ApplianceService {
       catalogSnapshot: catalog ? structuredClone(catalog) : undefined,
       room: input.room,
       origin: input.integrationProvider
-        ? "SMARTTHINGS"
+        ? (input.integrationProvider === "smartthings" ? "SMARTTHINGS" : "INTEGRATION")
         : catalog
           ? "CATALOG"
           : "MANUAL",

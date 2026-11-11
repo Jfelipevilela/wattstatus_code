@@ -18,7 +18,7 @@ const timezone = z
 
 export const propertyInputSchema = z.object({
   name,
-  type: z.enum(["house", "apartment", "commercial", "other"]).default("house"),
+  type: z.enum(["house", "building", "apartment", "commercial", "other"]).default("house"),
   city: optionalText(80),
   state: z.string().trim().length(2).toUpperCase().nullable().optional(),
   country: optionalText(56),
@@ -37,6 +37,7 @@ export const propertyUpdateSchema = propertyInputSchema.partial().extend({
 });
 
 export const floorInputSchema = z.object({
+  block: optionalText(80),
   name,
   level: z.number().int().min(-5).max(100).default(0),
   sortOrder: z.number().int().min(0).max(1000).optional(),

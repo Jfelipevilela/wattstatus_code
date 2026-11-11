@@ -272,7 +272,7 @@ export default function AddApplianceFlow({
   return <ApplianceQuantityContext.Provider value={quantity}><div className="appliance-flow-theme appliance-configurator" onChangeCapture={() => onDirtyChange?.(true)}>
     {!catalogOnly && <div className="appliance-flow-bar">
       <nav className="appliance-mode-switch" aria-label="Como adicionar aparelho">
-        {([['library','Biblioteca'],['manual','Manual'],['smart','SmartThings']] as const).map(([value,title]) => {
+        {([['library','Biblioteca'],['manual','Manual'],['smart','Conectados']] as const).map(([value,title]) => {
           const Icon = icons[value];
           return <button type="button" key={value} disabled={busy} aria-pressed={mode === value} aria-label={value === 'library' ? 'Biblioteca de aparelhos' : value === 'manual' ? 'Adicionar manualmente' : 'Conectar dispositivo inteligente'} onClick={() => setMode(value)}>
             <Icon className="size-4 shrink-0" aria-hidden="true" />{title}

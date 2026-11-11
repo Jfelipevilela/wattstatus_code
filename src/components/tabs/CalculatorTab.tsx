@@ -305,7 +305,7 @@ export default function CalculatorTab({ onAddAppliance, householdCost = 0 }: Pro
             {shareOfHome !== null && (
               <div className="relative mt-4">
                 <div className="flex justify-between text-xs text-white/60">
-                  <span>Peso na sua casa</span>
+                  <span>Peso no seu imóvel</span>
                   <span className="font-semibold text-white">{formatNumber(shareOfHome, 0)}%</span>
                 </div>
                 <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/10" role="presentation">

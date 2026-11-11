@@ -40,7 +40,7 @@ export const HOUSE_SIZE = { w: 10, d: 7.8 } as const;
 export const FEATURES = [
   {
     id: "3d",
-    title: "Visualize sua casa em 3D",
+    title: "Visualize seu imóvel em 3D",
     text: "Explore seus ambientes de uma nova perspectiva e visualize os aparelhos associados a cada espaço.",
   },
   {
@@ -61,7 +61,7 @@ export const FEATURES = [
 ] as const;
 
 export const STEPS = [
-  { title: "Organize sua casa", text: "Cadastre seu imóvel, seus ambientes e aparelhos." },
+  { title: "Organize seu imóvel", text: "Cadastre seu imóvel, seus ambientes e aparelhos." },
   { title: "Acompanhe seu consumo", text: "Utilize informações cadastradas e integre dispositivos compatíveis para obter medições quando disponíveis." },
   { title: "Entenda e economize", text: "Explore análises, previsões, simulações e planos de economia." },
 ] as const;

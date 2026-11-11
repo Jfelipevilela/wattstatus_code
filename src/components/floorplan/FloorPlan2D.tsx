@@ -20,6 +20,7 @@ const clampLayout = (layout: RoomLayout): RoomLayout => ({
 });
 
 export interface FloorPlanProps {
+  powerStates?: Map<string, "on" | "off">;
   rooms: Room[];
   appliancesByRoom: Map<string, Appliance[]>;
   energy: Map<string, EnergyBucket>;
@@ -34,6 +35,7 @@ export interface FloorPlanProps {
 
 export function FloorPlan2D({
   rooms,
+  powerStates,
   appliancesByRoom,
   energy,
   selectedRoomId,
@@ -141,6 +143,9 @@ export function FloorPlan2D({
         const selected = room.id === selectedRoomId;
         const clash = overlapping.has(room.id);
         const appliances = appliancesByRoom.get(room.id) ?? [];
+        const knownOn = appliances.filter(a => powerStates?.get(a.id) === "on").length;
+        const knownOff = appliances.filter(a => powerStates?.get(a.id) === "off").length;
+        const powerLabel = knownOn || knownOff ? ` · ${knownOn} ligados / ${knownOff} desligados confirmados` : "";
         const label = heat
           ? value === null
             ? heat === "measured"
@@ -157,14 +162,14 @@ export function FloorPlan2D({
             role="button"
             tabIndex={0}
             aria-pressed={selected}
-            aria-label={`${room.name}: ${label}${editing ? ". Setas movem, Shift + setas redimensionam" : ""}`}
+            aria-label={`${room.name}: ${label}${powerLabel}${editing ? ". Setas movem, Shift + setas redimensionam" : ""}`}
             onClick={(event) => {
               event.stopPropagation();
               onSelectRoom(room.id);
             }}
             onKeyDown={(event) => keyboard(event, room)}
             onPointerDown={(event) => begin(event, room, "move")}
-            className={editing ? "cursor-move outline-none" : "cursor-pointer outline-none"}
+            className={editing ? "cursor-move focus-visible:outline focus-visible:outline-4 focus-visible:outline-primary" : "cursor-pointer focus-visible:outline focus-visible:outline-4 focus-visible:outline-primary"}
           >
             <rect
               x={x + 2}
@@ -184,7 +189,7 @@ export function FloorPlan2D({
               {room.name.length > Math.floor(layout.width * 3.4) ? `${room.name.slice(0, Math.floor(layout.width * 3.4) - 1)}…` : room.name}
             </text>
             <text x={x + 12} y={y + 41} className="fill-zinc-700 text-[11px]">
-              {label}
+              {!heat && powerLabel ? (knownOn ? `● ${knownOn} ${knownOn === 1 ? "ligado" : "ligados"}` : `○ ${knownOff} ${knownOff === 1 ? "desligado" : "desligados"}`) : label}
             </text>
             {appliances.slice(0, MAX_MARKERS).map((appliance, index) => {
               const { icon: Icon } = applianceVisual(appliance.name);
@@ -204,8 +209,9 @@ export function FloorPlan2D({
                     onSelectAppliance?.(appliance);
                   }}
                 >
-                  <title>{appliance.name}</title>
+                  <title>{appliance.name}: {powerStates?.get(appliance.id) === "on" ? "ligado confirmado" : powerStates?.get(appliance.id) === "off" ? "desligado confirmado" : "estado desconhecido"}</title>
                   <rect x={cx} y={cy} width={24} height={24} rx={8} className="fill-white/90 stroke-zinc-300" />
+                  {powerStates?.has(appliance.id) && <circle cx={cx + 21} cy={cy + 3} r={4} fill={powerStates.get(appliance.id) === "on" ? "#15803d" : "#52525b"} stroke="white" strokeWidth={1} />}
                   <Icon x={cx + 5} y={cy + 5} width={14} height={14} className="text-zinc-700" />
                 </g>
               );

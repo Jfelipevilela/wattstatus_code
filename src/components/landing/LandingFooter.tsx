@@ -11,7 +11,7 @@ export function LandingFooter() {
             <LandingLogo />
           </Link>
           <p className="mt-5 max-w-sm text-sm leading-relaxed text-[var(--l-muted)]">
-            Monitoramento, visualização 3D e inteligência artificial para entender e planejar o consumo de energia da sua casa.
+            Monitoramento, visualização 3D e inteligência artificial para entender e planejar o consumo de energia do seu imóvel.
           </p>
         </div>
         <nav aria-label="Produto">

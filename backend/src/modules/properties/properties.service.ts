@@ -105,6 +105,7 @@ export class PropertyService {
       userId,
       propertyId,
       name: input.name ?? DEFAULT_FLOOR_NAME,
+      block: input.block ?? null,
       level: input.level ?? 0,
       sortOrder: input.sortOrder ?? floors.length,
       createdAt: this.now(),

@@ -31,7 +31,9 @@ export interface DeviceConfigurationDraft {
   matchedDevice?: CatalogDevice;
 }
 
+export type DiscoveredProvider = "smartthings" | "tuya";
 export interface DiscoveredDevice {
+  provider: DiscoveredProvider;
   id: string;
   name: string;
   brand: string;
@@ -177,11 +179,12 @@ export default function DeviceConfigurationPanel({
     catalogDeviceId: initialAppliance?.catalogDeviceId || device?.id,
     ...(integration
       ? {
-          integrationProvider: "smartthings",
+          integrationProvider: integration.provider,
           integrationDeviceId: integration.id,
         }
       : {}),
   };
+  const providerName = integration?.provider === "tuya" ? "Tuya / Smart Life" : "Samsung SmartThings";
   const signature = JSON.stringify(input);
   const valid =
     name.trim().length >= 2 &&
@@ -305,10 +308,10 @@ export default function DeviceConfigurationPanel({
     (initialAppliance ? { ...initialAppliance, energyProfile: profile, power: Number(power), estimateByUsage } : undefined) ||
     (device
       ? { source: device.source, energyProfile: profile, power: Number(power), estimateByUsage }
-      : { integrationProvider: "smartthings" });
+      : { integrationProvider: integration?.provider ?? "smartthings" });
   const referenceSource = referenceDevice?.source || initialAppliance?.source;
   return <Card className="appliance-flow-theme appliance-setup min-w-0">
-    {!initialAppliance && <CardHeader className="pb-6"><CardTitle className="text-2xl">Ajuste o uso à sua rotina</CardTitle><p className="mt-2 text-sm text-muted-foreground">Confira o aparelho e preencha somente o que muda na sua casa.</p></CardHeader>}
+    {!initialAppliance && <CardHeader className="pb-6"><CardTitle className="text-2xl">Ajuste o uso à sua rotina</CardTitle><p className="mt-2 text-sm text-muted-foreground">Confira o aparelho e preencha somente o que muda no seu imóvel.</p></CardHeader>}
     <CardContent>
       <form onSubmit={save}>
         <fieldset disabled={saving} className="appliance-setup-layout min-w-0">
@@ -316,7 +319,7 @@ export default function DeviceConfigurationPanel({
             <div className="appliance-selected-product"><p className="text-xs text-muted-foreground">{initialAppliance ? 'Referência do aparelho' : 'Modelo selecionado'}</p><h3 className="break-words text-lg font-semibold">{description?.title || integration?.name || initialAppliance?.name}</h3>
               <p className="text-xs text-muted-foreground">{presentedDevice?.brand ? `${presentedDevice.brand} · ` : ''}{presentedDevice?.model ? `Modelo: ${presentedDevice.model} · ` : ''}{applianceSourceLabel(source)}</p>
             </div>
-            {integration && <section className="appliance-field-section"><h3>Dispositivo conectado</h3><p className="text-xs text-muted-foreground">Samsung SmartThings. Nenhum modelo é associado automaticamente.</p>
+            {integration && <section className="appliance-field-section"><h3>Dispositivo conectado</h3><p className="text-xs text-muted-foreground">{providerName}. Nenhum modelo é associado automaticamente.</p>
               {integration.counterKWh === undefined && !integration.energyInterval && <p role="status" className="text-sm text-muted-foreground">Este dispositivo não forneceu uma medição de energia compatível. Para estimar o consumo, informe os dados da etiqueta e sua rotina de uso.</p>}
               {integration.power !== undefined && <p className="text-sm">Potência atual: {formatNumber(integration.power)} W (não é energia acumulada).</p>}
               {matchError && <p role="status" className="text-sm">Não foi possível procurar modelos. Você pode continuar sem associação.</p>}
@@ -326,7 +329,7 @@ export default function DeviceConfigurationPanel({
                 if (candidate?.energyProfile.method === 'POWER_TIME') { setPower(String(candidate.energyProfile.typicalPowerW ?? '')); setStandbyEnabled(candidate.energyProfile.standbyPowerW !== undefined); }
               }}><option value="">Nenhum destes / sem associação</option>{matches.map(row => <option key={row.device.id} value={row.device.id}>{catalogPresentation(row.device).title} · Modelo: {row.device.model} · {row.device.variant?.voltage || 'tensão não informada'} · {row.confidence}</option>)}</select></div>}
             </section>}
-            {decision.method === 'LIVE_MEASUREMENT' && <p className="rounded-lg bg-muted p-4 text-sm">Medição real prioritária · Samsung SmartThings: {formatNumber(decision.interval.kWh)} kWh no intervalo informado. A estimativa é separada e nunca é somada à medição.</p>}
+            {decision.method === 'LIVE_MEASUREMENT' && <p className="rounded-lg bg-muted p-4 text-sm">Medição real prioritária · {providerName}: {formatNumber(decision.interval.kWh)} kWh no intervalo informado. A estimativa é separada e nunca é somada à medição.</p>}
             {(integration?.counterKWh !== undefined || decision.method === 'LIVE_MEASUREMENT' || initialAppliance?.monitoringOnly) && <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={monitoringOnly} onChange={event => setMonitoringOnly(event.target.checked)} className="mt-1" />Usar somente monitoramento real, sem estimativa mensal</label>}
             <section className="appliance-field-section"><h3>Identifique o aparelho</h3>
               {field('name','Nome do aparelho',name,setName,{maxLength:160,placeholder:'Ex.: Ar-condicionado da sala'})}
@@ -347,7 +350,7 @@ export default function DeviceConfigurationPanel({
                   : field('power','Potência estimada (W)',power,setPower,{type:'number',min:.01,max:100000,step:'any',placeholder:'Ex.: 1200'})}
                 <div className="flex flex-col gap-2"><Label htmlFor={`${id}-time-unit`}>Unidade de uso diário</Label><select id={`${id}-time-unit`} className="appliance-control" value={timeUnit} onChange={event => { const next = event.target.value as 'HOURS' | 'MINUTES';setHours(String(next === 'MINUTES' ? Number(hours) * 60 : Number(hours) / 60));setTimeUnit(next); }}><option value="HOURS">Horas</option><option value="MINUTES">Minutos</option></select></div>
                 <div className="grid gap-4 sm:grid-cols-2">{field('hours',timeUnit === 'MINUTES' ? 'Minutos por dia' : 'Horas por dia',hours,value => { hoursTouched.current = true; setHours(value); },{type:'number',min:0,max:timeUnit === 'MINUTES' ? 1440 : 24,step:'any',placeholder:timeUnit === 'MINUTES' ? 'Ex.: 30' : 'Ex.: 6'})}{field('days','Dias por mês',days,setDays,{type:'number',min:1,max:31,step:1,placeholder:'Ex.: 22'})}</div>
-                {!hoursTouched.current && <p className="text-xs text-muted-foreground">O tempo de uso é uma sugestão inicial. Ajuste à rotina da sua casa para uma estimativa mais fiel.</p>}
+                {!hoursTouched.current && <p className="text-xs text-muted-foreground">O tempo de uso é uma sugestão inicial. Ajuste à rotina do seu imóvel para uma estimativa mais fiel.</p>}
                 {profile.standbyPowerW !== undefined && <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={standbyEnabled} onChange={event => setStandbyEnabled(event.target.checked)} className="mt-1" />Fica em standby nas horas restantes do dia ({formatNumber(profile.standbyPowerW)} W)</label>}
               </>}
               {profile.method === 'REFERENCE_PERIOD' && <div className="rounded-lg bg-muted p-4 text-sm"><p className="font-medium">Referência de ensaio</p><p className="mt-2">{referenceLabel(profile)}. Não é escalada por horas ou dias; condições reais podem variar.</p>{profile.testBasis && <p className="mt-2 text-xs text-muted-foreground">{profile.testBasis}</p>}</div>}
@@ -366,16 +369,16 @@ export default function DeviceConfigurationPanel({
               {description && description.details.length > 0 && <ul className="flex flex-col gap-1 text-xs text-muted-foreground">{description.details.map(detail => <li key={detail}>{detail}</li>)}</ul>}
               {description?.manufacturerUrl && <a className="text-xs text-primary underline underline-offset-4" href={description.manufacturerUrl} target="_blank" rel="noopener noreferrer">Ver produto no fabricante</a>}
               <p className="text-xs text-muted-foreground">Fonte: {applianceSourceLabel(source)}{device?.isGeneric ? ' · Valor típico estimado; confira a etiqueta.' : ''}</p>
-              {device && <p className="text-xs text-muted-foreground">Região: {device.region} · Verificado em {new Date(device.source.verifiedAt).toLocaleDateString('pt-BR',{timeZone:'UTC'})}{!device.verified ? ' (perfil não oficial)' : ' (referência de ensaio, não medição da sua casa)'}</p>}
+              {device && <p className="text-xs text-muted-foreground">Região: {device.region} · Verificado em {new Date(device.source.verifiedAt).toLocaleDateString('pt-BR',{timeZone:'UTC'})}{!device.verified ? ' (perfil não oficial)' : ' (referência de ensaio, não medição do seu imóvel)'}</p>}
               {device?.energyProfile.method === 'POWER_TIME' && device.energyProfile.standbyPowerW !== undefined && <p className="text-xs">Standby: {formatNumber(device.energyProfile.standbyPowerW)} W. Não equivale à potência operacional.</p>}
               {device?.variant?.voltage && <p className="text-xs text-muted-foreground">Tensão informada na fonte: {device.variant.voltage} V. Confira a compatibilidade com sua instalação.</p>}
               {referenceSource && <CatalogReferenceDetails source={referenceSource} profile={referenceDevice?.energyProfile || referenceProfile} />}
-              {integration?.counterKWh !== undefined && <p className="text-sm">Medição real disponível · Samsung SmartThings: contador acumulado de {formatNumber(integration.counterKWh)} kWh. Não equivale ao mês; os intervalos medidos continuam no histórico SmartThings.</p>}
-              {integration?.energyInterval && <p className="text-sm">Medição real · Samsung SmartThings: {formatNumber(integration.energyInterval.kWh)} kWh no intervalo {new Date(integration.energyInterval.startAt).toLocaleString('pt-BR')} a {new Date(integration.energyInterval.endAt).toLocaleString('pt-BR')}. Não é consumo mensal estimado.</p>}
+              {integration?.counterKWh !== undefined && <p className="text-sm">Medição real disponível · {providerName}: contador acumulado de {formatNumber(integration.counterKWh)} kWh. Não equivale ao mês; os intervalos medidos continuam no histórico de medições.</p>}
+              {integration?.energyInterval && <p className="text-sm">Medição real · {providerName}: {formatNumber(integration.energyInterval.kWh)} kWh no intervalo {new Date(integration.energyInterval.startAt).toLocaleString('pt-BR')} a {new Date(integration.energyInterval.endAt).toLocaleString('pt-BR')}. Não é consumo mensal estimado.</p>}
               <p className="text-xs text-muted-foreground">Ajustes técnicos valem somente para o seu aparelho. A biblioteca e sua referência original permanecem preservadas.</p>
             </div></details>
           </div>
-          <ApplianceSetupSummary name={name} kind={monitoringOnly ? 'Acompanhe os intervalos medidos no histórico.' : profile.method === 'REFERENCE_PERIOD' ? 'Referência de ensaio, convertida para o mês.' : profile.method === 'PER_CYCLE' ? 'Energia por ciclo × frequência de uso.' : 'Potência × horas × dias, incluindo standby quando habilitado.'} result={!calculating && result?.signature === signature ? result : null} tariff={Number(rate)} source={presentedDevice ? `${applianceSourceLabel(source)} · ${presentedDevice.region}` : initialAppliance ? applianceSourceLabel(source) : 'Dispositivo SmartThings'} assumptions={profile.method === 'POWER_TIME' ? `${formatNumber(Number(power))} W, ${hours} ${timeUnit === 'MINUTES' ? 'min' : 'h'} por dia, ${days} dias no mês.${standbyEnabled ? ' Inclui standby.' : ''}` : profile.method === 'PER_CYCLE' ? `${cycles} ciclos por ${cyclePeriod === 'WEEK' ? 'semana' : 'mês'}.` : 'Referência padronizada; horas e dias não alteram o valor.'} loading={calculating} monitoringOnly={monitoringOnly} editing={Boolean(initialAppliance)} error={error}>
+          <ApplianceSetupSummary name={name} kind={monitoringOnly ? 'Acompanhe os intervalos medidos no histórico.' : profile.method === 'REFERENCE_PERIOD' ? 'Referência de ensaio, convertida para o mês.' : profile.method === 'PER_CYCLE' ? 'Energia por ciclo × frequência de uso.' : 'Potência × horas × dias, incluindo standby quando habilitado.'} result={!calculating && result?.signature === signature ? result : null} tariff={Number(rate)} source={presentedDevice ? `${applianceSourceLabel(source)} · ${presentedDevice.region}` : initialAppliance ? applianceSourceLabel(source) : `Dispositivo ${providerName}`} assumptions={profile.method === 'POWER_TIME' ? `${formatNumber(Number(power))} W, ${hours} ${timeUnit === 'MINUTES' ? 'min' : 'h'} por dia, ${days} dias no mês.${standbyEnabled ? ' Inclui standby.' : ''}` : profile.method === 'PER_CYCLE' ? `${cycles} ciclos por ${cyclePeriod === 'WEEK' ? 'semana' : 'mês'}.` : 'Referência padronizada; horas e dias não alteram o valor.'} loading={calculating} monitoringOnly={monitoringOnly} editing={Boolean(initialAppliance)} error={error}>
             <Button type="submit" disabled={!valid || saving}>{saving ? 'Salvando…' : initialAppliance ? 'Salvar alterações' : 'Adicionar ao WattStatus'}</Button>
           </ApplianceSetupSummary>
           <div className="appliance-mobile-save"><Button type="submit" disabled={!valid || saving}>{saving ? 'Salvando…' : initialAppliance ? 'Salvar alterações' : 'Adicionar ao WattStatus'}</Button></div>

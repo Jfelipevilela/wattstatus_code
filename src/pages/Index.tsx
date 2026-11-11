@@ -9,7 +9,7 @@ import { HowItWorks } from "@/components/landing/HowItWorks";
 import { FinalCTA } from "@/components/landing/FinalCTA";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 
-const TITLE = "WattStatus — a nova forma de enxergar a energia da sua casa";
+const TITLE = "WattStatus — a nova forma de enxergar a energia do seu imóvel";
 
 const Index = () => {
   // The SPA shares one document; restore the default title when leaving.

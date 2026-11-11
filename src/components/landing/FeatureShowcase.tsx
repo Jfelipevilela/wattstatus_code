@@ -139,7 +139,7 @@ export function FeatureShowcase() {
             <Chapter index={2} label="Exploração" />
             <h2 id="recursos-title" className="mt-6 l-h2">Uma visão completa da sua energia.</h2>
           </div>
-          <p className="l-lead">Descubra como seus aparelhos influenciam o consumo, organize sua casa e transforme informações em decisões melhores.</p>
+          <p className="l-lead">Descubra como seus aparelhos influenciam o consumo, organize seu imóvel e transforme informações em decisões melhores.</p>
         </div>
 
         <ul className="mt-10 grid gap-3 md:grid-cols-12 md:gap-4">

@@ -72,6 +72,7 @@ export function estimateAppliance(appliance: Appliance, daysInMonth = 31) {
 
 export const applianceSourceLabel = (appliance: Partial<Appliance>): string => {
   if (appliance.monitoringOnly && appliance.integrationProvider === "smartthings") return "Samsung SmartThings · medição";
+  if (appliance.monitoringOnly && appliance.integrationProvider === "tuya") return "Tuya / Smart Life · medição";
   if (appliance.estimateByUsage) return "Estimativa pelo uso informado; referência do catálogo preservada";
   const profile = appliance.energyProfile;
   if (profile?.method === "POWER_TIME" && appliance.source?.metrics?.typicalPowerW &&
@@ -88,6 +89,7 @@ export const applianceSourceLabel = (appliance: Partial<Appliance>): string => {
   : appliance.source?.type === "EPREL" ? "EPREL (União Europeia)"
   : appliance.source?.type === "WATTSTATUS_GENERIC" ? "Perfil genérico WattStatus"
   : appliance.integrationProvider === "smartthings" ? "Samsung SmartThings"
+  : appliance.integrationProvider === "tuya" ? "Tuya / Smart Life"
   : appliance.integrationProvider ? `Integração: ${appliance.integrationProvider}` : "Dados informados pelo usuário";
 };
 export function getMonthlyEstimate(

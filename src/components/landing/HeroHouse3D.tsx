@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { ContactShadows, Html, OrbitControls, PerformanceMonitor } from "@react-three/drei";
 import { RoundedBoxGeometry, type OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -217,7 +217,12 @@ function Furniture({ resources, shadows }: { resources: Resources; shadows: bool
 const ease = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - (1 - t) ** 3);
 type RoomState = "idle" | "hover" | "selected" | "dimmed";
 
+const HeroBuilding3D = lazy(() => import("./HeroBuilding3D"));
+
 interface SceneProps {
+  model?: "house" | "building";
+  apartment?: number | null;
+  onApartment?: (id: number | null) => void;
   experience: "landing" | "login" | "signup";
   selected: DemoRoomId | null;
   hovered: DemoRoomId | null;
@@ -501,14 +506,14 @@ function Parallax({ children, reducedMotion }: { children: React.ReactNode; redu
   return <group ref={ref}>{children}</group>;
 }
 
-function Scene({ experience, selected, hovered, onHover, onSelect, compact, reducedMotion, zoom, showMarkers, shift, shadowsReady }: SceneProps) {
+function Scene({ apartment, onApartment, model = "house", experience, selected, hovered, onHover, onSelect, compact, reducedMotion, zoom, showMarkers, shift, shadowsReady }: SceneProps) {
   const resources = useSceneResources();
   const { geometries: g, materials: m } = resources;
   const controls = useRef<OrbitControlsImpl>(null);
   const size = useThree((s) => s.size);
   const clock = useThree((s) => s.clock);
   const [start] = useState(() => clock.elapsedTime);
-  const shadows = !compact;
+  const shadows = !compact && model !== "building";
   const aspect = size.width / Math.max(1, size.height);
   // Fit by the part of the canvas the house actually uses.
   const useful = aspect * (1 - shift * 1.6);
@@ -517,8 +522,8 @@ function Scene({ experience, selected, hovered, onHover, onSelect, compact, redu
 
   return (
     <>
-      <hemisphereLight args={["#7fb89c", "#06120e", 0.6]} />
-      <ambientLight intensity={0.12} color="#cfe8dc" />
+      <hemisphereLight args={model === "building" ? ["#ffffff", "#303030", 0.85] : ["#7fb89c", "#06120e", 0.6]} />
+      <ambientLight intensity={model === "building" ? 0.3 : 0.12} color={model === "building" ? "#ffffff" : "#cfe8dc"} />
       <OrbitControls
         ref={controls}
         makeDefault
@@ -534,13 +539,13 @@ function Scene({ experience, selected, hovered, onHover, onSelect, compact, redu
         maxAzimuthAngle={1.05}
       />
       <FrameOffset shift={shift} reducedMotion={reducedMotion} />
-      <CameraRig selected={selected} zoom={zoom} reducedMotion={reducedMotion} controls={controls} base={base} compact={compact} experience={experience} />
+      <CameraRig selected={selected} zoom={zoom} reducedMotion={reducedMotion} controls={controls} base={model === "building" ? base * 0.84 : base} compact={compact} experience={experience} />
       <Parallax reducedMotion={reducedMotion}>
         <group position={[-CX, 0, -CZ]}>
           <directionalLight
             position={[18, 20, 14]}
             intensity={1.25}
-            color="#e4efe6"
+            color={model === "building" ? "#ffffff" : "#e4efe6"}
             castShadow={shadows}
             shadow-mapSize={[1536, 1536]}
             shadow-bias={-0.0004}
@@ -553,6 +558,11 @@ function Scene({ experience, selected, hovered, onHover, onSelect, compact, redu
             shadow-camera-far={60}
             target-position={[CX, 0, CZ]}
           />
+          {model === "building" ? (
+            <group position={[CX, 0, CZ]}>
+              <Suspense fallback={null}><HeroBuilding3D reducedMotion={reducedMotion} selected={apartment ?? null} onSelect={onApartment ?? (() => {})} /></Suspense>
+            </group>
+          ) : <group>
           <pointLight position={[HUB[0], 0.5, HUB[1]]} color={EMERALD} intensity={2.5} distance={3.5} decay={2} />
           {!compact && <pointLight position={[8.0, 0.6, HOUSE_SIZE.d + 1.2]} color="#3fd69c" intensity={2} distance={4} decay={2} />}
 
@@ -621,6 +631,7 @@ function Scene({ experience, selected, hovered, onHover, onSelect, compact, redu
                 </Html>
               );
             })}
+          </group>}
         </group>
       </Parallax>
     </>
@@ -749,7 +760,7 @@ export default function HeroHouse3D({ active, onReady, onLost, ...props }: HeroH
     const handle = globalThis.setTimeout(() => setContactReady(true), 400);
     return () => globalThis.clearTimeout(handle);
   }, [shadowsReady]);
-  const frameloop = !active || !warm ? "never" : props.reducedMotion ? "demand" : "always";
+  const frameloop = !active || !warm ? "never" : props.reducedMotion || props.model === "building" ? "demand" : "always";
   return (
     <Canvas
       className="!touch-pan-y"
@@ -757,7 +768,7 @@ export default function HeroHouse3D({ active, onReady, onLost, ...props }: HeroH
       // Layout size, not transformed rects: route transitions scale the host.
       resize={{ offsetSize: true, scroll: false }}
       dpr={dpr}
-      shadows={!props.compact ? "soft" : false}
+      shadows={!props.compact && props.model !== "building" ? "soft" : false}
       gl={{ antialias: !props.compact, alpha: true, powerPreference: "high-performance" }}
       camera={{ fov: 30, near: 0.5, far: 140, position: [13, 12.5, 15] }}
       onCreated={({ gl }) => {
@@ -770,8 +781,8 @@ export default function HeroHouse3D({ active, onReady, onLost, ...props }: HeroH
           if (gl.domElement.isConnected) onLost?.();
         }, { once: true });
       }}
-      onPointerMissed={() => props.onSelect(null)}
-      aria-hidden="true"
+      onPointerMissed={() => { props.onSelect(null); props.onApartment?.(null); }}
+      aria-label="Ilustração interativa do imóvel"
     >
       <PerformanceMonitor onDecline={() => setDpr((value) => Math.max(1, value - 0.25))} />
       <Scene {...props} shadowsReady={contactReady} />

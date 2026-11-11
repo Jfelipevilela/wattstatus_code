@@ -9,7 +9,7 @@ export const applianceInputSchema = z.object({
   tariff: z.string().min(2),
   tariffValue: z.number().finite().positive().optional(),
   measuredConsumptionKWh: z.number().finite().nonnegative().optional(),
-  integrationProvider: z.literal("smartthings").optional(),
+  integrationProvider: z.enum(["smartthings", "lg-thinq", "tuya"]).optional(),
   integrationDeviceId: z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/).optional(),
   createdAt: z.string().datetime({ offset: true }).optional(),
   catalogDeviceId: catalogIdSchema.optional(),

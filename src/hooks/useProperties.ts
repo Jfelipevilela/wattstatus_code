@@ -99,8 +99,13 @@ export const usePropertyLayout = (propertyId: string | undefined) => {
     onSuccess: () => refreshAfterPlaceChange(client),
   });
   const addFloor = useMutation({
-    mutationFn: (input: { name: string; level: number }) =>
+    mutationFn: (input: { name: string; level: number; block?: string | null }) =>
       api<{ floor: Floor }>(`${base}/floors`, { method: "POST", body: JSON.stringify(input) }).then((data) => data.floor),
+    onSuccess: invalidate,
+  });
+  const updateFloor = useMutation({
+    mutationFn: ({ id, block }: { id: string; block: string | null }) =>
+      api<{ floor: Floor }>(`${base}/floors/${id}`, { method: "PATCH", body: JSON.stringify({ block }) }),
     onSuccess: invalidate,
   });
   const removeFloor = useMutation({
@@ -122,6 +127,7 @@ export const usePropertyLayout = (propertyId: string | undefined) => {
     updateRoom,
     removeRoom,
     addFloor,
+    updateFloor,
     removeFloor,
     saveLayout,
   };

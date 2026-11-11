@@ -7,6 +7,7 @@ export interface DeviceSummary {
   model?: string;
   room?: string;
   capabilities?: string[];
+  powerOffCommands?: DeviceCommand[];
 }
 
 export interface DeviceStatus {
@@ -29,10 +30,16 @@ export interface DeviceIntegration {
   vendor: string;
   isConfigured(): boolean;
   setToken?(token: string): void;
-  listDevices(): Promise<DeviceSummary[]>;
-  getDeviceStatus(deviceId: string): Promise<DeviceStatus>;
+  // Only advertise commands that explicitly set the requested power state. All methods
+  // doing I/O must honor AbortSignal; state reads must bypass local caches.
+  getPowerOffCommands?(device: DeviceSummary, signal?: AbortSignal): Promise<DeviceCommand[]>;
+  getPowerOnCommands?(device: DeviceSummary, signal?: AbortSignal): Promise<DeviceCommand[]>;
+  readPowerState?(status: DeviceStatus, command: DeviceCommand): "on" | "off" | null;
+  listDevices(signal?: AbortSignal): Promise<DeviceSummary[]>;
+  getDeviceStatus(deviceId: string, signal?: AbortSignal): Promise<DeviceStatus>;
   executeCommand(
     deviceId: string,
-    command: DeviceCommand
+    command: DeviceCommand,
+    signal?: AbortSignal
   ): Promise<{ ok: boolean; raw?: unknown }>;
 }

@@ -14,7 +14,7 @@ interface Message { id: string; role: "user" | "assistant"; content: string; res
 interface Stored { messages: Message[]; context: WattAIContext; conversationId?: string | null }
 
 const SUGGESTIONS = [
-  "Analisar minha casa",
+  "Analisar meu imóvel",
   "Onde posso economizar?",
   "Prever a conta deste mês",
   "Comparar ambientes",
@@ -239,7 +239,7 @@ export default function WattAIPanel({ open, onOpenChange, request, userId }: Pro
           {messages.length === 0 && (
             <div className="space-y-4">
               <p className="text-sm leading-relaxed">
-                Olá! Posso analisar o consumo da sua casa, identificar oportunidades de economia ou simular mudanças na sua rotina. O que você gostaria de descobrir?
+                Olá! Posso analisar o consumo do seu imóvel, identificar oportunidades de economia ou simular mudanças na sua rotina. O que você gostaria de descobrir?
               </p>
               <div className="flex flex-wrap gap-2">
                 {pageSuggestions(location.pathname).map((item) => (
