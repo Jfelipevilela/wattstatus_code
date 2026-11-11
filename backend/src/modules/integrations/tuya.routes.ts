@@ -1,6 +1,7 @@
 // Tuya / Smart Life routes. Mounted under /api/integrations/tuya (authenticated).
-// The linked Tuya account is resolved server side (tuya-link.ts); the client
-// never supplies a Tuya uid, so one user cannot read another account's devices.
+// The linked Tuya account is resolved server side from the encrypted per-user
+// store (tuya-link.ts); the client never supplies a Tuya uid, so one user
+// cannot read another account's devices.
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { ApiError } from "../../middleware/error-handler";
@@ -41,15 +42,15 @@ const mapLimited = async <T, R>(items: T[], limit: number, task: (item: T) => Pr
 };
 
 export interface TuyaRouterOptions {
-  // Test seam: builds the provider for a user. Defaults to the env-based link.
-  resolve?: (userId: string) => TuyaIntegration | null;
+  // Test seam: builds the provider for a user. Defaults to the stored per-user link.
+  resolve?: (userId: string) => Promise<TuyaIntegration | null> | TuyaIntegration | null;
   projectConfigured?: () => boolean;
   limiter?: RequestHandler;
 }
 
 export const createTuyaRouter = (db: MongoDatabase, options: TuyaRouterOptions = {}) => {
   const router = Router();
-  const resolve = options.resolve ?? createTuyaForUser;
+  const resolve = options.resolve ?? ((userId: string) => createTuyaForUser(db, userId));
   const projectConfigured = options.projectConfigured ?? isTuyaProjectConfigured;
   if (options.limiter) router.use(options.limiter);
 
@@ -60,9 +61,9 @@ export const createTuyaRouter = (db: MongoDatabase, options: TuyaRouterOptions =
     return req.userId;
   };
 
-  const requireLinked = (userId: string) => {
+  const requireLinked = async (userId: string) => {
     if (!projectConfigured()) throw new ApiError(503, "Integração Tuya não habilitada neste servidor.");
-    const integration = resolve(userId);
+    const integration = await resolve(userId);
     if (!integration) throw new ApiError(400, "Conta Tuya não vinculada a este usuário.");
     return integration;
   };
@@ -95,11 +96,11 @@ export const createTuyaRouter = (db: MongoDatabase, options: TuyaRouterOptions =
     return status;
   };
 
-  router.get("/status", (req: AuthenticatedRequest, res, next) => {
+  router.get("/status", async (req: AuthenticatedRequest, res, next) => {
     try {
       const userId = requireUser(req);
       const configured = projectConfigured();
-      const linked = configured && Boolean(resolve(userId));
+      const linked = configured && Boolean(await resolve(userId));
       // No uid or keys leave the server; the client only needs the state.
       res.json({ provider: "tuya", projectConfigured: configured, linked, method: linked ? "server-link" : null });
     } catch (err) {
@@ -110,7 +111,7 @@ export const createTuyaRouter = (db: MongoDatabase, options: TuyaRouterOptions =
   router.get("/devices", async (req: AuthenticatedRequest, res, next) => {
     try {
       const userId = requireUser(req);
-      const integration = requireLinked(userId);
+      const integration = await requireLinked(userId);
       res.json({ provider: "tuya", devices: await listDevices(userId, integration, true) });
     } catch (err) {
       next(err);
@@ -120,7 +121,7 @@ export const createTuyaRouter = (db: MongoDatabase, options: TuyaRouterOptions =
   router.get("/overview", async (req: AuthenticatedRequest, res, next) => {
     try {
       const userId = requireUser(req);
-      const integration = requireLinked(userId);
+      const integration = await requireLinked(userId);
       const devices = await listDevices(userId, integration, req.query.cached !== "1");
       const items = await mapLimited(devices, STATUS_CONCURRENCY, async (device) => {
         try {
@@ -139,7 +140,7 @@ export const createTuyaRouter = (db: MongoDatabase, options: TuyaRouterOptions =
   router.get("/devices/:deviceId/status", async (req: AuthenticatedRequest, res, next) => {
     try {
       const userId = requireUser(req);
-      const integration = requireLinked(userId);
+      const integration = await requireLinked(userId);
       await ensureOwnedDevice(userId, integration, req.params.deviceId);
       res.json({ provider: "tuya", status: await readStatus(userId, integration, req.params.deviceId) });
     } catch (err) {
@@ -150,7 +151,7 @@ export const createTuyaRouter = (db: MongoDatabase, options: TuyaRouterOptions =
   router.post("/devices/:deviceId/commands", async (req: AuthenticatedRequest, res, next) => {
     try {
       const userId = requireUser(req);
-      const integration = requireLinked(userId);
+      const integration = await requireLinked(userId);
       const device = await ensureOwnedDevice(userId, integration, req.params.deviceId);
       const command = commandSchema.parse(req.body);
       if (!device.capabilities?.includes("switch")) throw new ApiError(422, "Este dispositivo não tem liga/desliga.");

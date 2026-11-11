@@ -19,6 +19,6 @@ export const userProviderResolver =
         lgCredentialsSchema.parse(JSON.parse(stored)),
       );
     }
-    if (provider === "tuya") return createTuyaForUser(userId);
+    if (provider === "tuya") return createTuyaForUser(db, userId);
     return null;
   };

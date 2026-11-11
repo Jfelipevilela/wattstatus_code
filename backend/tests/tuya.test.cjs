@@ -78,13 +78,16 @@ test('maps Tuya API errors without leaking payloads', async () => {
   await assert.rejects(tuya.listDevices(), { status: 403 });
 });
 
-test('links Tuya only for the configured proof-of-concept user', () => {
+test('links Tuya only from the stored per-user link, never from env or client input', async () => {
   const { createTuyaForUser } = require('../dist/modules/integrations/providers/tuya-link');
-  const config = { tuyaAccessId: 'cid', tuyaAccessSecret: 'sec', tuyaRegion: 'us', tuyaPocUserId: 'user-a', tuyaPocUid: 'uid1' };
-  assert.ok(createTuyaForUser('user-a', config));
-  assert.equal(createTuyaForUser('user-b', config), null);
-  assert.equal(createTuyaForUser('user-a', { ...config, tuyaAccessSecret: '' }), null);
-  assert.equal(createTuyaForUser('user-a', { ...config, tuyaPocUid: '' }), null);
+  const config = { tuyaAccessId: 'cid', tuyaAccessSecret: 'sec', tuyaRegion: 'us' };
+  const store = (rows) => ({ getIntegrationToken: async (user, provider) => (provider === 'tuya' ? rows[user] ?? null : null) });
+  const db = store({ 'user-a': JSON.stringify({ uid: 'uid1' }), 'user-bad': JSON.stringify({ uid: '../x' }), 'user-junk': 'not json' });
+  assert.ok(await createTuyaForUser(db, 'user-a', config));
+  assert.equal(await createTuyaForUser(db, 'user-b', config), null);
+  assert.equal(await createTuyaForUser(db, 'user-bad', config), null);
+  assert.equal(await createTuyaForUser(db, 'user-junk', config), null);
+  assert.equal(await createTuyaForUser(db, 'user-a', { ...config, tuyaAccessSecret: '' }), null);
 });
 
 test('advertises power-off only for devices with a switch', async () => {

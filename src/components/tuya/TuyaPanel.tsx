@@ -236,7 +236,7 @@ export default function TuyaPanel() {
         </ol>
         <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          O vínculo com a conta Smart Life ou Tuya Smart é feito no servidor. Para trocar de conta, fale com a equipe do WattStatus.
+          O vínculo com a conta Smart Life ou Tuya Smart fica guardado no servidor, criptografado.
         </p>
       </details>
 

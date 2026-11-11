@@ -38,8 +38,8 @@ export function ConnectTuya({ projectConfigured, compact }: Props) {
       icon: QrCode,
       title: "Vincule a conta ao WattStatus",
       body:
-        "Na fase de testes, o vínculo é feito pela equipe do WattStatus: você lê um QR code com o Smart Life ou Tuya Smart e informa o código da conta. " +
-        "Nenhuma senha Tuya é digitada aqui.",
+        "A conexão da sua conta Smart Life ou Tuya Smart ao WattStatus ainda não está disponível. " +
+        "Quando estiver, você vai autorizar pelo próprio app, lendo um QR code. Nenhuma senha Tuya é digitada aqui.",
     },
     {
       icon: PlugZap,
